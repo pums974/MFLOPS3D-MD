@@ -24,30 +24,30 @@ file15="fort.25"
 #file3="fort.16"
 #set zrange[-0.1:0.1]
 
-splot file0 u 1:2:3 w lp 1,file1 u 1:2:3 w lp 2,file2 u 1:2:3 w lp 3,file3 u 1:2:3 w lp 4
+splot file0 u 1:2:3 w lp,file1 u 1:2:3 w lp,file2 u 1:2:3 w lp,file3 u 1:2:3 w lp
 pause -1
-splot file0 u 1:2:3 w lp 1,file1 u 1:2:3 w lp 1,file2 u 1:2:3 w lp 1,file3 u 1:2:3 w lp 1,file0 u 1:2:9 w lp 2,file1 u 1:2:9 w lp 2,file2 u 1:2:9 w lp 2,file3 u 1:2:9 w lp 2
-pause -1
-
-splot file0 u 1:2:4 w lp 1,file1 u 1:2:4 w lp 2,file2 u 1:2:4 w lp 3,file3 u 1:2:4 w lp 4
-pause -1
-splot file0 u 1:2:4 w lp 1,file1 u 1:2:4 w lp 1,file2 u 1:2:4 w lp 1,file3 u 1:2:4 w lp 1,file0 u 1:2:10 w lp 2,file1 u 1:2:10 w lp 2,file2 u 1:2:10 w lp 2,file3 u 1:2:10 w lp 2
+splot file0 u 1:2:3 w lp,file1 u 1:2:3 w lp,file2 u 1:2:3 w lp,file3 u 1:2:3 w lp,file0 u 1:2:9 w lp,file1 u 1:2:9 w lp,file2 u 1:2:9 w lp,file3 u 1:2:9 w lp
 pause -1
 
-splot file0 u 1:2:5 w lp 1,file1 u 1:2:5 w lp 2,file2 u 1:2:5 w lp 3,file3 u 1:2:5 w lp 4
+splot file0 u 1:2:4 w lp,file1 u 1:2:4 w lp,file2 u 1:2:4 w lp,file3 u 1:2:4 w lp
 pause -1
-splot file0 u 1:2:5 w lp 1,file1 u 1:2:5 w lp 1,file2 u 1:2:5 w lp 1,file3 u 1:2:5 w lp 1,file0 u 1:2:11 w lp 2,file1 u 1:2:11 w lp 2,file2 u 1:2:11 w lp 2,file3 u 1:2:11 w lp 2
+splot file0 u 1:2:4 w lp,file1 u 1:2:4 w lp,file2 u 1:2:4 w lp,file3 u 1:2:4 w lp,file0 u 1:2:10 w lp,file1 u 1:2:10 w lp,file2 u 1:2:10 w lp,file3 u 1:2:10 w lp
+pause -1
+
+splot file0 u 1:2:5 w lp,file1 u 1:2:5 w lp,file2 u 1:2:5 w lp,file3 u 1:2:5 w lp
+pause -1
+splot file0 u 1:2:5 w lp,file1 u 1:2:5 w lp,file2 u 1:2:5 w lp,file3 u 1:2:5 w lp,file0 u 1:2:11 w lp,file1 u 1:2:11 w lp,file2 u 1:2:11 w lp,file3 u 1:2:11 w lp
 pause -1
 
 #set zrange[-0.01:0.06]
-splot file0 u 1:2:6 w lp 1,file1 u 1:2:6 w lp 2,file2 u 1:2:6 w lp 3,file3 u 1:2:6 w lp 4
+splot file0 u 1:2:6 w lp,file1 u 1:2:6 w lp,file2 u 1:2:6 w lp,file3 u 1:2:6 w lp
 pause -1
-splot file0 u 1:2:6 w lp 1,file1 u 1:2:6 w lp 1,file2 u 1:2:6 w lp 1,file3 u 1:2:6 w lp 1,file0 u 1:2:8 w lp 2,file1 u 1:2:8 w lp 2,file2 u 1:2:8 w lp 2,file3 u 1:2:8 w lp 2
-pause -1
-
-
-splot file0 u 1:2:7 w lp 1,file1 u 1:2:7 w lp 2,file2 u 1:2:7 w lp 3,file3 u 1:2:7 w lp 4
+splot file0 u 1:2:6 w lp,file1 u 1:2:6 w lp,file2 u 1:2:6 w lp,file3 u 1:2:6 w lp,file0 u 1:2:8 w lp,file1 u 1:2:8 w lp,file2 u 1:2:8 w lp,file3 u 1:2:8 w lp
 pause -1
 
-splot file0 u 1:2:7 w lp 1,file1 u 1:2:7 w lp 1,file2 u 1:2:7 w lp 1,file3 u 1:2:7 w lp 1,file0 u 1:2:8 w lp 2,file1 u 1:2:8 w lp 2,file2 u 1:2:8 w lp 2,file3 u 1:2:8 w lp 2
+
+splot file0 u 1:2:7 w lp,file1 u 1:2:7 w lp,file2 u 1:2:7 w lp,file3 u 1:2:7 w lp
+pause -1
+
+splot file0 u 1:2:7 w lp,file1 u 1:2:7 w lp,file2 u 1:2:7 w lp,file3 u 1:2:7 w lp,file0 u 1:2:8 w lp,file1 u 1:2:8 w lp,file2 u 1:2:8 w lp,file3 u 1:2:8 w lp
 pause -1
