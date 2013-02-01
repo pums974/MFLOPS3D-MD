@@ -105,8 +105,8 @@ program testnavier3d
     endif
 
     nav%aux%f=0._rk
-!    nav%aux=derx(nav%dcx,nav%phi(nav%it(nav%nt)))
-    nav%aux=derx(nav%dcx,nav%p(nav%it(nav%nt)))
+    nav%aux=derx(nav%dcx,nav%phi(nav%it(nav%nt)))
+!    nav%aux=derx(nav%dcx,nav%p(nav%it(nav%nt)))
 
 
 !    error=maxval(abs(nav%u(nav%it(nav%nt))%f)&

@@ -24,7 +24,7 @@ for pression in `echo "1"`; do
               -ksp_rtol 1.e-13 -pc_type $precond -ksp_type $solv $* \
     | tail -n 14
 done
-gnuplot cav2.gnu
+gnuplot cav.gnu
 
 cd ..
 
