@@ -1,0 +1,705 @@
+module class_derivatives_coefficient
+! -----------------------------------------------------------------------
+! Name :
+! class derivatives 
+! -----------------------------------------------------------------------
+! Object : 
+! Computation of first and second derivatives with an 8-order compact 
+! finite difference scheme of maximum stencil 5-7 on irregular grid
+! -----------------------------------------------------------------------
+! Files :
+! class_derivatives.f90
+! class_derivatives_coefficient.f90
+! -----------------------------------------------------------------------
+! Public type :
+! derivatives_coefficients -> coefficients for derivatives
+! -----------------------------------------------------------------------
+! Public Procedure :
+! derivatives_coefficients_init -> initialize derivatives coefficients 
+! derx,dery,derz -> compute first derivatives in x,y,z directions
+! dderx,ddery,dderz -> compute second derivatives in x,y,z directions
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 05/2011
+!
+  use precision
+  implicit none
+!  private
+  real(rk),private,save :: h(7)
+  integer(ik),private,save :: niter=10
+  
+contains
+subroutine der_coeffs_c(a1,b1,c1,d1,e1,alpha,beta,gamma,delta,h1,h2,h3,h4)
+! -----------------------------------------------------------------------
+! Derivatives : Coefficients for first derivatives : non-uniform grid,centered 
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  real(rk),intent(out) :: a1,b1,c1,d1,e1,alpha,beta,gamma,delta
+  real(rk),intent(in) :: h1,h2,h3,h4
+  ! n : number of equation to solve for nonlinear system
+  ! wa : work array for minpack
+  ! xn : solution of nonlinear system
+  ! fvec : precision of results on output
+  ! info : solve suscessful if info=1
+  integer,parameter :: n=9,lwa=(n*(3*n+13))/2
+  real(rk) :: x(n),fvec(n),wa(lwa)
+  real(rk) :: tol
+  integer(ik) :: info,i
+
+  !-> space interval
+  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4
+
+  !-> solve coefficient nonlinear system with minpack
+  !-> precision tolerance
+  tol=1.d-12
+  !-> initialization vector
+  x=(/1.d0, 1.d0, 1.d0, 1.d0, 1.d0, 1.d0, 1.d0, 1.d0, 1.d0/)
+  do i=1,niter
+     call hybrd1(der_coeffs_c_fcn,n,x,fvec,tol,info,wa,lwa)
+     if (info==1) exit
+  enddo
+  if (info/=1) call error_stop("MODULE class_derivatives : &
+       &-> Coefficients computation problem : first derivative centered.") 
+
+  !-> output coefficient
+  alpha=x(1) ; beta=x(2) ; gamma=x(3) ; delta=x(4) 
+  a1=x(5) ; b1=x(6) ; c1=x(7) ; d1=x(8) ; e1=x(9) 
+
+end subroutine der_coeffs_c
+
+subroutine der_coeffs_c_fcn(n,x,fvec,iflag)
+! -----------------------------------------------------------------------
+! Derivatives : Equations for first derivatives : non-uniform grid,centered 
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  integer(ik) :: n,iflag
+  real(rk) :: x(n),fvec(n)
+
+!->  calculate the functions at x and return this vector in fvec.
+  
+  fvec(1)=x(9)+x(8)+x(7)+x(6)+x(5)
+
+  fvec(2)=-x(3)+x(9)*(h(4)+h(3))+x(8)*h(3)-x(6)*h(2)+x(5)*(-h(2)-h(1))-x(4)-x(2)-x(1)-1
+
+  fvec(3)=(-h(3)*x(3)+x(9)*(-h(4)-h(3))**2/2._rk+x(4)*(-h(4)-h(3))+x(8)*h(3)**2/ &
+       2._rk+x(5)*(h(2)+h(1))**2/2._rk+x(6)*h(2)**2/2._rk+x(1)*(h(2)+h(1))+x(2)*h(2))
+
+  fvec(4)=(-h(3)**2*x(3)/2._rk-x(9)*(-h(4)-h(3))**3/6._rk-x(4)*(-h(4)-h(3))**2/ &
+       2._rk+x(8)*h(3)**3/6._rk-x(5)*(h(2)+h(1))**3/6._rk-x(1)*(h(2)+h(1))**2/ &
+       2._rk-x(6)*h(2)**3/6._rk-x(2)*h(2)**2/2._rk)
+
+  fvec(5)=(-h(3)**3*x(3)/6._rk+x(9)*(-h(4)-h(3))**4/24._rk+x(4)*(-h(4)-h(3))**3/ &
+       6._rk+x(8)*h(3)**4/24._rk+x(5)*(h(2)+h(1))**4/24._rk+x(1)*(h(2)+h(1))**3/ & 
+       6._rk+x(6)*h(2)**4/24._rk+x(2)*h(2)**3/6._rk)
+
+  fvec(6)=(-h(3)**4*x(3)/24._rk-x(9)*(-h(4)-h(3))**5/120._rk-x(4)*(-h(4)-h(3))**4/ &
+       24._rk+x(8)*h(3)**5/120._rk-x(5)*(h(2)+h(1))**5/120._rk-x(1)*(h(2)+h(1))**4/ & 
+       24._rk-x(6)*h(2)**5/120._rk-x(2)*h(2)**4/24._rk)
+
+  fvec(7)=(-h(3)**5*x(3)/120._rk+x(9)*(-h(4)-h(3))**6/720._rk+x(4)*(-h(4)-h(3))**5/ &
+       120._rk+x(8)*h(3)**6/720._rk+x(5)*(h(2)+h(1))**6/720._rk+x(1)*(h(2)+h(1))**5/ &
+       120._rk+x(6)*h(2)**6/720._rk+x(2)*h(2)**5/120._rk)
+
+  fvec(8)=(-h(3)**6*x(3)/720._rk-x(9)*(-h(4)-h(3))**7/5040._rk-x(4)*(-h(4)-h(3))**6/ & 
+       720._rk+x(8)*h(3)**7/5040._rk-x(5)*(h(2)+h(1))**7/5040._rk-x(1)*(h(2)+h(1))**6/ &
+       720._rk-x(6)*h(2)**7/5040._rk-x(2)*h(2)**6/720._rk)
+
+  fvec(9)=x(2)-x(3)
+  
+end subroutine der_coeffs_c_fcn
+
+subroutine der_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta,h1,h2,h3,h4,h5,h6)
+! -----------------------------------------------------------------------
+! Derivatives : Coefficients for first derivatives : non-uniform grid, first point
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  real(rk),intent(out) :: a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta
+  real(rk),intent(in) :: h1,h2,h3,h4,h5,h6
+  ! n : number of equation to solve for nonlinear system
+  ! wa : work array for minpack
+  ! xn : solution of nonlinear system
+  ! fvec : precision of results on output
+  ! info : solve suscessful if info=1
+  integer,parameter :: n=10,lwa=(n*(3*n+13))/2
+  real(rk) :: x(n),fvec(n),wa(lwa)
+  real(rk) :: tol
+  integer(ik) :: info,i
+
+  !-> space interval
+  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4 ; h(5)=h5 ; h(6)=h6
+
+  !-> solve coefficient nonlinear system with minpack
+  !-> precision tolerance
+  tol=1.d-12
+  !-> initialization vector
+  x=(/1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk/)
+  do i=1,niter
+     call hybrd1(der_coeffs_i1_fcn,n,x,fvec,tol,info,wa,lwa)
+     if (info==1) exit
+  enddo
+  if (info/=1) call error_stop("MODULE class_derivatives : &
+       &-> Coefficients computation problem : first derivative first point.") 
+
+  !-> output coefficient
+  alpha=1._rk ; beta=x(1) ; gamma=x(2) ; delta=x(3) 
+  a1=x(4) ; b1=x(5) ; c1=x(6) ; d1=x(7) ; e1=x(8) ; f1=x(9)  ; g1=x(10) 
+
+end subroutine der_coeffs_i1
+
+subroutine der_coeffs_i1_fcn(n,x,fvec,iflag)
+! -----------------------------------------------------------------------
+! Derivatives : Equations for first derivatives : non-uniform grid, first point
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  integer(ik) :: n,iflag
+  real(rk) :: x(n),fvec(n)
+
+!->  calculate the functions at x and return this vector in fvec.
+  
+  fvec(1)=x(10)+x(9)+x(8)+x(7)+x(6)+x(5)+x(4)
+
+  fvec(2)=-x(2)+x(10)*(h(6)+h(5)+h(4)+h(3)+h(2)+h(1)) &
+       +x(9)*(h(5)+h(4)+h(3)+h(2)+h(1))+x(8)*(h(4)+h(3)+h(2)+h(1)) &
+       +x(7)*(h(3)+h(2)+h(1))+x(6)*(h(2)+h(1))+x(5)*h(1)-x(3)-x(1)-1
+
+  fvec(3)=(-h(2)-h(1))*x(2)+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**2/2._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**2/2._rk+x(8)*(-h(4)-h(3)-h(2)-h(1))**2/2._rk &
+       +x(7)*(-h(3)-h(2)-h(1))**2/2._rk+x(3)*(-h(3)-h(2)-h(1))+x(6)*(-h(2)-h(1))**2/2._rk &
+       +x(5)*h(1)**2/2._rk-x(1)*h(1)
+
+  fvec(4)=-(-h(2)-h(1))**2*x(2)/2._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**3/6._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**3/6._rk-x(8)*(-h(4)-h(3)-h(2)-h(1))**3/6._rk &
+       -x(7)*(-h(3)-h(2)-h(1))**3/6._rk-x(3)*(-h(3)-h(2)-h(1))**2/2._rk &
+       -x(6)*(-h(2)-h(1))**3/6._rk+x(5)*h(1)**3/6._rk-x(1)*h(1)**2/2._rk
+
+  fvec(5)=(-h(2)-h(1))**3*x(2)/6._rk+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**4/24._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**4/24._rk+x(8)*(-h(4)-h(3)-h(2)-h(1))**4/24._rk &
+       +x(7)*(-h(3)-h(2)-h(1))**4/24._rk+x(3)*(-h(3)-h(2)-h(1))**3/6._rk &
+       +x(6)*(-h(2)-h(1))**4/24._rk+x(5)*h(1)**4/24._rk-x(1)*h(1)**3/6._rk
+
+  fvec(6)=-(-h(2)-h(1))**4*x(2)/24._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**5/120._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**5/120._rk-x(8)*(-h(4)-h(3)-h(2)-h(1))**5/120._rk &
+       -x(7)*(-h(3)-h(2)-h(1))**5/120._rk-x(3)*(-h(3)-h(2)-h(1))**4/24._rk &
+       -x(6)*(-h(2)-h(1))**5/120._rk+x(5)*h(1)**5/120._rk-x(1)*h(1)**4/24._rk
+
+  fvec(7)=(-h(2)-h(1))**5*x(2)/120._rk+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**6/720._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**6/720._rk+x(8)*(-h(4)-h(3)-h(2)-h(1))**6/720._rk &
+       +x(7)*(-h(3)-h(2)-h(1))**6/720._rk+x(3)*(-h(3)-h(2)-h(1))**5/120._rk &
+       +x(6)*(-h(2)-h(1))**6/720._rk+x(5)*h(1)**6/720._rk-x(1)*h(1)**5/120._rk
+
+  fvec(8)=-(-h(2)-h(1))**6*x(2)/720._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**7/5040._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**7/5040._rk-x(8)*(-h(4)-h(3)-h(2)-h(1))**7/5040._rk &
+       -x(7)*(-h(3)-h(2)-h(1))**7/5040._rk-x(3)*(-h(3)-h(2)-h(1))**6/720._rk &
+       -x(6)*(-h(2)-h(1))**7/5040._rk+x(5)*h(1)**7/5040._rk-x(1)*h(1)**6/720._rk
+
+  fvec(9)=(-h(2)-h(1))**7*x(2)/5040._rk+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**8/40320._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**8/40320._rk+x(8)*(-h(4)-h(3)-h(2)-h(1))**8/40320._rk &
+       +x(7)*(-h(3)-h(2)-h(1))**8/40320._rk+x(3)*(-h(3)-h(2)-h(1))**7/5040._rk &
+       +x(6)*(-h(2)-h(1))**8/40320._rk+x(5)*h(1)**8/40320._rk-x(1)*h(1)**7/5040._rk
+
+  fvec(10)=-(-h(2)-h(1))**8*x(2)/40320._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**9/362880._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**9/362880._rk-x(8)*(-h(4)-h(3)-h(2)-h(1))**9/362880._rk &
+       -x(7)*(-h(3)-h(2)-h(1))**9/362880._rk-x(3)*(-h(3)-h(2)-h(1))**8/40320._rk &
+       -x(6)*(-h(2)-h(1))**9/362880._rk+x(5)*h(1)**9/362880._rk-x(1)*h(1)**8/40320._rk
+
+  !fvec(8)=x(10)
+  !fvec(9)=x(3)
+  !fvec(10)=x(3)-x(2)
+  
+end subroutine der_coeffs_i1_fcn
+
+subroutine der_coeffs_i2(a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta,h1,h2,h3,h4,h5,h6)
+! -----------------------------------------------------------------------
+! Derivatives : Coefficients for first derivatives : non-uniform grid, second point
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  real(rk),intent(out) :: a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta
+  real(rk),intent(in) :: h1,h2,h3,h4,h5,h6
+  ! n : number of equation to solve for nonlinear system
+  ! wa : work array for minpack
+  ! xn : solution of nonlinear system
+  ! fvec : precision of results on output
+  ! info : solve suscessful if info=1
+  integer,parameter :: n=10,lwa=(n*(3*n+13))/2
+  real(rk) :: x(n),fvec(n),wa(lwa)
+  real(rk) :: tol
+  integer(ik) :: info,i
+
+  !-> space interval
+  h=0._rk
+  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4 ; h(5)=h5 ; h(6)=h6
+
+  !-> solve coefficient nonlinear system with minpack
+  !-> precision tolerance
+  tol=1.d-12
+  !-> initialization vector
+  x=(/1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk/)
+  do i=1,niter
+     call hybrd1(der_coeffs_i2_fcn,n,x,fvec,tol,info,wa,lwa)
+     if (info==1) exit
+  enddo
+  if (info/=1) call error_stop("MODULE class_derivatives : &
+       &-> Coefficients computation problem : first derivative second point.") 
+
+  !-> output coefficient
+  alpha=x(1) ; beta=1._rk ; gamma=x(2) ; delta=x(3) 
+  a1=x(4) ; b1=x(5) ; c1=x(6) ; d1=x(7) ; e1=x(8) ; f1=x(9)  ; g1=x(10) 
+  
+end subroutine der_coeffs_i2
+
+subroutine der_coeffs_i2_fcn(n,x,fvec,iflag)
+! -----------------------------------------------------------------------
+! Derivatives : Equations for first derivatives : non-uniform grid, second point
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  integer(ik) :: n,iflag
+  real(rk) :: x(n),fvec(n)
+
+!->  calculate the functions at x and return this vector in fvec.
+  
+  fvec(1)=x(10)+x(9)+x(8)+x(7)+x(6)+x(5)+x(4)
+
+  fvec(2)=-x(2)+x(10)*(h(6)+h(5)+h(4)+h(3)+h(2))+x(9)*(h(5)+h(4)+h(3)+h(2)) &
+       +x(8)*(h(4)+h(3)+h(2))+x(7)*(h(3)+h(2))+x(6)*h(2)-x(4)*h(1)-x(3)-x(1)-1
+ 
+  fvec(3)=-h(2)*x(2)+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**2/2._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2))**2/2._rk+x(8)*(-h(4)-h(3)-h(2))**2/2._rk &
+       +x(7)*(-h(3)-h(2))**2/2._rk+x(3)*(-h(3)-h(2))+x(6)*h(2)**2/2.+x(4)*h(1)**2/2._rk+x(1)*h(1)
+ 
+  fvec(4)=-h(2)**2*x(2)/2._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**3/6._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2))**3/6._rk-x(8)*(-h(4)-h(3)-h(2))**3/6._rk &
+       -x(7)*(-h(3)-h(2))**3/6._rk-x(3)*(-h(3)-h(2))**2/2.&
+       +x(6)*h(2)**3/6._rk-x(4)*h(1)**3/6._rk-x(1)*h(1)**2/2._rk
+ 
+  fvec(5)=-h(2)**3*x(2)/6._rk+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**4/24._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2))**&
+       4/24._rk+x(8)*(-h(4)-h(3)-h(2))**4/24._rk+x(7)*(-h(3)-h(2))**4/24._rk &
+       +x(3)*(-h(3)-h(2))**3/6._rk &
+       +x(6)*h(2)**4/24._rk+x(4)*h(1)**4/24._rk+x(1)*h(1)**3/6._rk
+ 
+  fvec(6)=-h(2)**4*x(2)/24._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**5/120._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2))&
+       **5/120._rk-x(8)*(-h(4)-h(3)-h(2))**5/120._rk-x(7)*(-h(3)-h(2))**5/120._rk-x(3)*(-h(3)&
+       -h(2))**4/24._rk+x(6)*h(2)**5/120._rk-x(4)*h(1)**5/120._rk-x(1)*h(1)**4/24._rk
+ 
+  fvec(7)=-h(2)**5*x(2)/120._rk+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**6/720._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2)&
+       )**6/720._rk+x(8)*(-h(4)-h(3)-h(2))**6/720._rk+x(7)*(-h(3)-h(2))**6/720._rk+x(3)*(-h(3)&
+       -h(2))**5/120._rk+x(6)*h(2)**6/720._rk+x(4)*h(1)**6/720._rk+x(1)*h(1)**5/120._rk
+ 
+  fvec(8)=-h(2)**6*x(2)/720._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**7/5040._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2)&
+       )**7/5040._rk-x(8)*(-h(4)-h(3)-h(2))**7/5040._rk-x(7)*(-h(3)-h(2))**7/5040._rk-x(3)&
+       *(-h(3)-h(2))**6/720._rk+x(6)*h(2)**7/5040._rk-x(4)*h(1)**7/5040._rk-x(1)*h(1)**6/720._rk
+ 
+  fvec(9)=-h(2)**7*x(2)/5040._rk+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**8/40320._rk &
+       +x(9)*(-h(5)-h(4)-h(3)&
+       -h(2))**8/40320._rk+x(8)*(-h(4)-h(3)-h(2))**8/40320._rk+x(7)*(-h(3)-h(2))**8/40320._rk+&
+       x(3)*(-h(3)-h(2))**7/5040._rk+x(6)*h(2)**8/40320._rk+x(4)*h(1)**8/40320._rk+x(1)*&
+       h(1)**7/5040._rk
+ 
+  fvec(10)=-h(2)**8*x(2)/40320._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**9/362880._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2))**9/362880._rk-x(8)*(-h(4)-h(3)-h(2))**9/362880._rk &
+       -x(7)*(-h(3)-h(2))**9/362880._rk-x(3)*(-h(3)-h(2))**8/40320._rk &
+       +x(6)*h(2)**9/362880._rk-x(4)*h(1)**9/362880.-x(1)*h(1)**8/40320._rk
+
+  !fvec(8)=x(3)
+  !fvec(9)=x(10)
+  fvec(10)=x(1)-x(2)
+
+end subroutine der_coeffs_i2_fcn
+  
+subroutine dder_coeffs_c(a1,b1,c1,d1,e1,alpha,beta,gamma,delta,h1,h2,h3,h4)
+! -----------------------------------------------------------------------
+! Derivatives : Coefficients for second derivatives : non-uniform grid,centered 
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  real(rk),intent(out) :: a1,b1,c1,d1,e1,alpha,beta,gamma,delta
+  real(rk),intent(in) :: h1,h2,h3,h4
+  ! n : number of equation to solve for nonlinear system
+  ! wa : work array for minpack
+  ! xn : solution of nonlinear system
+  ! fvec : precision of results on output
+  ! info : solve suscessful if info=1
+  integer,parameter :: n=9
+  character(len=1) :: fact,trans,equed
+  integer(ik) :: nrhs,lda,ldb,ldaf,ldx
+  real(rk) :: a(n,n),af(n,n),ipiv(n),b(n,1),r(n),c(n),x(n),work(4*n)
+  real(rk) :: rcond,ferr,berr
+  integer(ik) :: iwork(n),info
+
+  !-> space interval
+  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4
+
+  !-> define matrix
+  A(1,1)=0;A(1,2)=0;A(1,3)=0;A(1,4)=0;A(1,5)=1;A(1,6)=1;A(1,7)=1;A(1,8)=1;A(1,9)=1
+  
+  A(2,1)=0;A(2,2)=0;A(2,3)=0;A(2,4)=0;A(2,5)=-h2-h1;A(2,6)=-h2;A(2,7)=0;A(2,8)=h3;A(2,9)=h4+h3
+  
+  A(3,1)=-1;A(3,2)=-1;A(3,3)=-1;A(3,4)=-1;A(3,5)=(h2+h1)**2/2.0;A(3,6)=h2**2/2.0
+  A(3,7)=0;A(3,8)=h3**2/2.0;A(3,9)=(-h4-h3)**2/2.0
+  
+  A(4,1)=h2+h1;A(4,2)=h2;A(4,3)=-h3;A(4,4)=-h4-h3;A(4,5)=-(h2+h1)**3/6.0;A(4,6)=-h2**3/6.0
+  A(4,7)=0;A(4,8)=h3**3/6.0;A(4,9)=-(-h4-h3)**3/6.0
+  
+  A(5,1)=-(h2+h1)**2/2.0;A(5,2)=-h2**2/2.0;A(5,3)=-h3**2/2.0;A(5,4)=-(-h4-h3)**2/2.0
+  A(5,5)=(h2+h1)**4/24.0;A(5,6)=h2**4/24.0;A(5,7)=0;A(5,8)=h3**4/24.0;A(5,9)=(-h4-h3)**4/24.0
+  
+  A(6,1)=(h2+h1)**3/6.0;A(6,2)=h2**3/6.0;A(6,3)=-h3**3/6.0;A(6,4)=(-h4-h3)**3/6.0
+  A(6,5)=-(h2+h1)**5/120.0;A(6,6)=-h2**5/120.0;A(6,7)=0;A(6,8)=h3**5/120.0;A(6,9)=-(-h4-h3)**5/120.0
+  
+  A(7,1)=-(h2+h1)**4/24.0;A(7,2)=-h2**4/24.0;A(7,3)=-h3**4/24.0;A(7,4)=-(-h4-h3)**4/24.0
+  A(7,5)=(h2+h1)**6/720.0;A(7,6)=h2**6/720.0;A(7,7)=0;A(7,8)=h3**6/720.0;A(7,9)=(-h4-h3)**6/720.0
+  
+  A(8,1)=(h2+h1)**5/120.0;A(8,2)=h2**5/120.0;A(8,3)=-h3**5/120.0;A(8,4)=(-h4-h3)**5/120.0
+  A(8,5)=-(h2+h1)**7/5040.0;A(8,6)=-h2**7/5040.0;A(8,7)=0;A(8,8)=h3**7/5040.0;A(8,9)=-(-h4-h3)**7/5040.0
+  
+  A(9,1)=-(h2+h1)**6/720.0;A(9,2)=-h2**6/720.0;A(9,3)=-h3**6/720.0;A(9,4)=-(-h4-h3)**6/720.0
+  A(9,5)=(h2+h1)**8/40320.0;A(9,6)=h2**8/40320.0;A(9,7)=0;A(9,8)=h3**8/40320.0
+  A(9,9)=(-h4-h3)**8/40320.0; 
+
+  !-> define rhs
+  B(1,1) = 0 ; B(2,1) = 0 ; B(3,1) = 1 ; B(4,1) = 0 ; B(5,1) = 0 ; B(6,1) = 0 ; B(7,1) = 0
+  B(8,1) = 0 ; B(9,1) = 0
+ 
+  fact='N' ; trans='N' ; nrhs=1 ; lda=n ; ldb=n ; ldaf=n ; equed='N' ; ldx=n
+  call dgesvx( fact, trans, n, nrhs, a, lda, af, ldaf, ipiv,equed, r, c, b, ldb, x, &
+       ldx, rcond, ferr, berr, work, iwork, info )
+
+  write(333,'(9es17.8,i4,4es17.8)')x,info,rcond,ferr,berr,work(1)
+  !-> output coefficient
+  alpha=x(1) ; beta=x(2) ; gamma=x(3) ; delta=x(4) 
+  a1=x(5) ; b1=x(6) ; c1=x(7) ; d1=x(8) ; e1=x(9) 
+
+end subroutine dder_coeffs_c
+
+
+  
+subroutine dder_coeffs_c1(a1,b1,c1,d1,e1,alpha,beta,gamma,delta,h1,h2,h3,h4)
+! -----------------------------------------------------------------------
+! Derivatives : Coefficients for second derivatives : non-uniform grid,centered 
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  real(rk),intent(out) :: a1,b1,c1,d1,e1,alpha,beta,gamma,delta
+  real(rk),intent(in) :: h1,h2,h3,h4
+  ! n : number of equation to solve for nonlinear system
+  ! wa : work array for minpack
+  ! xn : solution of nonlinear system
+  ! fvec : precision of results on output
+  ! info : solve suscessful if info=1
+  integer,parameter :: n=9,lwa=(n*(3*n+13))/2
+  real(rk) :: x(n),fvec(n),wa(lwa)
+  real(rk) :: tol,hmean
+  integer(ik) :: info,i
+
+  !-> space interval
+  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4
+
+  !-> solve coefficient nonlinear system with minpack
+  !-> precision tolerance
+  tol=1.d-12
+  !-> initialization vector 
+  x=(/1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk/)
+
+
+!  hmean=sum(h(1:4))/4._rk
+!  x(5) = 155.0/(786.0*hmean**2)
+!  x(6) = 320.0/(393.0*hmean**2)
+!  x(7) = (-265.0)/(131.0*hmean**2)
+!  x(8) = 320.0/(393.0*hmean**2)
+!  x(9) = 155.0/(786.0*hmean**2)
+!  x(1)= 23.0/2358.0
+!  x(2) = 344.0/1179.0
+!  x(3) = 344.0/1179.0
+!  x(4) = 23.0/2358.0
+
+  do i=1,niter
+     call hybrd1(dder_coeffs_c_fcn,n,x,fvec,tol,info,wa,lwa)
+     if (info==1) exit
+  enddo
+  if (i>2) then 
+     print*,i,info
+     print*,x,fvec
+  endif
+  if (info/=1) call error_stop("MODULE class_derivatives : &
+       &-> Coefficients computation problem : second derivative centered.") 
+
+  write(333,'(10es17.8)')x
+  !-> output coefficient
+  alpha=x(1) ; beta=x(2) ; gamma=x(3) ; delta=x(4) 
+  a1=x(5) ; b1=x(6) ; c1=x(7) ; d1=x(8) ; e1=x(9) 
+
+end subroutine dder_coeffs_c1
+
+subroutine dder_coeffs_c_fcn(n,x,fvec,iflag)
+! -----------------------------------------------------------------------
+! Derivatives : Equations for second derivatives : non-uniform grid,centered 
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  integer(ik) :: n,iflag
+  real(rk) :: x(n),fvec(n),i
+
+!->  calculate the functions at x and return this vector in fvec.
+  
+  fvec(1)=x(9)+x(8)+x(7)+x(6)+x(5)
+ 
+  fvec(2)=x(9)*(h(4)+h(3))+x(8)*h(3)-x(6)*h(2)+x(5)*(-h(2)-h(1))
+ 
+  fvec(3)=-x(3)+x(9)*(-h(4)-h(3))**2/2._rk+x(8)*h(3)**2/2._rk+x(5)*(h(2)+h(1))**2/2._rk &
+       +x(6)*h(2)**2/2._rk-x(4)-x(2)-x(1)-1
+ 
+  fvec(4)=-h(3)*x(3)-x(9)*(-h(4)-h(3))**3/6._rk+x(4)*(-h(4)-h(3))+x(8)*h(3)**3/6._rk&
+       -x(5)*(h(2)+h(1))**3/6._rk-x(6)*h(2)**3/6._rk+x(1)*(h(2)+h(1))+x(2)*h(2)
+ 
+  fvec(5)=-h(3)**2*x(3)/2._rk+x(9)*(-h(4)-h(3))**4/24._rk-x(4)*(-h(4)-h(3))**2/2._rk &
+       +x(8)*h(3)**4/24._rk+x(5)*(h(2)+h(1))**4/24._rk-x(1)*(h(2)+h(1))**2/2._rk&
+       +x(6)*h(2)**4/24._rk-x(2)*h(2)**2/2._rk
+ 
+  fvec(6)=-h(3)**3*x(3)/6._rk-x(9)*(-h(4)-h(3))**5/120._rk+x(4)*(-h(4)-h(3))**3/6._rk &
+       +x(8)*h(3)**5/120._rk-x(5)*(h(2)+h(1))**5/120._rk+x(1)*(h(2)+h(1))**3/6._rk &
+       -x(6)*h(2)**5/120._rk+x(2)*h(2)**3/6._rk
+ 
+  fvec(7)=-h(3)**4*x(3)/24._rk+x(9)*(-h(4)-h(3))**6/720._rk-x(4)*(-h(4)-h(3))**4/24._rk &
+       +x(8)*h(3)**6/720._rk+x(5)*(h(2)+h(1))**6/720._rk-x(1)*(h(2)+h(1))**4/24._rk &
+       +x(6)*h(2)**6/720._rk-x(2)*h(2)**4/24._rk
+ 
+  fvec(8)=-h(3)**5*x(3)/120._rk-x(9)*(-h(4)-h(3))**7/5040._rk+x(4)*(-h(4)-h(3))**5/120._rk+&
+       x(8)*h(3)**7/5040._rk-x(5)*(h(2)+h(1))**7/5040._rk+x(1)*(h(2)+h(1))**5/120._rk &
+       -x(6)*h(2)**7/5040._rk+x(2)*h(2)**5/120._rk
+ 
+  fvec(9)=-h(3)**6*x(3)/720._rk+x(9)*(-h(4)-h(3))**8/40320._rk-x(4)*(-h(4)-h(3))**6/720._rk&
+       +x(8)*h(3)**8/40320._rk+x(5)*(h(2)+h(1))**8/40320._rk-x(1)*(h(2)+h(1))**6/720._rk &
+       +x(6)*h(2)**8/40320._rk-x(2)*h(2)**6/720._rk
+  
+  !fvec(9)=x(2)-x(3)
+
+end subroutine dder_coeffs_c_fcn
+
+subroutine dder_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta,h1,h2,h3,h4,h5,h6)
+! -----------------------------------------------------------------------
+! Derivatives : Coefficients for second derivatives : non-uniform grid, first point
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  real(rk),intent(out) :: a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta
+  real(rk),intent(in) :: h1,h2,h3,h4,h5,h6
+  ! n : number of equation to solve for nonlinear system
+  ! wa : work array for minpack
+  ! xn : solution of nonlinear system
+  ! fvec : precision of results on output
+  ! info : solve suscessful if info=1
+  integer,parameter :: n=10,lwa=(n*(3*n+13))/2
+  real(rk) :: x(n),fvec(n),wa(lwa)
+  real(rk) :: tol
+  integer(ik) :: info,i
+
+  !-> space interval
+  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4 ; h(5)=h5 ; h(6)=h6
+
+  !-> solve coefficient nonlinear system with minpack
+  !-> precision tolerance
+  tol=1.d-12
+  !-> initialization vector
+  x=(/1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk/)
+  do i=1,niter
+     call hybrd1(dder_coeffs_i1_fcn,n,x,fvec,tol,info,wa,lwa)
+     if (info==1) exit
+  enddo
+  if (info/=1) call error_stop("MODULE class_derivatives : &
+       &-> Coefficients computation problem : second derivative first point.") 
+
+  !-> output coefficient
+  alpha=1._rk ; beta=x(1) ; gamma=x(2) ; delta=x(3) 
+  a1=x(4) ; b1=x(5) ; c1=x(6) ; d1=x(7) ; e1=x(8) ; f1=x(9)  ; g1=x(10) 
+
+  
+end subroutine dder_coeffs_i1
+
+subroutine dder_coeffs_i1_fcn(n,x,fvec,iflag)
+! -----------------------------------------------------------------------
+! Derivatives : Equations for second derivatives : non-uniform grid, first point
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  integer(ik) :: n,iflag
+  real(rk) :: x(n),fvec(n)
+  
+  fvec(1)=x(10)+x(9)+x(8)+x(7)+x(6)+x(5)+x(4)
+ 
+  fvec(2)=x(10)*(h(6)+h(5)+h(4)+h(3)+h(2)+h(1))+x(9)*(h(5)+h(4)+h(3)+h(2)+h(1)) &
+       +x(8)*(h(4)+h(3)+h(2)+h(1))+x(7)*(h(3)+h(2)+h(1))+x(6)*(h(2)+h(1))+x(5)*h(1)
+ 
+  fvec(3)=-x(2)+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**2/2._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**2/2._rk+x(8)*(-h(4)-h(3)-h(2)-h(1))**2/2._rk &
+       +x(7)*(-h(3)-h(2)-h(1))**2/2._rk+x(6)*(-h(2)-h(1))**2/2._rk+x(5)*h(1)**2/2._rk-x(3)-x(1)-1
+ 
+  fvec(4)=(-h(2)-h(1))*x(2)-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**3/6._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**3/6._rk-x(8)*(-h(4)-h(3)-h(2)-h(1))**3/6._rk &
+       -x(7)*(-h(3)-h(2)-h(1))**3/6._rk+x(3)*(-h(3)-h(2)-h(1)) &
+       -x(6)*(-h(2)-h(1))**3/6._rk+x(5)*h(1)**3/6._rk-x(1)*h(1)
+ 
+  fvec(5)=-(-h(2)-h(1))**2*x(2)/2._rk+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**4/24._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**4/24._rk+x(8)*(-h(4)-h(3)-h(2)-h(1))**4/24._rk &
+       +x(7)*(-h(3)-h(2)-h(1))**4/24._rk-x(3)*(-h(3)-h(2)-h(1))**2/2._rk &
+       +x(6)*(-h(2)-h(1))**4/24._rk+x(5)*h(1)**4/24._rk-x(1)*h(1)**2/2._rk
+ 
+  fvec(6)=(-h(2)-h(1))**3*x(2)/6._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**5/120._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**5/120._rk-x(8)*(-h(4)-h(3)-h(2)-h(1))**5/120._rk &
+       -x(7)*(-h(3)-h(2)-h(1))**5/120._rk+x(3)*(-h(3)-h(2)-h(1))**3/6._rk &
+       -x(6)*(-h(2)-h(1))**5/120._rk+x(5)*h(1)**5/120._rk-x(1)*h(1)**3/6._rk
+ 
+  fvec(7)=-(-h(2)-h(1))**4*x(2)/24._rk+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**6/720._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**6/720._rk+x(8)*(-h(4)-h(3)-h(2)-h(1))**6/720._rk &
+       +x(7)*(-h(3)-h(2)-h(1))**6/720._rk-x(3)*(-h(3)-h(2)-h(1))**4/24._rk &
+       +x(6)*(-h(2)-h(1))**6/720._rk+x(5)*h(1)**6/720._rk-x(1)*h(1)**4/24._rk
+ 
+  fvec(8)=(-h(2)-h(1))**5*x(2)/120._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**7/5040._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**7/5040._rk-x(8)*(-h(4)-h(3)-h(2)-h(1))**7/5040._rk &
+       -x(7)*(-h(3)-h(2)-h(1))**7/5040._rk+x(3)*(-h(3)-h(2)-h(1))**5/120._rk &
+       -x(6)*(-h(2)-h(1))**7/5040._rk+x(5)*h(1)**7/5040._rk-x(1)*h(1)**5/120._rk
+ 
+  fvec(9)=-(-h(2)-h(1))**6*x(2)/720._rk+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**8/40320._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**8/40320._rk+x(8)*(-h(4)-h(3)-h(2)-h(1))**8/40320._rk &
+       +x(7)*(-h(3)-h(2)-h(1))**8/40320._rk-x(3)*(-h(3)-h(2)-h(1))**6/720._rk &
+       +x(6)*(-h(2)-h(1))**8/40320._rk+x(5)*h(1)**8/40320._rk-x(1)*h(1)**6/720._rk
+ 
+  fvec(10)=(-h(2)-h(1))**7*x(2)/5040._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2)-h(1))**9/362880._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2)-h(1))**9/362880._rk-x(8)*(-h(4)-h(3)-h(2)-h(1))**9/362880._rk &
+       -x(7)*(-h(3)-h(2)-h(1))**9/362880._rk+x(3)*(-h(3)-h(2)-h(1))**7/5040._rk &
+       -x(6)*(-h(2)-h(1))**9/362880._rk+x(5)*h(1)**9/362880._rk-x(1)*h(1)**7/5040._rk
+
+  fvec(10)=x(1)-x(2)
+
+end subroutine dder_coeffs_i1_fcn
+
+subroutine dder_coeffs_i2(a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta,h1,h2,h3,h4,h5,h6)
+! -----------------------------------------------------------------------
+! Derivatives : Coefficients for second derivatives : non-uniform grid, second point
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  real(rk),intent(out) :: a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta
+  real(rk),intent(in) :: h1,h2,h3,h4,h5,h6
+  ! n : number of equation to solve for nonlinear system
+  ! wa : work array for minpack
+  ! xn : solution of nonlinear system
+  ! fvec : precision of results on output
+  ! info : solve suscessful if info=1
+  integer,parameter :: n=10,lwa=(n*(3*n+13))/2
+  real(rk) :: x(n),fvec(n),wa(lwa)
+  real(rk) :: tol
+  integer(ik) :: info,i
+
+  !-> space interval
+  h=0._rk
+  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4 ; h(5)=h5 ; h(6)=h6
+
+  !-> solve coefficient nonlinear system with minpack
+  !-> precision tolerance
+  tol=1.d-12
+  !-> initialization vector
+  x=(/1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk, 1._rk/)
+  do i=1,niter
+     call hybrd1(dder_coeffs_i2_fcn,n,x,fvec,tol,info,wa,lwa)
+     if (info==1) exit
+  enddo
+  if (info/=1) call error_stop("MODULE class_derivatives : &
+       &-> Coefficients computation problem : second derivative second point.") 
+
+  !-> output coefficient
+  alpha=x(1) ; beta=1._rk ; gamma=x(2) ; delta=x(3) 
+  a1=x(4) ; b1=x(5) ; c1=x(6) ; d1=x(7) ; e1=x(8) ; f1=x(9)  ; g1=x(10) 
+  
+end subroutine dder_coeffs_i2
+
+subroutine dder_coeffs_i2_fcn(n,x,fvec,iflag)
+! -----------------------------------------------------------------------
+! Derivatives : Equations for second derivatives : non-uniform grid, second point
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  integer(ik) :: n,iflag
+  real(rk) :: x(n),fvec(n)
+
+  fvec(1)=x(10)+x(9)+x(8)+x(7)+x(6)+x(5)+x(4)
+ 
+  fvec(2)=x(10)*(h(6)+h(5)+h(4)+h(3)+h(2))+x(9)*(h(5)+h(4)+h(3)+h(2)) &
+       +x(8)*(h(4)+h(3)+h(2))+x(7)*(h(3)+h(2))+x(6)*h(2)-x(4)*h(1)
+ 
+  fvec(3)=-x(2)+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**2/2._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2))**2/2._rk+x(8)*(-h(4)-h(3)-h(2))**2/2._rk &
+       +x(7)*(-h(3)-h(2))**2/2._rk+x(6)*h(2)**2/2._rk+x(4)*h(1)**2/2._rk-x(3)-x(1)-1
+ 
+  fvec(4)=-h(2)*x(2)-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**3/6._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2))**3/6._rk-x(8)*(-h(4)-h(3)-h(2))**3/6._rk &
+       -x(7)*(-h(3)-h(2))**3/6._rk+x(3)*(-h(3)-h(2))+x(6)*h(2)**3/6._rk &
+       -x(4)*h(1)**3/6._rk+x(1)*h(1)
+ 
+  fvec(5)=-h(2)**2*x(2)/2._rk+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**4/24._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2))**4/24._rk+x(8)*(-h(4)-h(3)-h(2))**4/24._rk &
+       +x(7)*(-h(3)-h(2))**4/24._rk-x(3)*(-h(3)-h(2))**2/2._rk+x(6)*h(2)**4/24._rk &
+       +x(4)*h(1)**4/24._rk-x(1)*h(1)**2/2._rk
+ 
+  fvec(6)=-h(2)**3*x(2)/6._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**5/120._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2))**5/120._rk-x(8)*(-h(4)-h(3)-h(2))**5/120._rk &
+       -x(7)*(-h(3)-h(2))**5/120._rk+x(3)*(-h(3)-h(2))**3/6._rk+x(6)*h(2)**5/120._rk &
+       -x(4)*h(1)**5/120._rk+x(1)*h(1)**3/6._rk
+ 
+  fvec(7)=-h(2)**4*x(2)/24._rk+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**6/720._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2))**6/720._rk+x(8)*(-h(4)-h(3)-h(2))**6/720._rk &
+       +x(7)*(-h(3)-h(2))**6/720._rk-x(3)*(-h(3)-h(2))**4/24._rk+x(6)*h(2)**6/720._rk &
+       +x(4)*h(1)**6/720._rk-x(1)*h(1)**4/24._rk
+ 
+  fvec(8)=-h(2)**5*x(2)/120._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**7/5040._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2))**7/5040._rk-x(8)*(-h(4)-h(3)-h(2))**7/5040._rk &
+       -x(7)*(-h(3)-h(2))**7/5040._rk+x(3)*(-h(3)-h(2))**5/120._rk+x(6)*h(2)**7/5040._rk &
+       -x(4)*h(1)**7/5040._rk+x(1)*h(1)**5/120._rk
+ 
+  fvec(9)=-h(2)**6*x(2)/720._rk+x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**8/40320._rk &
+       +x(9)*(-h(5)-h(4)-h(3)-h(2))**8/40320._rk+x(8)*(-h(4)-h(3)-h(2))**8/40320._rk &
+       +x(7)*(-h(3)-h(2))**8/40320._rk-x(3)*(-h(3)-h(2))**6/720._rk+x(6)*h(2)**8/40320._rk &
+       +x(4)*h(1)**8/40320._rk-x(1)*h(1)**6/720._rk
+ 
+  fvec(10)=-h(2)**7*x(2)/5040._rk-x(10)*(-h(6)-h(5)-h(4)-h(3)-h(2))**9/362880._rk &
+       -x(9)*(-h(5)-h(4)-h(3)-h(2))**9/362880._rk-x(8)*(-h(4)-h(3)-h(2))**9/362880._rk &
+       -x(7)*(-h(3)-h(2))**9/362880._rk+x(3)*(-h(3)-h(2))**7/5040._rk+x(6)*h(2)**9/362880._rk &
+       -x(4)*h(1)**9/362880._rk+x(1)*h(1)**7/5040._rk
+
+end subroutine dder_coeffs_i2_fcn
+
+end module class_derivatives_coefficient

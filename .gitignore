@@ -1,0 +1,11 @@
+/bin/*
+/includes
+/lib
+/build
+.directory
+.kdev4/
+*.dat
+/README
+*~
+
+!/bin/*.gnu
