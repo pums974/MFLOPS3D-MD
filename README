@@ -1,0 +1,23 @@
+
+
+
+COMPILATION :
+
+- Go to build directory :
+cd build 
+
+- Create Makefile with one of these command choosing compiler (gfortran, ifort, ...) 
+and build type (Debug, Release, ...)
+
+FC=ifort cmake -D CMAKE_BUILD_TYPE=Debug  ..
+FC=ifort cmake -D CMAKE_BUILD_TYPE=Release  ..
+
+FC=gfortran cmake -D CMAKE_BUILD_TYPE=Debug  ..
+FC=gfortran cmake -D CMAKE_BUILD_TYPE=Release  ..
+
+
+FC=mpif90 cmake -D CMAKE_BUILD_TYPE=Debug  ..
+FC=mpif90 cmake -D CMAKE_BUILD_TYPE=Release  ..
+
+- Compile :
+make

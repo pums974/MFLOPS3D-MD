@@ -1,11 +1,13 @@
 /bin/*
 /includes
 /lib
-/build
+/build/*
 .directory
 .kdev4/
 *.dat
-/README
 *~
+/temp
+/run.sh
 
 !/bin/*.gnu
+!/build/.README
