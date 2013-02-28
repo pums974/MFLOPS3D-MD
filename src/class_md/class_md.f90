@@ -350,7 +350,10 @@ contains
 
     !-> get numbers of iterations
     call KSPGetIterationNumber(inf_mat%ksp,iters,inf_mat%err)
-    if (mpid%rank==0) print*,'Iterations',iters
+!    if (mpid%rank==0) print*,'Iterations',iters
+
+    !-> get residual norm for solution
+    call KSPGetResidualNorm(inf_mat%ksp,norm,inf_mat%err)
 
     !--------------------------------------------------------------------
     !-> put sol in sol_old for initial guess
@@ -371,6 +374,7 @@ contains
 
 !    call VecDestroy(solx,inf_mat%err)
 
+    if (mpid%rank==0) print'(a,i0,a,es17.8)',' Iterations ',iters,'  Residus solver',norm
 
 
   end subroutine md_solve
