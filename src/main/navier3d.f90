@@ -61,6 +61,7 @@ program testnavier3d
 
      !---------------------------------------------------------------------
      !-> solve intermediate u,v,w (pressure correction)
+
      if(nav%pt<=2) then
        if(nav%pt==1) call add_boundary_gradient(mpid,nav)
        call navier_solve_u(mpid,nav)
@@ -72,10 +73,12 @@ program testnavier3d
      call navier_bc_pressure(mpid,nav)
      !---------------------------------------------------------------------
      !-> solve pressure increment phi
+
      call navier_solve_phi(mpid,nav)
 
      !---------------------------------------------------------------------
      !-> compute u,v,w,p
+     
      call navier_projection(mpid,nav)
 
      !---------------------------------------------------------------------

@@ -67,7 +67,7 @@ contains
 
   subroutine navier_bc_pressure(mpid,nav)
 ! -----------------------------------------------------------------------
-! navier :
+! navier : 
 ! -----------------------------------------------------------------------
 ! Alexandre Poux
 ! 01/2013
@@ -590,7 +590,7 @@ contains
     !-> compute rhs
 
     nav%rhs_u(nav%it(nt))%f=0._rk
-    call navier_nonlinear(mpid,nav,nav%u,nav%rhs_u(nav%it(nt)))    
+    call navier_nonlinear(mpid,nav,nav%u,nav%rhs_u(nav%it(nt)))
     nav%rhs_u(nav%it(nt))=f(nav,'rhsu') - nav%rhs_u(nav%it(nt))
 
     call field_zero_edges(nav%rhs_u(nav%it(nt)))
@@ -834,6 +834,7 @@ contains
     !-> compute rhs
     nav%fphi%f=0._rk
 !    nav%phi(it(1))%f=0._rk
+
 
     !-> 
     nav%fphi=nav%fphi+ derx(nav%dcx,nav%rhs_px)&
