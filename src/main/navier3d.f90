@@ -7,7 +7,7 @@ program testnavier3d
   type(mpi_data) :: mpid
   integer(ik) :: nx,ny,nz
   integer(ik) :: ite
-  integer(ik) :: i,j,k
+  integer(ik) :: i,j,k,iaux
   real(rk),allocatable :: uex(:,:,:,:), pex(:,:,:)
   real(rk) ::x,y,z,t,error,aux,time
   integer(8) :: t1,t2,irate
@@ -52,26 +52,46 @@ program testnavier3d
 !     endif
      !-> define bc
      call navier_bc_velocity(mpid,nav)
-     call add_boundary_gradient(mpid,nav)
-     call navier_bc_pressure(mpid,nav)
      
      !---------------------------------------------------------------------
-     !-> solve intermediate u,v,w
-
-     call navier_solve_u(mpid,nav)
-     call navier_solve_v(mpid,nav)
-     call navier_solve_w(mpid,nav)
+     !-> compute rhs
+     call navier_presolve_u(mpid,nav)
+     call navier_presolve_v(mpid,nav)
+     call navier_presolve_w(mpid,nav)
 
      !---------------------------------------------------------------------
-     !-> solve pressure correction phi
+     !-> solve intermediate u,v,w (pressure correction)
+     if(nav%pt<=2) then
+       if(nav%pt==1) call add_boundary_gradient(mpid,nav)
+       call navier_solve_u(mpid,nav)
+       call navier_solve_v(mpid,nav)
+       call navier_solve_w(mpid,nav)
+     endif
 
+     call navier_presolve_phi(mpid,nav)
+     call navier_bc_pressure(mpid,nav)
+     !---------------------------------------------------------------------
+     !-> solve pressure increment phi
      call navier_solve_phi(mpid,nav)
 
      !---------------------------------------------------------------------
-     !-> compute correct u,v,w,p
-     
+     !-> compute u,v,w,p
      call navier_projection(mpid,nav)
 
+     !---------------------------------------------------------------------
+     !-> compute final u,v,w  (velocity correction)
+     if(nav%pt>=3) then
+       call navier_solve_u(mpid,nav)
+       call navier_solve_v(mpid,nav)
+       call navier_solve_w(mpid,nav)
+     endif
+
+     !-> switch it
+     iaux=nav%it(1)
+     do i=1,nav%nt-1
+       nav%it(i)=nav%it(i+1)
+     enddo
+     nav%it(nt)=iaux
 
      !---------------------------------------------------------------------
      !-> check solution
