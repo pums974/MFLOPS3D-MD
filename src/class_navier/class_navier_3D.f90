@@ -171,6 +171,46 @@ contains
 
   end subroutine erase_boundary_inter
 
+  subroutine navier_nullify_boundary(mpid,nav,x,i)
+! -----------------------------------------------------------------------
+! navier :
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 10/2012
+!
+    implicit none
+    type(mpi_data) :: mpid
+    type(navier3d) :: nav
+    type(field) :: x
+    integer(ik) :: l,m,c(3),inter(3,2),i
+    integer(ik) :: it(nav%nt),nt
+
+
+    !-> get interface type
+    call md_mpi_getcoord(mpid,c)
+    call md_get_interfaces_number(nav%infp,c,inter)
+
+    !-> put nav%nt in nt for ease of use
+    nt=nav%nt
+    it(:)=nav%it(:)
+
+    !-> m : left-right ; l : directions (x,y,z)
+    do m=1,2
+      do l=1,3
+        if ((i.ge.0.and.inter(l,m)>0).or.(i.le.0.and.inter(l,m)<=0)) then
+          select case (l)
+            case (1)
+              x%f((m-1)*(nav%nx-1)+1,:,:)=0._rk
+            case (2)
+              x%f(:,(m-1)*(nav%ny-1)+1,:)=0._rk
+            case (3)
+              x%f(:,:,(m-1)*(nav%nz-1)+1)=0._rk
+          end select
+        endif
+      enddo
+    enddo
+
+  end subroutine navier_nullify_boundary
   subroutine add_boundary_gradient(mpid,nav)
 ! -----------------------------------------------------------------------
 ! navier : 
@@ -368,7 +408,7 @@ contains
 
   end subroutine navier_bc_velocity_utils
 
-  function sol(x,y,z,t,type,rey)
+function sol(x,y,z,t,type,rey)
 ! -----------------------------------------------------------------------
 ! exact solution : function, derivatives and rhs
 ! -----------------------------------------------------------------------
@@ -377,62 +417,57 @@ contains
 !
     implicit none
     real(rk) :: sol,rey
-    real(rk) :: x,y,z,t,a,g,pi
+    integer(ik) ::i,n
+    PARAMETER(n=5)
+    real(rk) :: x,y,z,t,pi,wx(n),wt(n),wy(n),wp(n),a(n),b(n)
     character(*) :: type
-    
+
     pi=4._rk*atan(1._rk)
-    a=1._rk*pi ; g=0.5_rk*pi
+    sol=0._rk
+    do i=1,n
+      a(i)=1._rk*i ; b(i)=2._rk*i
+      wx(i)=1._rk*pi*i ; wy(i)=2._rk*pi*i ; wt(i)=i*pi ; wp(i)=1.5_rk*pi*i
 
     if (type=="u") then
-       sol=sin(a*x)*sin(a*y)*cos(a*z)*cos(g*t)
+       sol=sol+a(i)*sin(wx(i)*x)*cos(wy(i)*y)*cos(wt(i)*t)/wx(i)
     endif
     if (type=="v") then
-       sol=cos(a*x)*cos(a*y)*cos(a*z)*cos(g*t)*2
+       sol=sol-a(i)*cos(wx(i)*x)*sin(wy(i)*y)*cos(wt(i)*t)/wy(i)
     endif
     if (type=="w") then
-       sol=cos(a*x)*sin(a*y)*sin(a*z)*cos(g*t)
+       sol=sol+0._rk
     endif
     if (type=="p") then
-       sol=cos(a*x)*cos(a*y)*cos(a*z)*cos(g*t)
+       sol=sol+b(i)*sin(wp(i)*(x-y))*cos(wt(i)*t)
     endif
     if (type=="dxp") then
-       sol=-a*cos(g*t)*sin(a*x)*cos(a*y)*cos(a*z)
+       sol=sol+b(i)*wp(i)*cos(t*wt(i))*cos(wp(i)*(x-y))
     endif
     if (type=="dyp") then
-       sol=-a*cos(g*t)*cos(a*x)*sin(a*y)*cos(a*z)
+       sol=sol-b(i)*wp(i)*cos(t*wt(i))*cos(wp(i)*(x-y))
     endif
     if (type=="dzp") then
-       sol=-a*cos(g*t)*cos(a*x)*cos(a*y)*sin(a*z)
+       sol=sol+0._rk
     endif
 
     if (type=="rhsu") then
-       sol=-a*cos(g*t)**2*cos(a*x)*sin(a*x)*sin(a*y)**2*sin(a*z)**2+a*&
-            cos(g*t)**2*cos(a*x)*sin(a*x)*sin(a*y)**2*cos(a*z)**2+2*a*cos(g*t)**2*&
-            cos(a*x)*sin(a*x)*cos(a*y)**2*cos(a*z)**2-g*sin(g*t)*sin(a*x)*sin(&
-            a*y)*cos(a*z)+3*a**2*cos(g*t)*sin(a*x)*sin(a*y)*cos(a*z)/rey-a*cos&
-            (g*t)*sin(a*x)*cos(a*y)*cos(a*z)
+       sol=sol+(a(i)*cos(t*wt(i))*wy(i)**2*sin(wx(i)*x)*cos(wy(i)*y)/wx(i)+a(i)*cos(t*wt(i))*wx(i)*sin(wx(i)*x&
+            )*cos(wy(i)*y))/rey-a(i)*wt(i)*sin(t*wt(i))*sin(wx(i)*x)*cos(wy(i)*y)/wx(i)+b(i)*wp(i)*cos(t&
+            *wt(i))*cos(wp(i)*(x-y))
     endif
     if (type=="rhsv") then
-       sol=-2*a*cos(g*t)**2*cos(a*x)**2*cos(a*y)*sin(a*y)*sin(a*z)**2-2*a*&
-            cos(g*t)**2*sin(a*x)**2*cos(a*y)*sin(a*y)*cos(a*z)**2-4*a*cos(g*t)**2&
-            *cos(a*x)**2*cos(a*y)*sin(a*y)*cos(a*z)**2-a*cos(g*t)*cos(a*x)*&
-            sin(a*y)*cos(a*z)-2*g*sin(g*t)*cos(a*x)*cos(a*y)*cos(a*z)+6*a**2*&
-            cos(g*t)*cos(a*x)*cos(a*y)*cos(a*z)/rey
+	sol=sol+(-a(i)*cos(t*wt(i))*wy(i)*cos(wx(i)*x)*sin(wy(i)*y)-a(i)*cos(t*wt(i))*wx(i)**2*cos(wx(i)*x)*&
+            sin(wy(i)*y)/wy(i))/rey+a(i)*wt(i)*sin(t*wt(i))*cos(wx(i)*x)*sin(wy(i)*y)/wy(i)-b(i)*wp(i)*cos(&
+            t*wt(i))*cos(wp(i)*(x-y))
     endif
     if (type=="rhsw") then
-       sol=-a*cos(g*t)**2*sin(a*x)**2*sin(a*y)**2*cos(a*z)*sin(a*z)+a*cos(g*&
-            t)**2*cos(a*x)**2*sin(a*y)**2*cos(a*z)*sin(a*z)+2*a*cos(g*t)**2*&
-            cos(a*x)**2*cos(a*y)**2*cos(a*z)*sin(a*z)-g*sin(g*t)*cos(a*x)*sin(&
-            a*y)*sin(a*z)+3*a**2*cos(g*t)*cos(a*x)*sin(a*y)*sin(a*z)/rey-a*&
-            cos(g*t)*cos(a*x)*cos(a*y)*sin(a*z)
+       sol=sol+0._rk
     endif
     if (type=="rhsp") then
-       sol=-2*(a**2*cos(g*t)**2*sin(a*x)**2*sin(a*y)**2*sin(a*z)**2-2*a**2*&
-            cos(g*t)**2*cos(a*x)**2*cos(a*y)**2*sin(a*z)**2-a**2*cos(g*t)**2*&
-            cos(a*x)**2*sin(a*y)**2*cos(a*z)**2+2*a**2*cos(g*t)**2*sin(a*x)**2&
-            *cos(a*y)**2*cos(a*z)**2)-3*a**2*cos(g*t)*cos(a*x)*cos(a*y)*cos(a*z)
+       sol=sol-2*(a(i)**2*cos(t*wt(i))**2*sin(wx(i)*x)**2*sin(wy(i)*y)**2-a(i)**2*cos(t*wt(i))**2&
+           *cos(wx(i)*x)**2*cos(wy(i)*y)**2)-2*b(i)*wp(i)**2*cos(t*wt(i))*sin(wp(i)*(x-y))
     endif
-
+    end do
   end function sol
 
   function f(nav,var)
@@ -832,7 +867,7 @@ contains
 
     !--------------------------------------------------------------------
     !-> compute rhs
-    nav%fphi%f=nav%sigmap*navier_extrapol(nav,nav%phi)
+    nav%fphi=nav%sigmap*navier_extrapol(nav,nav%phi)
 !    nav%phi(it(1))%f=0._rk
 
 
