@@ -192,6 +192,7 @@ contains
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
     it(:)=nav%it(:)
+    
 
     !-> bcx
     nav%aux%f=0._rk
@@ -664,8 +665,8 @@ contains
     nav%fu(it(nt))=nav%fu(it(nt))+nav%fac(2)*nav%u(nav%it(nav%nt  )) &
                                  +nav%fac(3)*nav%u(nav%it(nav%nt-1))
     if(nav%tou==3) nav%fu(it(nt))=nav%fu(it(nt))+nav%fac(4)*nav%u(nav%it(nav%nt-2))
-
-    !-> pressure
+    
+    !-> pressure 
     if (nav%pt>=2) then
        if (nav%pt==2) then
           nav%fu(it(nt))=nav%fu(it(nt))+derx(nav%dcx,navier_extrapol(nav,nav%p))
@@ -714,8 +715,8 @@ contains
     nav%fv(it(nt))=nav%fv(it(nt))+nav%fac(2)*nav%v(nav%it(nav%nt  )) &
                                  +nav%fac(3)*nav%v(nav%it(nav%nt-1))
     if(nav%tou==3) nav%fv(it(nt))=nav%fv(it(nt))+nav%fac(4)*nav%v(nav%it(nav%nt-2))
-
-    !-> pressure
+    
+    !-> pressure 
     if (nav%pt>=2) then
        if (nav%pt==2) then
           nav%fv(it(nt))=nav%fv(it(nt))+dery(nav%dcy,navier_extrapol(nav,nav%p))
@@ -763,8 +764,8 @@ contains
     nav%fw(it(nt))=nav%fw(it(nt))+nav%fac(2)*nav%w(nav%it(nav%nt  )) &
                                  +nav%fac(3)*nav%w(nav%it(nav%nt-1))
     if(nav%tou==3) nav%fw(it(nt))=nav%fw(it(nt))+nav%fac(4)*nav%w(nav%it(nav%nt-2))
-
-    !-> pressure
+    
+    !-> pressure 
     if (nav%pt>=2) then
        if (nav%pt==2) then
           nav%fw(it(nt))=nav%fw(it(nt))+derz(nav%dcz,navier_extrapol(nav,nav%p))
@@ -834,10 +835,11 @@ contains
     nav%fphi%f=0._rk
 !    nav%phi(it(1))%f=0._rk
 
+    !-> 
     nav%fphi=nav%fphi+ derx(nav%dcx,nav%rhs_px)&
                      + dery(nav%dcy,nav%rhs_py)&
                      + derz(nav%dcz,nav%rhs_pz)
-
+    
     goto 101
     nav%fphi=(1.5_rk/nav%ts)*(&
          derx(nav%dcx,nav%u(it(1)))+&
@@ -907,12 +909,12 @@ contains
       nav%aux=(derx(nav%dcx,nav%u(it(1)))+&
                dery(nav%dcy,nav%v(it(1)))+&
                derz(nav%dcz,nav%w(it(1))))/nav%rey
-    nav%p(it(1))=nav%p(it(1))-nav%aux
+      nav%p(it(1))=nav%p(it(1))-nav%aux
     elseif(nav%pt==4) then
       nav%aux=(derx(nav%dcx,navier_extrapol(nav,nav%u))+&
                dery(nav%dcy,navier_extrapol(nav,nav%v))+&
                derz(nav%dcz,navier_extrapol(nav,nav%w)))/nav%rey
-    nav%p(it(1))=nav%p(it(1))-nav%aux
+      nav%p(it(1))=nav%p(it(1))-nav%aux
     endif
 !    nav%p(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
 !         nav%p(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
