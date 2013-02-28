@@ -832,7 +832,7 @@ contains
 
     !--------------------------------------------------------------------
     !-> compute rhs
-    nav%fphi%f=nav%sigmap*navier_extrapol(nav,nav%phi)
+    nav%fphi=nav%sigmap*navier_extrapol(nav,nav%phi)
 !    nav%phi(it(1))%f=0._rk
 
 
