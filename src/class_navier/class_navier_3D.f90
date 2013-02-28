@@ -832,7 +832,7 @@ contains
 
     !--------------------------------------------------------------------
     !-> compute rhs
-    nav%fphi%f=0._rk
+    nav%fphi%f=nav%sigmap*navier_extrapol(nav,nav%phi)
 !    nav%phi(it(1))%f=0._rk
 
 
@@ -1186,8 +1186,6 @@ endif
        call field_init(nav%rhs_v(i),"RHS2_V",nx,ny,nz)
        call field_init(nav%rhs_w(i),"RHS2_W",nx,ny,nz)
        call field_init(nav%fp(i),"RHS_P",nx,ny,nz)
-    enddo
-    do i=1,nav%nt
        call field_init(nav%phi(i),"PHI",nx,ny,nz)
     enddo
     call field_init(nav%fphi,"RHS_PHI",nx,ny,nz)
@@ -1255,19 +1253,14 @@ endif
        nav%u(i)%f=0._rk ; nav%v(i)%f=0._rk ; nav%w(i)%f=0._rk ; nav%p(i)%f=0._rk
        nav%fu(i)%f=0._rk ; nav%fv(i)%f=0._rk ; nav%fw(i)%f=0._rk ; nav%fp(i)%f=0._rk
        nav%rhs_u(i)%f=0._rk ; nav%rhs_v(i)%f=0._rk ; nav%rhs_w(i)%f=0._rk
-    enddo
-    do i=1,nav%nt
        nav%phi(i)%f=0._rk 
-    enddo
-    nav%fphi%f=0._rk
-    do i=1,nav%nt
-!    do i=0,nav%nt
        nav%bcu(i)%bcx=0._rk ; nav%bcu(i)%bcy=0._rk ; nav%bcu(i)%bcz=0._rk
        nav%bcv(i)%bcx=0._rk ; nav%bcv(i)%bcy=0._rk ; nav%bcv(i)%bcz=0._rk 
        nav%bcw(i)%bcx=0._rk ; nav%bcw(i)%bcy=0._rk ; nav%bcw(i)%bcz=0._rk 
        nav%bcp(i)%bcx=0._rk ; nav%bcp(i)%bcy=0._rk ; nav%bcp(i)%bcz=0._rk  
        nav%bcphi(i)%bcx=0._rk ; nav%bcphi(i)%bcy=0._rk ; nav%bcphi(i)%bcz=0._rk
     enddo
+    nav%fphi%f=0._rk
 
     !--------------------------------------------------------------------
     !-> initialize guess sol
@@ -1312,6 +1305,7 @@ endif
        call field_destroy(nav%v(i))
        call field_destroy(nav%w(i))
        call field_destroy(nav%p(i))
+       call field_destroy(nav%phi(i))
        call field_destroy(nav%fu(i))
        call field_destroy(nav%fv(i))
        call field_destroy(nav%fw(i))
@@ -1320,9 +1314,11 @@ endif
        call field_destroy(nav%rhs_w(i))
        call field_destroy(nav%fp(i))
     enddo
-       call field_destroy(nav%rhs_px)
-       call field_destroy(nav%rhs_py)
-       call field_destroy(nav%rhs_pz)
+    call field_destroy(nav%fphi)
+    call field_destroy(nav%aux)
+    call field_destroy(nav%rhs_px)
+    call field_destroy(nav%rhs_py)
+    call field_destroy(nav%rhs_pz)
 
     !--------------------------------------------------------------------
     !-> finalize petsc
