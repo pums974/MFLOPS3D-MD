@@ -907,15 +907,16 @@ contains
       nav%aux=(derx(nav%dcx,nav%u(it(1)))+&
                dery(nav%dcy,nav%v(it(1)))+&
                derz(nav%dcz,nav%w(it(1))))/nav%rey
+    nav%p(it(1))=nav%p(it(1))-nav%aux
     elseif(nav%pt==4) then
       nav%aux=(derx(nav%dcx,navier_extrapol(nav,nav%u))+&
                dery(nav%dcy,navier_extrapol(nav,nav%v))+&
                derz(nav%dcz,navier_extrapol(nav,nav%w)))/nav%rey
+    nav%p(it(1))=nav%p(it(1))-nav%aux
     endif
 !    nav%p(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
 !         nav%p(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
 !         -nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
-    nav%p(it(1))=nav%p(it(1))-nav%aux
 
  
     !-> Brown
