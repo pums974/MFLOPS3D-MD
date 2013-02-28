@@ -84,6 +84,7 @@ module class_md
      Vec :: rhs,sol,sol_old(3)
      !-> petsc solver context
      KSP :: ksp
+     character(2) :: kspn
      !-> nullspace
      MatNullSpace :: nullsp
   end type mpi_inf_mat
@@ -239,16 +240,23 @@ contains
 ! Matthieu Marquillie
 ! 09/2012
 !
-  subroutine md_solve_init(mpid,inf_mat,null)
+  subroutine md_solve_init(mpid,inf_mat,null,kspn)
     implicit none
     type(mpi_data) :: mpid
     type(mpi_inf_mat) :: inf_mat
     integer(ik) :: iters
     integer(ik),optional :: null
+    character(*),optional :: kspn
 
     !-> Create linear solver context
     call KSPCreate(PETSC_COMM_WORLD,inf_mat%ksp,inf_mat%err)
     
+    !-> set option prefix name
+    if (present(kspn)) then
+       inf_mat%kspn=kspn
+       call KSPSetOptionsPrefix(inf_mat%ksp,inf_mat%kspn,inf_mat%err)
+    endif
+
     !->  Set operators
     call KSPSetOperators(inf_mat%ksp,inf_mat%inf,inf_mat%inf,&
          SAME_PRECONDITIONER,inf_mat%err)

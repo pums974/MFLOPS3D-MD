@@ -1074,8 +1074,9 @@ contains
 
     !--------------------------------------------------------------------
     !-> initialize u multidomain solver
-    call md_solve_init(mpid,nav%infu)
- 
+!    call md_solve_init(mpid,nav%infu)
+    call md_solve_init(mpid,nav%infu,kspn='u_')
+
     !-> initialize v multidomain solver
 !    call md_solve_init(mpid,nav%infv)
  
@@ -1083,7 +1084,8 @@ contains
 !    call md_solve_init(mpid,nav%infw)
  
     !-> initialize pressuremultidomain solver
-    call md_solve_init(mpid,nav%infp,null=nullv)
+!    call md_solve_init(mpid,nav%infp,null=nullv)
+    call md_solve_init(mpid,nav%infp,null=nullv,kspn='p_')
 
     !--------------------------------------------------------------------
     !-> initialize fields
