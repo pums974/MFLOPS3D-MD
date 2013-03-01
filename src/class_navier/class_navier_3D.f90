@@ -901,7 +901,7 @@ function sol(x,y,z,t,type,rey)
 !    call md_set_guess(mpid,nav%infp,nt,it,nav%bcphi,nav%phi)
     call multidomain_solve(mpid,nav%infp,nav%scp,nav%bcphi(it(1)),nav%phi(it(1)),&
           nav%fphi,nav%aux,nav%sigmap,nav%dcx,nav%dcy,nav%dcz,null=nullv,&
-          inf_sol=nav%infsolphi)
+          inf_sol=nav%infsolphi,var='p')
 
   end subroutine navier_solve_phi
 
