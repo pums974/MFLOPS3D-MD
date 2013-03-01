@@ -127,6 +127,7 @@ contains
     
     !-> parameters
     pi=4._rk*atan(1._rk)
+    aux=0.5_rk
     if (choice=="x") then
        xa=-aux ; xb=aux
     endif
@@ -136,7 +137,6 @@ contains
     if (choice=="z") then
        xa=-aux ; xb=aux
     endif
-!    aux=0.5_rk
 !    xa=-aux ; xb=aux
 !    ya=-aux ; yb=aux
 !    za=-aux ; zb=aux
