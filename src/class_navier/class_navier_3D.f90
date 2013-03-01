@@ -20,7 +20,7 @@ module class_navier_3D
 
   !-> time scheme order
   integer(ik),parameter :: nt=4
-  integer(ik),parameter :: nullv=1
+  integer(ik) :: nullv=0
 
   type navier3d
      !-> number of time steps of the time scheme
@@ -1086,6 +1086,9 @@ endif
     endif
 
     !-> put dimensions in variables for ease of use
+    if (cmd%psm==0) nullv=0
+    if (cmd%psm==1) nullv=1
+    if (cmd%psm==2) nullv=2
     nav%nx=cmd%nx ; nav%ny=cmd%ny ; nav%nz=cmd%nz
     nx=cmd%nx ; ny=cmd%ny ; nz=cmd%nz
 
@@ -1229,7 +1232,8 @@ endif
 
     !-> end initialize velocity influence matrix
     call influence_matrix_init_end(mpid,nav%infp,nav%scp,nav%bcp(1),&
-         nav%p(1),nav%fp(1),nav%sigmap,nav%dcx,nav%dcy,nav%dcz,'p')
+         nav%p(1),nav%fp(1),nav%sigmap,nav%dcx,nav%dcy,nav%dcz,'p',&
+         null=nullv)
 
     !--------------------------------------------------------------------
     !-> initialize u multidomain solver

@@ -1105,7 +1105,8 @@ contains
 ! Matthieu Marquillie
 ! 09/2012
 !
-  subroutine influence_matrix_init_end(mpid,inf,sc,bc,u,g,sigma,dcx,dcy,dcz,var)
+  subroutine influence_matrix_init_end(mpid,inf,sc,bc,u,g,sigma,dcx,dcy,dcz,&
+       var,null)
     use class_md
     use class_derivatives
     use class_solver_3d
@@ -1122,6 +1123,7 @@ contains
     character(*) :: var
     logical :: file_exist
     real(rk) :: time,timet
+    integer(ik),optional :: null
     
     !-> set filename of influence matrix
     call md_influence_matrix_filename(mpid,filename,var)
@@ -1144,6 +1146,14 @@ contains
     call system_clock(t2,irate)
 
     !-> print matrix (only for small tests case < 1024 rows)
+    if (var=='p') then 
+       if (present(null)) then
+          if (null==2) then
+             call md_add_pert(mpid,inf)
+             call md_influence_matrix_init_end(mpid,inf)
+          endif
+       endif
+    endif
     !call md_influence_matrix_view(mpid,inf)
 
     !-> get matrix infos
@@ -1173,7 +1183,7 @@ contains
 ! 09/2012
 !
   subroutine multidomain_solve(mpid,inf,sc,bc,u,g,du,sigma,dcx,dcy,dcz,null,&
-       inf_sol)
+       inf_sol,var)
     use mpi
     use class_md
     use class_derivatives
@@ -1191,6 +1201,7 @@ contains
     real(rk) :: t(6),time(3),timet(3),sign
     real(rk) :: bcx(bc%ny,bc%nz,2),bcy(bc%nx,bc%nz,2),bcz(bc%nx,bc%ny,2)
     integer(ik) :: i,j,k
+    character(*),optional :: var
 
     !-> integrate nonhomogeneous system
     t(1)=MPI_WTIME()
@@ -1218,6 +1229,17 @@ contains
     if (present(null)) then
        if (null==1) then
           call md_rhs_nullspace(mpid,inf)
+       endif
+    endif
+
+    !-> pressure singular method
+    if (present(var)) then
+       if (var=='p') then
+          if (present(null)) then
+             if (null==2) then
+                call md_vector_zero_lastpoint(mpid,inf)
+             endif
+          endif
        endif
     endif
 
