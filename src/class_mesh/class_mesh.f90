@@ -127,13 +127,22 @@ contains
     
     !-> parameters
     pi=4._rk*atan(1._rk)
-    aux=0.5_rk
+    if (choice=="x") then
+       xa=-aux ; xb=aux
+    endif
+    if (choice=="y") then
+       xa=-aux ; xb=aux
+    endif
+    if (choice=="z") then
+       xa=-aux ; xb=aux
+    endif
+!    aux=0.5_rk
 !    xa=-aux ; xb=aux
 !    ya=-aux ; yb=aux
 !    za=-aux ; zb=aux
-    xa=0._rk ; xb=aux
-    ya=0._rk ; yb=aux
-    za=0._rk ; zb=aux
+!    xa=0._rk ; xb=aux
+!    ya=0._rk ; yb=aux
+!    za=0._rk ; zb=aux
 
     if (present(mpid)) then
        call md_mpi_getcoord(mpid,dom_coord)
