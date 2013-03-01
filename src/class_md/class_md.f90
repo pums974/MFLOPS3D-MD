@@ -119,6 +119,7 @@ module class_md
   public :: md_bc_init,md_solve_guess_nonzero,md_rhs_nullspace
   public :: md_mpi_global_coord,md_vector_sol_setvalues
   public :: md_guess_init
+  public :: md_add_pert,md_vector_zero_lastpoint
 contains
 
 ! =======================================================================
@@ -210,6 +211,58 @@ contains
   end subroutine md_check
 
 !------------------------------------------------------------------------
+! md : fix one dirichlet with full neumann bc
+!------------------------------------------------------------------------
+! Matthieu Marquillie
+! 01/2013
+!
+  subroutine md_add_pert(mpid,inf_mat)
+    implicit none
+    type(mpi_data) :: mpid
+    type(mpi_inf_mat) :: inf_mat
+    real(rk),allocatable :: val(:)
+
+    if (mpid%rank==0) then
+       allocate(val(inf_mat%rows+inf_mat%o_nnz(1)))
+       val=0._rk
+       val(1)=5._rk
+!!       val=-1._rk
+       call MatSetValuesRow(inf_mat%inf,0,val,inf_mat%err)
+    endif
+
+!    if (mpid%rank==mpid%processus-2) then
+!       allocate(val(inf_mat%rows+inf_mat%o_nnz(inf_mat%rows)))
+!       val=1._rk
+!       call MatSetValuesRow(inf_mat%inf,inf_mat%ninf-1,val,inf_mat%err)
+!    endif
+
+  end subroutine md_add_pert
+
+!------------------------------------------------------------------------
+! md : fix one dirichlet with full neumann bc
+!------------------------------------------------------------------------
+! Matthieu Marquillie
+! 01/2013
+!
+  subroutine md_vector_zero_lastpoint(mpid,inf_mat)
+    implicit none
+    type(mpi_data) :: mpid
+    type(mpi_inf_mat) :: inf_mat
+
+    if (mpid%rank==0) &
+         call VecSetValue(inf_mat%rhs,0,0.d0,&
+         INSERT_VALUES,inf_mat%err)
+
+!    if (mpid%rank==mpid%processus-2) &
+!         call VecSetValue(inf_mat%rhs,inf_mat%rows-1,0.d0,&
+!         INSERT_VALUES,inf_mat%err)
+
+    call VecAssemblyBegin(inf_mat%rhs,inf_mat%err)
+    call VecAssemblyEnd(inf_mat%rhs,inf_mat%err)
+
+  end subroutine md_vector_zero_lastpoint
+
+!------------------------------------------------------------------------
 ! md : put dirichlet bc on interface
 !------------------------------------------------------------------------
 ! Matthieu Marquillie
@@ -275,7 +328,7 @@ contains
     call KSPSetFromOptions(inf_mat%ksp,inf_mat%err)
 
     !-> use previous value for initial guess
-    call KSPSetInitialGuessNonzero(inf_mat%ksp,PETSC_TRUE,inf_mat%err)
+    !call KSPSetInitialGuessNonzero(inf_mat%ksp,PETSC_TRUE,inf_mat%err)
 
     !-> setup ksp
     call KSPSetUp(inf_mat%ksp,inf_mat%err)

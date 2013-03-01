@@ -20,7 +20,7 @@ module class_navier_3D
 
   !-> time scheme order
   integer(ik),parameter :: nt=4
-  integer(ik),parameter :: nullv=1
+  integer(ik) :: nullv=0
 
   type navier3d
      !-> number of time steps of the time scheme
@@ -1040,22 +1040,22 @@ function sol(x,y,z,t,type,rey)
     nt=nav%nt
     it(:)=nav%it(:)
     navier_phi_rhs%f=0._rk
-if(nav%pt<=2) then
-    navier_phi_rhs=nav%fac(1)*var(it(1))
-elseif(nav%pt==3) then
-    navier_phi_rhs=fvar(it(nt)) - nav%fac(2)*var(nav%it(nav%nt  )) &
-                                - nav%fac(3)*var(nav%it(nav%nt-1))
-    if(nav%tou==3)  navier_phi_rhs= navier_phi_rhs-nav%fac(4)*var(nav%it(nav%nt-2))
-elseif(nav%pt==4) then
-    navier_phi_rhs=fvar(it(nt))-fvar(it(nt-1)) &
-        -((nav%fac(2)-nav%fac(1))*var(it(nt  ))      &
-         +(nav%fac(3)-nav%fac(2))*var(it(nt-1))      &
-         +(nav%fac(4)-nav%fac(3))*var(it(nt-2)))
-    if(nav%tou==3) navier_phi_rhs=navier_phi_rhs+nav%fac(4)*var(it(nt-3))
-
-    call field_zero_edges(navier_phi_rhs)
-
-endif
+    if(nav%pt<=2) then
+       navier_phi_rhs=nav%fac(1)*var(it(1))
+    elseif(nav%pt==3) then
+       navier_phi_rhs=fvar(it(nt)) - nav%fac(2)*var(nav%it(nav%nt  )) &
+            - nav%fac(3)*var(nav%it(nav%nt-1))
+       if(nav%tou==3)  navier_phi_rhs= navier_phi_rhs-nav%fac(4)*var(nav%it(nav%nt-2))
+    elseif(nav%pt==4) then
+       navier_phi_rhs=fvar(it(nt))-fvar(it(nt-1)) &
+            -((nav%fac(2)-nav%fac(1))*var(it(nt  ))      &
+            +(nav%fac(3)-nav%fac(2))*var(it(nt-1))      &
+            +(nav%fac(4)-nav%fac(3))*var(it(nt-2)))
+       if(nav%tou==3) navier_phi_rhs=navier_phi_rhs+nav%fac(4)*var(it(nt-3))
+       
+       call field_zero_edges(navier_phi_rhs)
+       
+    endif
 
   end function navier_phi_rhs
 
@@ -1119,6 +1119,11 @@ endif
     if (mpid%rank==0) then
        call color(ired);print'(a)','Precomputation : ';call color(color_off)
     endif
+
+    !-> pressure singular method
+    if (cmd%psm==0) nullv=0
+    if (cmd%psm==1) nullv=1
+    if (cmd%psm==2) nullv=2
 
     !-> put dimensions in variables for ease of use
     nav%nx=cmd%nx ; nav%ny=cmd%ny ; nav%nz=cmd%nz
@@ -1264,7 +1269,8 @@ endif
 
     !-> end initialize velocity influence matrix
     call influence_matrix_init_end(mpid,nav%infp,nav%scp,nav%bcp(1),&
-         nav%p(1),nav%fp(1),nav%sigmap,nav%dcx,nav%dcy,nav%dcz,'p')
+         nav%p(1),nav%fp(1),nav%sigmap,nav%dcx,nav%dcy,nav%dcz,'p',&
+         null=nullv)
 
     !--------------------------------------------------------------------
     !-> initialize u multidomain solver
