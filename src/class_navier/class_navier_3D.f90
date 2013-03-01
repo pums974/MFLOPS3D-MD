@@ -1005,22 +1005,22 @@ contains
     nt=nav%nt
     it(:)=nav%it(:)
     navier_phi_rhs%f=0._rk
-if(nav%pt<=2) then
-    navier_phi_rhs=nav%fac(1)*var(it(1))
-elseif(nav%pt==3) then
-    navier_phi_rhs=fvar(it(nt)) - nav%fac(2)*var(nav%it(nav%nt  )) &
-                                - nav%fac(3)*var(nav%it(nav%nt-1))
-    if(nav%tou==3)  navier_phi_rhs= navier_phi_rhs-nav%fac(4)*var(nav%it(nav%nt-2))
-elseif(nav%pt==4) then
-    navier_phi_rhs=fvar(it(nt))-fvar(it(nt-1)) &
-        -((nav%fac(2)-nav%fac(1))*var(it(nt  ))      &
-         +(nav%fac(3)-nav%fac(2))*var(it(nt-1))      &
-         +(nav%fac(4)-nav%fac(3))*var(it(nt-2)))
-    if(nav%tou==3) navier_phi_rhs=navier_phi_rhs+nav%fac(4)*var(it(nt-3))
-
-    call field_zero_edges(navier_phi_rhs)
-
-endif
+    if(nav%pt<=2) then
+       navier_phi_rhs=nav%fac(1)*var(it(1))
+    elseif(nav%pt==3) then
+       navier_phi_rhs=fvar(it(nt)) - nav%fac(2)*var(nav%it(nav%nt  )) &
+            - nav%fac(3)*var(nav%it(nav%nt-1))
+       if(nav%tou==3)  navier_phi_rhs= navier_phi_rhs-nav%fac(4)*var(nav%it(nav%nt-2))
+    elseif(nav%pt==4) then
+       navier_phi_rhs=fvar(it(nt))-fvar(it(nt-1)) &
+            -((nav%fac(2)-nav%fac(1))*var(it(nt  ))      &
+            +(nav%fac(3)-nav%fac(2))*var(it(nt-1))      &
+            +(nav%fac(4)-nav%fac(3))*var(it(nt-2)))
+       if(nav%tou==3) navier_phi_rhs=navier_phi_rhs+nav%fac(4)*var(it(nt-3))
+       
+       call field_zero_edges(navier_phi_rhs)
+       
+    endif
 
   end function navier_phi_rhs
 
@@ -1085,10 +1085,12 @@ endif
        call color(ired);print'(a)','Precomputation : ';call color(color_off)
     endif
 
-    !-> put dimensions in variables for ease of use
+    !-> pressure singular method
     if (cmd%psm==0) nullv=0
     if (cmd%psm==1) nullv=1
     if (cmd%psm==2) nullv=2
+
+    !-> put dimensions in variables for ease of use
     nav%nx=cmd%nx ; nav%ny=cmd%ny ; nav%nz=cmd%nz
     nx=cmd%nx ; ny=cmd%ny ; nz=cmd%nz
 

@@ -24,6 +24,8 @@ module command_line
      integer(ik) :: tou
      !-> time order p
      integer(ik) :: top
+     !-> pressure singular method : 0:nothing, 1:petsc nullspace
+     !   2:dirichlet at one point 
      integer(ik) :: psm
   end type cmd_line
 

@@ -1145,7 +1145,7 @@ contains
     endif
     call system_clock(t2,irate)
 
-    !-> print matrix (only for small tests case < 1024 rows)
+    !-> pressure singular method
     if (var=='p') then 
        if (present(null)) then
           if (null==2) then
@@ -1154,6 +1154,8 @@ contains
           endif
        endif
     endif
+
+    !-> print matrix (only for small tests case < 1024 rows)
     !call md_influence_matrix_view(mpid,inf)
 
     !-> get matrix infos

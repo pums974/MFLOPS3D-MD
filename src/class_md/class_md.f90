@@ -211,10 +211,10 @@ contains
   end subroutine md_check
 
 !------------------------------------------------------------------------
-! md : put dirichlet bc on interface
+! md : fix one dirichlet with full neumann bc
 !------------------------------------------------------------------------
 ! Matthieu Marquillie
-! 09/2012
+! 01/2013
 !
   subroutine md_add_pert(mpid,inf_mat)
     implicit none
@@ -261,6 +261,13 @@ contains
     call VecAssemblyEnd(inf_mat%rhs,inf_mat%err)
 
   end subroutine md_vector_zero_lastpoint
+
+!------------------------------------------------------------------------
+! md : put dirichlet bc on interface
+!------------------------------------------------------------------------
+! Matthieu Marquillie
+! 09/2012
+!
   subroutine md_bc_init(mpid,inf_mat,bctype)
     implicit none
     type(mpi_data) :: mpid
@@ -321,7 +328,7 @@ contains
     call KSPSetFromOptions(inf_mat%ksp,inf_mat%err)
 
     !-> use previous value for initial guess
-!    call KSPSetInitialGuessNonzero(inf_mat%ksp,PETSC_TRUE,inf_mat%err)
+    !call KSPSetInitialGuessNonzero(inf_mat%ksp,PETSC_TRUE,inf_mat%err)
 
     !-> setup ksp
     call KSPSetUp(inf_mat%ksp,inf_mat%err)
