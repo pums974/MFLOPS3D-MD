@@ -27,7 +27,7 @@ echo
     ./testnav -dim $points,$points,$points -dom $blocs,$blocs,1 -period 0,0,0 -reynolds 10 -ts 0.01 -ntime $iter \
               -nlt 2 -pt $pression -to $ordrev,$ordrep \
               -u_ksp_rtol 1.e-13 -u_pc_type pbjacobi -u_ksp_type gmres -u_ksp_max_it 10\
-              -p_ksp_rtol 1.e-13 -p_pc_type pbjacobi -p_ksp_type gmres -p_ksp_constant_null_space -p_ksp_max_it 60\
+              -p_ksp_rtol 1.e-13 -p_pc_type pbjacobi -p_ksp_type gmres -p_ksp_max_it 60 -psm 1\
               $*        |  tail -n 14
 #              $*    > test_$pression_$blocs.out
 #gnuplot cav2.gnu
