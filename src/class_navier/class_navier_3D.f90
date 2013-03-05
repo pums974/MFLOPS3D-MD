@@ -351,7 +351,10 @@ contains
     type(navier3d) :: nav
     integer(ik) :: i,l,m,c(3),inter(3,2)
     integer(ik) :: it(nav%nt),nt
-    
+
+    integer(ik) :: k,j
+    real(rk) ::    x,y,z
+
     !-> get interface type
     if (mpid%dims.ne.0) then
       call md_mpi_getcoord(mpid,c)
@@ -370,14 +373,17 @@ contains
         if (inter(l,m)<=0) then
           select case (l)
             case (1)
-              nav%bcphi(it(1))%bcx(:,:,m)=nav%rhs_px%f((m-1)*(nav%nx-1)+1,2:nav%ny-1,2:nav%nz-1)&
-                                         -nav%fac(1)*nav%bcu(it(1))%bcx(:,:,m)
+              nav%bcphi(it(1))%bcx(:,:,m)=0._rk
+!              nav%bcphi(it(1))%bcx(:,:,m)=nav%rhs_px%f((m-1)*(nav%nx-1)+1,2:nav%ny-1,2:nav%nz-1)&
+!                                         -nav%fac(1)*nav%bcu(it(1))%bcx(:,:,m)
             case (2)
-              nav%bcphi(it(1))%bcy(:,:,m)=nav%rhs_py%f(2:nav%nx-1,(m-1)*(nav%ny-1)+1,2:nav%nz-1)&
-                                         -nav%fac(1)*nav%bcv(it(1))%bcy(:,:,m)
+              nav%bcphi(it(1))%bcy(:,:,m)=0._rk
+!              nav%bcphi(it(1))%bcy(:,:,m)=nav%rhs_py%f(2:nav%nx-1,(m-1)*(nav%ny-1)+1,2:nav%nz-1)&
+!                                         -nav%fac(1)*nav%bcv(it(1))%bcy(:,:,m)
             case (3)
-              nav%bcphi(it(1))%bcz(:,:,m)=nav%rhs_pz%f(2:nav%nx-1,2:nav%ny-1,(m-1)*(nav%nz-1)+1)&
-                                         -nav%fac(1)*nav%bcw(it(1))%bcz(:,:,m)
+              nav%bcphi(it(1))%bcz(:,:,m)=0._rk
+!              nav%bcphi(it(1))%bcz(:,:,m)=nav%rhs_pz%f(2:nav%nx-1,2:nav%ny-1,(m-1)*(nav%nz-1)+1)&
+!                                         -nav%fac(1)*nav%bcw(it(1))%bcz(:,:,m)
           end select
         endif
       enddo
@@ -387,6 +393,18 @@ if (nav%dcm%mapt==1) &
        call mapping_bcphi(nav%dcm,nav%aux,nav%phi(it(nt)),nav%bcphi(it(1)))
 
    if(nav%pt==3)      call add_boundary_rotrot(mpid,nav)
+
+
+!    do k=2,nav%nz-1
+!       do j=2,nav%ny-1
+!          y=nav%gridy%grid1d(j)
+!          z=nav%gridz%grid1d(k)
+!          x=nav%gridx%grid1d(nav%nx)
+!          nav%bcphi(nav%it(1))%bcx(j-1,k-1,2)=0._rk !sol(x,y,z,nav%time,'p',nav%rey)
+!       enddo
+!    enddo
+
+
 
   call erase_boundary_inter(inter,nav%bcphi(nav%it(1)))
 
@@ -809,7 +827,7 @@ if (nav%dcm%mapt==1) &
           bc%bcx(j-1,k-1,1)=sol(x,y,z,t,var,rey)
 !          bc%bcx(j-1,k-1,1)=0._rk
           x=gridx%grid1d(nx)
-          bc%bcx(j-1,k-1,2)=sol(x,y,z,t,var,rey)
+          bc%bcx(j-1,k-1,2)=sol(x,y,z,t,'dx'//var,rey)
 !          bc%bcx(j-1,k-1,2)=0._rk
        enddo
     enddo
@@ -867,110 +885,64 @@ if (nav%dcm%mapt==1) &
 !
     implicit none
     real(rk) :: sol,rey
-    integer(ik) ::i,n,j,k
-    PARAMETER(n=5)     !espace vitesse
-!    PARAMETER(i=0)     !espace pression
-!    PARAMETER(j=0)     !temps vitesse
-!    PARAMETER(k=0)     !temps pression
-    real(rk) :: x,y,z,t,pi,wx(n),wt(n),wy(n),wp(n),a(n),b(n)
+    real(rk) :: x,y,z,t,a,g,pi
     character(*) :: type
 
-    sol=0._rk
-
-!    if (type=="u") then
-!       if(n>0) sol= (n*(x**n)+n*n*x*y**(n-1))*t**j
-!    endif
-!    if (type=="v") then
-!       if(n>0) sol=-(n*(y**n)+n*n*y*x**(n-1))*t**j
-!    endif
-!    if (type=="w") then
-!       sol=0._rk
-!    endif
-!    if (type=="p") then
-!       if(i>0) sol=(i*(x**i+y**i+x*y))*cos(k*t)
-!    endif
-!    if (type=="dxp") then
-!       if(i>0) sol=i*cos(k*t)*(y+i*x**(i-1))
-!    endif
-!    if (type=="dyp") then
-!       if(i>0) sol=i*cos(k*t)*(i*y**(i-1)+x)
-!    endif
-!    if (type=="dzp") then
-!       sol=0._rk
-!    endif
-
-!    if (type=="rhsu") then
-!       if(n>0) then
-!         if(j>0) sol=sol+n*j*(n*x*(y**(n-1))+x**n)*(t**(j-1))    !temps
-!         if(n>2) sol=sol-(n-1)*(n**2)*(t**j)*(n-2)*x*(y**(n-3))/rey  !lap
-!         if(n>1) sol=sol-(n-1)*(n**2)*(t**j)*(x**(n-2))/rey  !lap
-!       endif
-!       if(i>0) sol=sol+i*cos(k*t)*(y+i*(x**(i-1)))                 !grad
-!       if(n>0) sol=sol+n**3*t**(2*j)*x*y**(2*n-2)&
-!               -n**5*t**(2*j)*x**n*y**(n-1)&
-!               +2*n**4*t**(2*j)*x**n*y**(n-1)&
-!               +n**3*t**(2*j)*x**n*y**(n-1)&
-!               +n**3*t**(2*j)*x**(2*n-1) !nonlinear
-!    endif
-!    if (type=="rhsv") then
-!       if(n>0) then
-!         if(j>0) sol=sol-n*j*((y**n)+n*(x**(n-1))*y)*(t**(j-1))    !temps
-!         if(n>2) sol=sol+(n-2)*(n-1)*(n**2)*(t**j)*y*(x**(n-3))/rey  !lap
-!         if(n>1) sol=sol+(n-1)*(n**2)*(t**j)*(y**(n-2))/rey  !lap
-!       endif
-!       if(i>0) sol=sol+i*cos(k*t)*(i*(y**(i-1))+x)                 !grad
-!       if(n>0) sol=sol+n**3*t**(2*j)*y**(2*n-1)&
-!               -n**5*t**(2*j)*x**(n-1)*y**n&
-!               +2*n**4*t**(2*j)*x**(n-1)*y**n&
-!               +n**3*t**(2*j)*x**(n-1)*y**n&
-!               +n**3*t**(2*j)*x**(2*n-2)*y !nonlinear
-!    endif
-!    if (type=="rhsw") then
-!       sol=0._rk
-!    endif
-!    if (type=="rhsp") then
-!       sol=0._rk
-!    endif
-
+    
     pi=4._rk*atan(1._rk)
-    do i=1,n
-      a(i)=1._rk ; b(i)=1._rk
-      wx(i)=1._rk*pi*i ; wy(i)=1._rk*pi*i ; wp(i)=1._rk*pi*i ; wt(i)=0._rk*i*pi
+    a=4.3_rk*pi ; g=0._rk*pi
 
-    select case (type)
-    case ("u")
-       sol=sol+a(i)*sin(wx(i)*x)*cos(wy(i)*y)*cos(wt(i)*t)/wx(i)
-    case ("v")
-       sol=sol-a(i)*cos(wx(i)*x)*sin(wy(i)*y)*cos(wt(i)*t)/wy(i)
-    case ("w")
-       sol=sol+0._rk
-    case ("p")
-       sol=sol+b(i)*sin(wp(i)*(x-y))*cos(wt(i)*t)
-    case ("dxp")
-       sol=sol+b(i)*wp(i)*cos(t*wt(i))*cos(wp(i)*(x-y))
-    case ("dyp") 
-       sol=sol-b(i)*wp(i)*cos(t*wt(i))*cos(wp(i)*(x-y))
-    case ("dzp")
-       sol=sol+0._rk
-    case ("rhsu")
-sol=sol+b(i)*wp(i)*cos(wt(i)*t)*cos(wp(i)*(y-x)) & !grap p
-+a(i)**2*cos(wt(i)*t)**2*cos(wx(i)*x)*sin(wx(i)*x)*(sin(wy(i)*y)**2+cos(wy(i)*y)**2)/wx(i) & !nonlinear
-+a(i)*cos(wt(i)*t)*sin(wx(i)*x)*cos(wy(i)*y)*(wy(i)**2/wx(i)+wx(i))/rey & !lap
--a(i)*wt(i)*sin(wt(i)*t)*sin(wx(i)*x)*cos(wy(i)*y)/wx(i)  !temps
-    case ("rhsv")
-sol=sol-b(i)*wp(i)*cos(wt(i)*t)*cos(wp(i)*(y-x)) & !grap p
-+a(i)**2*cos(wt(i)*t)**2*cos(wy(i)*y)*sin(wy(i)*y)*(sin(wx(i)*x)**2+cos(wx(i)*x)**2)/wy(i)& !nonlinear
--a(i)*cos(wt(i)*t)*cos(wx(i)*x)*sin(wy(i)*y)*(wy(i)+wx(i)**2/wy(i))/rey& !lap
-+a(i)*wt(i)*sin(wt(i)*t)*cos(wx(i)*x)*sin(wy(i)*y)/wy(i)  !temps
-    case ("rhsw")
-       sol=sol+0._rk
-    case ("rhsp")
-       sol=sol+0._rk
-    case default
-       sol=sol+0._rk
-    end select
-    end do
+    if (type=="u") then
+       sol=sin(a*x)*cos(a*y)*cos(g*t)
+    endif
+    if (type=="v") then
+       sol=-cos(a*x)*sin(a*y)*cos(g*t)
+    endif
+    if (type=="w") then
+       sol=0._rk
+    endif
+    if (type=="p") then
+       sol=cos(a*x)*sin(a*y)*cos(g*t)
+    endif
+    if (type=="dxp") then
+       sol=-a*cos(g*t)*sin(a*x)*sin(a*y)
+    endif
+    if (type=="dyp") then
+       sol=a*cos(g*t)*cos(a*x)*cos(a*y)
+    endif
+    if (type=="dzp") then
+       sol=0._rk
+    endif
 
+    if (type=="dxu") then
+       sol=a*cos(g*t)*cos(a*x)*cos(a*y)
+    endif
+    if (type=="dxv") then
+       sol=a*cos(g*t)*sin(a*x)*sin(a*y)
+    endif
+    if (type=="dxw") then
+       sol=0._rk
+    endif
+
+    if (type=="rhsu") then
+       sol=a*cos(g*t)**2*cos(a*x)*sin(a*x)*sin(a*y)**2-a*cos(g*t)*sin(a*x)*&
+            sin(a*y)+a*cos(g*t)**2*cos(a*x)*sin(a*x)*cos(a*y)**2-g*sin(g*t)*&
+            sin(a*x)*cos(a*y)+2*a**2*cos(g*t)*sin(a*x)*cos(a*y)/rey
+
+    endif
+    if (type=="rhsv") then
+       sol=a*cos(g*t)**2*sin(a*x)**2*cos(a*y)*sin(a*y)+a*cos(g*t)**2*cos(a*x&
+            )**2*cos(a*y)*sin(a*y)+g*sin(g*t)*cos(a*x)*sin(a*y)-2*a**2*cos(g*&
+            t)*cos(a*x)*sin(a*y)/rey+a*cos(g*t)*cos(a*x)*cos(a*y)
+
+    endif
+    if (type=="rhsw") then
+       sol=0._rk
+    endif
+    if (type=="rhsp") then
+       sol=-2*(a**2*cos(g*t)**2*sin(a*x)**2*sin(a*y)**2-a**2*cos(g*t)**2&
+            *cos(a*x)**2*cos(a*y)**2)-a**2*cos(g*t)*cos(a*x)
+    endif
 
   end function sol
 
@@ -1917,7 +1889,8 @@ g=matmul(g2,transpose(g2))
         navier_phi_rhs=fvar(1)- fvar(2) + nav%fac(1)*var(nav%it(1))
       endif
     endif
-       call field_zero_edges(navier_phi_rhs)
+
+    call field_zero_edges(navier_phi_rhs)
 
   end function navier_phi_rhs
 
@@ -2073,10 +2046,10 @@ g=matmul(g2,transpose(g2))
     nav%sigmau=-nav%rey*nav%fac(1)
     nav%sigmap=0.0_rk
 
-    bctu=(/1,1,1,1,1,1/)
-    bctv=(/1,1,1,1,1,1/)
-    bctw=(/1,1,1,1,1,1/)
-    bctp=(/2,2,2,2,2,2/)
+    bctu=(/1,2,1,1,1,1/)
+    bctv=(/1,2,1,1,1,1/)
+    bctw=(/1,2,1,1,1,1/)
+    bctp=(/2,1,2,2,2,2/)
 
     !--------------------------------------------------------------------
     !-> initialize mesh
