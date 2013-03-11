@@ -12,7 +12,7 @@ program testnavier3d
   integer(ik) :: ite
   integer(ik) :: i,j,k,iaux
   real(rk),allocatable :: uex(:,:,:,:), pex(:,:,:),vectorerror(:,:,:,:)
-  real(rk) ::x,y,z,t,error,aux,time,errort,ref,reft,err_vts_t,err_pre_t
+  real(rk) ::x,y,z,t,error,aux,time,errort,ref,reft,err_vts_t,err_pre_t,cor,cor1
   integer(8) :: t1,t2,irate,subite
   logical :: test
 
@@ -45,6 +45,15 @@ endif
   err_vts_t=0._rk
   err_pre_t=0._rk
   call system_clock(t1,irate)
+
+  nav%u(1)%f(:,:,:)=1._rk -0.1_rk
+  do k=1,nav%nz
+    if(nav%gridz%grid1d(k)>0) nav%u(1)%f(:,:,k)=1._rk +0.1_rk
+  enddo
+  nav%u(2)%f=nav%u(1)%f
+  nav%u(3)%f=nav%u(1)%f
+  nav%u(4)%f=nav%u(1)%f
+
 temps:  do ite=1,nav%ntime
 
      if (ite==20) then
@@ -83,8 +92,68 @@ subit:  do subite=1,nav%nsubite
        call navier_solve_w(mpid,nav)
      endif
 
+
+!     cor=0._rk
+!    !-> x-direction
+!    do k=2,nav%nz-1
+!       do j=2,nav%ny-1
+!          cor=cor+nav%bcu(nav%it(1))%bcx(j-1,k-1,1)
+!          cor=cor-nav%bcu(nav%it(1))%bcx(j-1,k-1,2)
+!       enddo
+!    enddo
+!    !-> y-direction
+!    do k=2,nav%nz-1
+!       do i=2,nav%nx-1
+!          cor=cor+nav%bcv(nav%it(1))%bcy(i-1,k-1,1)
+!          cor=cor-nav%bcv(nav%it(1))%bcy(i-1,k-1,2)
+!       enddo
+!    enddo
+!    !-> z-direction
+!    do j=2,nav%ny-1
+!       do i=2,nav%nx-1
+!          cor=cor+nav%bcw(nav%it(1))%bcz(i-1,j-1,1)
+!          cor=cor-nav%bcw(nav%it(1))%bcz(i-1,j-1,2)
+!       enddo
+!    enddo
+
+!  call md_mpi_reduce_double(mpid,cor,cor1)
+!  call md_mpi_bcast_double(mpid,cor1,0)
+!    if (mpid%rank==0)      print*,'debit avant : ',cor1
+
+
+!!     nav%u(nav%it(1))%f(nav%nx,:,:)=nav%u(nav%it(1))%f(nav%nx,:,:)-cor1/(ref*nav%ny*nav%nz)
+!!    call field_zero_edges(nav%u(nav%it(1)))
+
+!     cor=0._rk
+!    !-> x-direction
+!    do k=2,nav%nz-1
+!       do j=2,nav%ny-1
+!          cor=cor+nav%bcu(nav%it(1))%bcx(j-1,k-1,1)
+!          cor=cor-nav%bcu(nav%it(1))%bcx(j-1,k-1,2)
+!       enddo
+!    enddo
+!    !-> y-direction
+!    do k=2,nav%nz-1
+!       do i=2,nav%nx-1
+!          cor=cor+nav%bcv(nav%it(1))%bcy(i-1,k-1,1)
+!          cor=cor-nav%bcv(nav%it(1))%bcy(i-1,k-1,2)
+!       enddo
+!    enddo
+!    !-> z-direction
+!    do j=2,nav%ny-1
+!       do i=2,nav%nx-1
+!          cor=cor+nav%bcw(nav%it(1))%bcz(i-1,j-1,1)
+!          cor=cor-nav%bcw(nav%it(1))%bcz(i-1,j-1,2)
+!       enddo
+!    enddo
+
+!  call md_mpi_reduce_double(mpid,cor,cor1)
+!  call md_mpi_bcast_double(mpid,cor1,0)
+!    if (mpid%rank==0)      print*,'debit apres : ' , cor1
+
+
      call navier_presolve_phi(mpid,nav)
-     call navier_bc_pressure(mpid,nav)
+     call navier_bc_pressure(mpid,nav,0._rk)
      !---------------------------------------------------------------------
      !-> solve pressure increment phi
 
@@ -121,6 +190,10 @@ subit:  do subite=1,nav%nsubite
      nav%sub_p=nav%p(nav%it(1))
 
      enddo subit
+
+    nav%u(nav%it(1))%f=nav%u(nav%it(1))%f - 1._rk
+    call field_zero_edges(nav%u(nav%it(1)))
+    nav%u(nav%it(1))%f=nav%u(nav%it(1))%f + 1._rk
 
      !-> switch it
      iaux=nav%it(1)
@@ -350,14 +423,6 @@ if (.true.) then
   enddo
   close(20+mpid%rank)
 endif
-
-
-!  call write_field('vel_u',nav%u(nav%it(nav%nt)),mpid)
-!  call write_field('vel_v',nav%v(nav%it(nav%nt)),mpid)
-!  call write_field('vel_w',nav%w(nav%it(nav%nt)),mpid)
-!  call write_field('vel_p',nav%p(nav%it(nav%nt)),mpid)
-!  call write_field('vel_phi',nav%phi(nav%it(nav%nt)),mpid)
-
 
   !------------------------------------------------------------------------ 
   !-> post-computation

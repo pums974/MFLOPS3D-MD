@@ -339,7 +339,7 @@ contains
     endif
   end subroutine restart_read
 
-  subroutine navier_bc_pressure(mpid,nav)
+  subroutine navier_bc_pressure(mpid,nav,cor)
 ! -----------------------------------------------------------------------
 ! navier : 
 ! -----------------------------------------------------------------------
@@ -351,7 +351,7 @@ contains
     type(navier3d) :: nav
     integer(ik) :: i,l,m,c(3),inter(3,2)
     integer(ik) :: it(nav%nt),nt
-    
+    real(rk) :: cor,ref
     !-> get interface type
     if (mpid%dims.ne.0) then
       call md_mpi_getcoord(mpid,c)
@@ -385,6 +385,9 @@ contains
 
 if (nav%dcm%mapt==1) &
        call mapping_bcphi(nav%dcm,nav%aux,nav%phi(it(nt)),nav%bcphi(it(1)))
+
+!   nav%bcphi(it(1))%bcx(:,:,2)=nav%fac(1)*(nav%u(it(1))%f(nav%nx,2:nav%ny-1,2:nav%nz-1)&
+!                              -nav%bcu(it(1))%bcx(:,:,1)-cor)
 
    if(nav%pt==3)      call add_boundary_rotrot(mpid,nav)
 
@@ -516,8 +519,10 @@ if (nav%dcm%mapt==1) &
     implicit none
     type(mpi_data) :: mpid
     type(navier3d) :: nav
-    integer(ik) :: it(nav%nt),nt,ie
+    integer(ik) :: it(nav%nt),nt,ie,i,j,k
     real(rk) :: uc(3),mean(3)
+    real(rk) :: x,x1,x2,y,z
+    logical :: test
 
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
@@ -531,6 +536,7 @@ if (nav%dcm%mapt==1) &
     uc(:)=0.8_rk
 !    uc(:)=mean(1)
 
+if(.true.) then
     if (mpid%coord(1)==mpid%nd(1)-1) then
        !-> x-direction
        nav%aux=2._rk*derxm(nav%dcm,nav%u(it(nt)))-derxm(nav%dcm,nav%u(it(nt-1)))
@@ -553,6 +559,70 @@ if (nav%dcm%mapt==1) &
             -nav%w(it(nt-1))%f(ie,2:nav%ny-1,2:nav%nz-1)&
             -2._rk*uc(3)*nav%ts*nav%aux%f(ie,2:nav%ny-1,2:nav%nz-1))/3._rk
     endif
+else
+
+    do k=2,nav%nz-1
+       do j=2,nav%ny-1
+          y=nav%gridy%grid1d(j)
+          z=nav%gridz%grid1d(k)
+          x1=nav%gridx%grid1d(nav%nx)
+
+          x=x1-uc(1)*nav%ts
+
+          test=.false.
+          do i = nav%nx,1,-1
+            x2=nav%gridx%grid1d(i)
+            if (abs(abs(x1-x)+abs(x2-x)-abs(x1-x2))<1e-8) then
+             test=.true.
+             nav%bcu(it(1))%bcx(j-1,k-1,2)=(nav%u(nav%it(nav%nt))%f(i+1,j,k)*(x-x2)&
+                                           +nav%u(nav%it(nav%nt))%f(i,j,k)*(x1-x))/(x1-x2)
+             exit
+            endif
+            x1=x2
+           enddo
+           if(.not.test) then 
+             print*, 'error'
+             stop
+           endif
+
+          x=x1-uc(2)*nav%ts
+
+          test=.false.
+          do i = nav%nx,1,-1
+            x2=nav%gridx%grid1d(i)
+            if (abs(abs(x1-x)+abs(x2-x)-abs(x1-x2))<1e-8) then
+             test=.true.
+             nav%bcv(it(1))%bcx(j-1,k-1,2)=(nav%v(nav%it(nav%nt))%f(i+1,j,k)*(x-x2)&
+                                           +nav%v(nav%it(nav%nt))%f(i,j,k)*(x1-x))/(x1-x2)
+             exit
+            endif
+            x1=x2
+           enddo
+           if(.not.test) then 
+             print*, 'error'
+             stop
+           endif
+
+          x=x1-uc(3)*nav%ts
+
+          test=.false.
+          do i = nav%nx,1,-1
+            x2=nav%gridx%grid1d(i)
+            if (abs(abs(x1-x)+abs(x2-x)-abs(x1-x2))<1e-8) then
+             test=.true.
+             nav%bcw(it(1))%bcx(j-1,k-1,2)=(nav%w(nav%it(nav%nt))%f(i+1,j,k)*(x-x2)&
+                                           +nav%w(nav%it(nav%nt))%f(i,j,k)*(x1-x))/(x1-x2)
+             exit
+            endif
+            x1=x2
+           enddo
+           if(.not.test) then 
+             print*, 'error'
+             stop
+           endif
+       enddo
+    enddo
+endif
 
   end subroutine navier_advection
 
@@ -791,10 +861,20 @@ if (nav%dcm%mapt==1) &
     integer(ik) :: l,m,inter(3,2)
     type(boundary_condition) :: bc
     type(mesh_grid) :: gridx,gridy,gridz
-    real(rk) :: x,y,z,t,rey
+    real(rk) :: x,y,z,t,rey,dv,w,h
     integer(ik) :: i,j,k,nx,ny,nz
     character(*) :: var
 
+real(rk) :: uref,x1,x2
+logical ::test
+    bc%bcx(1:ny-2,1:nz-2,1:2)=0._rk
+    bc%bcy(1:nx-2,1:nz-2,1:2)=0._rk
+    bc%bcz(1:nx-2,1:ny-2,1:2)=0._rk
+dv=0.1_rk
+w=2._rk*atan(1._rk)/5._rk ! 2pi/20 => 20 it / peridodes
+h=0.1_rk*sin(w*t/0.01) ! 0.01=pas de temps
+
+if(var=='u') then
     !-> boundary condition
     !-> x-direction
 !$OMP PARALLEL DO &
@@ -806,11 +886,11 @@ if (nav%dcm%mapt==1) &
           z=gridz%grid1d(k)
           
           x=gridx%grid1d(1)
-          bc%bcx(j-1,k-1,1)=sol(x,y,z,t,var,rey)
-!          bc%bcx(j-1,k-1,1)=0._rk
-          x=gridx%grid1d(nx)
-          bc%bcx(j-1,k-1,2)=sol(x,y,z,t,var,rey)
-!          bc%bcx(j-1,k-1,2)=0._rk
+          bc%bcx(j-1,k-1,1)=1._rk -dv
+          if(z>h) bc%bcx(j-1,k-1,1)=1._rk +dv
+
+          bc%bcx(j-1,k-1,2)=1._rk -dv
+          if(z>h) bc%bcx(j-1,k-1,2)=1._rk +dv
        enddo
     enddo
 !$OMP END PARALLEL DO
@@ -825,15 +905,12 @@ if (nav%dcm%mapt==1) &
           z=gridz%grid1d(k)
 
           y=gridy%grid1d(1)
-          bc%bcy(i-1,k-1,1)=sol(x,y,z,t,var,rey)
-!          bc%bcy(i-1,k-1,1)=0._rk
+          bc%bcy(i-1,k-1,1)=1._rk -dv
+          if(z>h) bc%bcy(i-1,k-1,1)=1._rk +dv
+
           y=gridy%grid1d(ny)
-          bc%bcy(i-1,k-1,2)=sol(x,y,z,t,var,rey)
-!          if (var=='u') then
-!             bc%bcy(i-1,k-1,2)=(1._rk-x**2)
-!          else
-!             bc%bcy(i-1,k-1,2)=0._rk
-!          endif
+          bc%bcy(i-1,k-1,2)=1._rk -dv
+          if(z>h) bc%bcy(i-1,k-1,2)=1._rk +dv
        enddo
     enddo
 !$OMP END PARALLEL DO
@@ -847,14 +924,13 @@ if (nav%dcm%mapt==1) &
           y=gridy%grid1d(j)
           
           z=gridz%grid1d(1)
-          bc%bcz(i-1,j-1,1)=sol(x,y,z,t,var,rey)
-!          bc%bcz(i-1,j-1,1)=0._rk
+          bc%bcz(i-1,j-1,1)=1._rk -dv
           z=gridz%grid1d(nz)
-          bc%bcz(i-1,j-1,2)=sol(x,y,z,t,var,rey)
-!          bc%bcz(i-1,j-1,2)=0._rk
+          bc%bcz(i-1,j-1,2)=1._rk +dv
        enddo
     enddo
 !$OMP END PARALLEL DO
+endif
 
   end subroutine navier_bc_velocity_utils
 
@@ -1006,7 +1082,8 @@ sol=sol-b(i)*wp(i)*cos(wt(i)*t)*cos(wp(i)*(y-x)) & !grap p
              x=nav%gridx%grid1d(i)
              y=nav%gridy%grid1d(j)
              z=nav%gridz%grid1d(k)
-             f%f(i,j,k)=sol(x,y,z,t,var,nav%rey)
+             f%f(i,j,k)=0._rk 
+!             f%f(i,j,k)=sol(x,y,z,t,var,nav%rey)
           enddo
        enddo
     enddo
@@ -1744,7 +1821,7 @@ g=matmul(g2,transpose(g2))
       call solver_3d(nav%scp,nav%fphi,nav%phi(it(1)),nav%bcphi(it(1)),nav%sigmap)
     endif
 
-    call navier_bc_pressure(mpid,nav)
+    call navier_bc_pressure(mpid,nav,0._rk)
 
 !    call navier_mean(mpid,nav,nav%phi(it(1)),meant)
 !    nav%phi(it(1))=nav%phi(it(1))-meant

@@ -90,6 +90,7 @@ oldp=$p
 oldd=$d
 #              $*    > test_$pression_$blocs.out
 #gnuplot cav2.gnu
+./visu.sh
 done
 done
 #fi

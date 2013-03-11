@@ -134,14 +134,13 @@ contains
     pi=4._rk*atan(1._rk)
     aux=0.5_rk
     if (choice=="x") then
-       xa=-aux ; xb=aux
+       xa=0._rk ; xb=10._rk
     endif
     if (choice=="y") then
-       xa=-aux ; xb=aux
+       xa=-0.25_rk ; xb=0.25_rk
     endif
     if (choice=="z") then
-       xa=-aux*0.5_rk ; xb=aux*0.5_rk
-!       xa=-aux ; xb=aux
+       xa=-0.5_rk ; xb=0.5_rk
     endif
 !    xa=-aux ; xb=aux
 !    ya=-aux ; yb=aux
