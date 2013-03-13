@@ -10,7 +10,7 @@ program testnavier3d
   integer(ik) :: i,j,k,iaux
   real(rk),allocatable :: uex(:,:,:,:), pex(:,:,:),vectorerror(:,:,:,:)
   real(rk) ::x,y,z,t,error,aux,time,errort,ref,reft
-  integer(8) :: t1,t2,irate
+  integer(8) :: t1,t2,irate,subite
 
 
   !-> get command line informations
@@ -47,6 +47,8 @@ program testnavier3d
      call navier_time(nav)
      if (mpid%rank==0) print*,'Time : ',ite
 
+  do subite=0,nav%nsubite
+     nav%subite=subite
      !---------------------------------------------------------------------
 !     if (mpid%rank==0) then
 !        call color(ired);print'(a)','Time : ';call color(color_off)
@@ -90,6 +92,8 @@ program testnavier3d
        call navier_solve_w(mpid,nav)
      endif
 
+     enddo
+
      !-> switch it
      iaux=nav%it(1)
      do i=1,nav%nt-1
@@ -132,7 +136,7 @@ program testnavier3d
     call navier_nullify_boundary(mpid,nav,nav%aux,1)
 
     error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error Div V   HI  : ',error/ref
+!    if (mpid%rank==0) print*,'error Div V   HI  : ',error/ref
 
      nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
           dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
@@ -140,7 +144,7 @@ program testnavier3d
     call navier_nullify_boundary(mpid,nav,nav%aux,-1)
 
     error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error Div V   HB  : ',error/ref
+!    if (mpid%rank==0) print*,'error Div V   HB  : ',error/ref
 
      nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
           dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
@@ -148,7 +152,7 @@ program testnavier3d
     call navier_nullify_boundary(mpid,nav,nav%aux,0)
 
     error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error Div V   HBI : ',error/ref
+!    if (mpid%rank==0) print*,'error Div V   HBI : ',error/ref
 
     vectorerror(:,:,:,5)=nav%aux%f
 
@@ -170,21 +174,21 @@ program testnavier3d
                  + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
     call navier_nullify_boundary(mpid,nav,nav%aux,1)
     error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot V   HI  : ',(error)/(ref)
+!    if (mpid%rank==0) print*,'error tot V   HI  : ',(error)/(ref)
 
     nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
                  + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
                  + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
     call navier_nullify_boundary(mpid,nav,nav%aux,-1)
     error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot V   HB  : ',(error)/(ref)
+!    if (mpid%rank==0) print*,'error tot V   HB  : ',(error)/(ref)
 
     nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
                  + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
                  + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
     call navier_nullify_boundary(mpid,nav,nav%aux,0)
     error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot V   HBI : ',(error)/(ref)
+!    if (mpid%rank==0) print*,'error tot V   HBI : ',(error)/(ref)
 
 
     nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
@@ -202,17 +206,17 @@ program testnavier3d
     nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
     call navier_nullify_boundary(mpid,nav,nav%aux,1)
     error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot P   HI  : ',error/ref
+!    if (mpid%rank==0) print*,'error tot P   HI  : ',error/ref
 
     nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
     call navier_nullify_boundary(mpid,nav,nav%aux,-1)
     error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot P   HB  : ',error/ref
+!    if (mpid%rank==0) print*,'error tot P   HB  : ',error/ref
 
     nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
     call navier_nullify_boundary(mpid,nav,nav%aux,0)
     error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot P   HBI : ',error/ref
+!    if (mpid%rank==0) print*,'error tot P   HBI : ',error/ref
 
 
     nav%aux%f=1._rk ;     reft=(norme2(mpid,nav%aux))

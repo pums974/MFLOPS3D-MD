@@ -328,7 +328,7 @@ contains
     call KSPSetFromOptions(inf_mat%ksp,inf_mat%err)
 
     !-> use previous value for initial guess
-    !call KSPSetInitialGuessNonzero(inf_mat%ksp,PETSC_TRUE,inf_mat%err)
+    call KSPSetInitialGuessNonzero(inf_mat%ksp,PETSC_TRUE,inf_mat%err)
 
     !-> setup ksp
     call KSPSetUp(inf_mat%ksp,inf_mat%err)
@@ -392,9 +392,9 @@ contains
        !call VecAXPBY(inf_mat%sol,fac(1),fac(2),inf_sol%sol_old(2),inf_mat%err)
 
        !-> third order
-       fac(1)=1._rk ; fac(2)=-3._rk ; fac(3)=3._rk
-       call VecAXPBYPCZ(inf_mat%sol,fac(1),fac(2),fac(3),&
-            inf_sol%sol_old(1),inf_sol%sol_old(2),inf_mat%err)
+!       fac(1)=1._rk ; fac(2)=-3._rk ; fac(3)=3._rk
+!       call VecAXPBYPCZ(inf_mat%sol,fac(1),fac(2),fac(3),&
+!            inf_sol%sol_old(1),inf_sol%sol_old(2),inf_mat%err)
     endif
 
     !--------------------------------------------------------------------
