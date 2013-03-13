@@ -20,18 +20,19 @@ cd bin
 #for points in `echo "20 30 40 50"`; do
 #for blocs in `echo "2 3 4 5"`; do
   rm -f matrix_* *.nc
-for pression in `echo "1 2 3 4"`; do
+for pression in `echo "3"`; do
+for nsub in `echo "0 1 2 4 8 16 32 64 128"`; do
 echo
 echo
   /usr/bin/time mpiexec -n $nproc numactl -l \
     ./testnav -dim $points,$points,$points -dom $blocs,$blocs,1 -period 0,0,0 -reynolds 10 -ts 0.01 -ntime $iter \
-              -nlt 2 -pt $pression -to $ordrev,$ordrep \
-              -u_ksp_rtol 1.e-8 -u_pc_type pbjacobi -u_ksp_type gmres -u_ksp_max_it 100\
-              -p_ksp_rtol 1.e-8 -p_pc_type pbjacobi -p_ksp_type gmres -p_ksp_max_it 600 -psm 1\
+              -nlt 2 -pt $pression -to $ordrev,$ordrep -nsub $nsub\
+              -u_ksp_rtol 1.e-8 -u_pc_type jacobi -u_ksp_type gmres -u_ksp_max_it 100\
+              -p_ksp_rtol 1.e-8 -p_pc_type jacobi -p_ksp_type gmres -p_ksp_max_it 600 -psm 1\
               $*     2>/dev/null   |  tail -n 11 #11
 #              $*    > test_$pression_$blocs.out
 #gnuplot cav2.gnu
-#done
+done
 done
 
 

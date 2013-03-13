@@ -27,6 +27,7 @@ module command_line
      !-> pressure singular method : 0:nothing, 1:petsc nullspace
      !   2:dirichlet at one point 
      integer(ik) :: psm
+     integer(ik) :: nsubite
   end type cmd_line
 
 
@@ -95,6 +96,9 @@ contains
        endif
        if (cmdl(num)=='-psm') then
           read(cmdl(num+1),*,err=10)cmd%psm ; check(10)=0
+       endif
+       if (cmdl(num)=='-nsub') then
+          read(cmdl(num+1),*,err=10)cmd%nsubite ; check(11)=0
        endif
 !       if (cmdl(num)=='-file') then
 !          namel=cmdl(num+1) ; check(4)=0

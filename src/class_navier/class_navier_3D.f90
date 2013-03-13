@@ -19,7 +19,7 @@ module class_navier_3D
   implicit none
 
   !-> time scheme order
-  integer(ik),parameter :: nt=5
+  integer(ik),parameter :: nt=4
   integer(ik) :: nullv=0
 
   type navier3d
@@ -1200,6 +1200,7 @@ function sol(x,y,z,t,type,rey)
     nav%pt=cmd%pt
     nav%tou=cmd%tou
     nav%top=cmd%top
+    nav%nsubite=cmd%nsubite
 
     !-> reynolds number 
     nav%rey=cmd%reynolds
