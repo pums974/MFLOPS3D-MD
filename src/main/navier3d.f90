@@ -9,9 +9,9 @@ program testnavier3d
   integer(ik) :: ite
   integer(ik) :: i,j,k,iaux
   real(rk),allocatable :: uex(:,:,:,:), pex(:,:,:),vectorerror(:,:,:,:)
-  real(rk) ::x,y,z,t,error,aux,time,errort,ref,reft
+  real(rk) ::x,y,z,t,error,aux,time,errort,ref,reft,lambda
   integer(8) :: t1,t2,irate,subite
-
+  type(field) :: acc_u(2),acc_v(2),acc_w(2),q_u(2),q_v(2),q_w(2)
 
   !-> get command line informations
   call commandline(cmd)
@@ -23,7 +23,15 @@ program testnavier3d
   !-> pre-computation
   !------------------------------------------------------------------------ 
   call navier_initialization(cmd,mpid,nav)
-
+ 
+  do i=1,2
+    call field_init(acc_u(i),"ACC_U",nav%nx,nav%ny,nav%nz)
+    call field_init(acc_v(i),"ACC_V",nav%nx,nav%ny,nav%nz)
+    call field_init(acc_w(i),"ACC_W",nav%nx,nav%ny,nav%nz)
+    call field_init(q_u(i),"Q_U",nav%nx,nav%ny,nav%nz)
+    call field_init(q_v(i),"Q_V",nav%nx,nav%ny,nav%nz)
+    call field_init(q_w(i),"Q_W",nav%nx,nav%ny,nav%nz)
+  enddo
 
 
   !-> write mesh
@@ -37,7 +45,7 @@ program testnavier3d
   !------------------------------------------------------------------------ 
 
   call system_clock(t1,irate)
-  do ite=1,nav%ntime
+temps:  do ite=1,nav%ntime
      !print*,mpid%coord
 
      
@@ -45,10 +53,12 @@ program testnavier3d
 
      !-> time update
      call navier_time(nav)
-     if (mpid%rank==0) print*,'Time : ',ite
 
-  do subite=0,nav%nsubite
+subit:  do subite=1,nav%nsubite
      nav%subite=subite
+     if (mpid%rank==0) print*,'Time : ',ite,subite
+
+!     lambda=0.9_rk
      !---------------------------------------------------------------------
 !     if (mpid%rank==0) then
 !        call color(ired);print'(a)','Time : ';call color(color_off)
@@ -92,7 +102,101 @@ program testnavier3d
        call navier_solve_w(mpid,nav)
      endif
 
-     enddo
+
+
+
+!    q_u(1)=acc_u(2)-nav%u(nav%it(1))
+!    q_v(1)=acc_v(2)-nav%v(nav%it(1))
+!    q_w(1)=acc_w(2)-nav%w(nav%it(1))
+
+!acceleration: if(subite>2)then
+
+!nav%aux=(q_u(2)-q_u(1))*q_u(1) &
+!       +(q_v(2)-q_v(1))*q_v(1) &
+!       +(q_w(2)-q_w(1))*q_w(1)
+
+!    ref=integrale(mpid,nav%aux)
+
+!    nav%aux%f=sqrt((q_u(2)%f-q_u(1)%f)**2&
+!                 + (q_v(2)%f-q_v(1)%f)**2&
+!                 + (q_w(2)%f-q_w(1)%f)**2)
+
+!    error=norme2(mpid,nav%aux)
+
+!    lambda=lambda+(lambda-1._rk)*ref/(error**2)
+!    lambda=min(max(0._rk,lambda),0.9_rk)
+
+
+!!    if (mpid%rank==0)     print*,lambda
+!    acc_u(1)=(1._rk-lambda)*acc_u(2)+lambda*nav%u(nav%it(1))
+!    acc_v(1)=(1._rk-lambda)*acc_v(2)+lambda*nav%v(nav%it(1))
+!    acc_w(1)=(1._rk-lambda)*acc_w(2)+lambda*nav%w(nav%it(1))
+!else
+!              acc_u(1)=nav%u(nav%it(1))
+!              acc_v(1)=nav%v(nav%it(1))
+!              acc_w(1)=nav%w(nav%it(1))
+!endif acceleration
+
+
+
+
+testconv: if(subite>1)then
+
+    nav%aux%f=sqrt(nav%u(nav%it(1))%f**2&
+                 + nav%v(nav%it(1))%f**2&
+                 + nav%w(nav%it(1))%f**2)
+    ref=norme2(mpid,nav%aux)
+
+    nav%aux%f=sqrt((nav%sub_u%f-nav%u(nav%it(1))%f)**2&
+                 + (nav%sub_v%f-nav%v(nav%it(1))%f)**2&
+                 + (nav%sub_w%f-nav%w(nav%it(1))%f)**2)
+    error=norme2(mpid,nav%aux)/ref
+
+    if (mpid%rank==0) print*,'conv tot V       : ',error
+
+
+!    nav%aux%f=sqrt(acc_u(1)%f**2&
+!                 + acc_v(1)%f**2&
+!                 + acc_w(1)%f**2)
+!    ref=norme2(mpid,nav%aux)
+
+!    nav%aux%f=sqrt((acc_u(2)%f-acc_u(1)%f)**2&
+!                 + (acc_v(2)%f-acc_v(1)%f)**2&
+!                 + (acc_w(2)%f-acc_w(1)%f)**2)
+!    error=norme2(mpid,nav%aux)/ref
+
+!    if (mpid%rank==0) print*,'conv acc V       : ',error
+
+
+    nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
+    nav%aux%f=nav%p(nav%it(1))%f - nav%sub_p%f
+    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+    errort=integrale(mpid,nav%aux)
+    nav%sub_p%f=nav%sub_p%f+errort/ref
+    nav%aux%f=nav%sub_p%f
+    ref=norme2(mpid,nav%aux)
+
+    nav%aux%f=nav%p(nav%it(1))%f - nav%sub_p%f
+    errort=norme2(mpid,nav%aux)/ref
+    if (mpid%rank==0) print*,'conv tot P       : ',errort
+!    if (mpid%rank==0) print*, 'fin test conv'
+    if (error<1d-10.and.errort<1d-10)  exit subit
+endif testconv
+
+
+!acc_u(2)=acc_u(1)
+!acc_v(2)=acc_v(1)
+!acc_w(2)=acc_w(1)
+!q_u(2)=q_u(1)
+!q_v(2)=q_v(1)
+!q_w(2)=q_w(1)
+
+nav%sub_u=nav%u(nav%it(1))
+nav%sub_v=nav%v(nav%it(1))
+nav%sub_w=nav%w(nav%it(1))
+nav%sub_p=nav%p(nav%it(1))
+
+     enddo subit
 
      !-> switch it
      iaux=nav%it(1)
@@ -230,9 +334,9 @@ program testnavier3d
           +norme2(mpid,nav%w(nav%it(nav%nt))-nav%w(nav%it(nav%nt-1)))
     if (mpid%rank==0) print*,'Station   V       : ',sqrt(errort)/(reft)
 
-  if(ite>=5.and.sqrt(errort)/(reft)<1d-6) exit
+  if(ite>=5.and.sqrt(errort)/(reft)<1d-6) exit temps
 
-  enddo
+  enddo temps
   call system_clock(t2,irate)
   time=real(t2-t1)/real(irate)
   if (mpid%rank==0) print*,'time : ',time
@@ -304,7 +408,14 @@ endif
   !------------------------------------------------------------------------ 
   !-> post-computation
   !------------------------------------------------------------------------ 
-
+  do i=1,2
+    call field_destroy(acc_u(i))
+    call field_destroy(acc_v(i))
+    call field_destroy(acc_w(i))
+    call field_destroy(q_u(i))
+    call field_destroy(q_v(i))
+    call field_destroy(q_w(i))
+  enddo
 
   call navier_finalization(cmd,mpid,nav)
 

@@ -28,7 +28,7 @@ module class_navier_3D
      !-> dimensions
      integer(ik) :: nx,ny,nz
      !-> velocity fields
-     type(field) :: u(nt),v(nt),w(nt)
+     type(field) :: u(nt),v(nt),w(nt),sub_u,sub_v,sub_w,sub_p
      !-> pressure
      type(field) :: p(nt),phi(nt)
      !-> velocity rhs
@@ -61,7 +61,7 @@ module class_navier_3D
      real(rk) :: rey
      !-> nonlinear type, projection type, time order
      integer(ik) :: nlt,pt,tou,top
-     integer(ik) :: subite,nsubite=0
+     integer(ik) :: subite,nsubite
   end type navier3d
 
 contains
@@ -1084,7 +1084,7 @@ function sol(x,y,z,t,type,rey)
             -nav%fac(3)*var(nav%it(nav%nt-1)) &
             -nav%fac(4)*var(nav%it(nav%nt-2)) 
     elseif(nav%pt==4) then
-      if(nav%subite==0) then
+      if(nav%subite==1) then
        navier_phi_rhs=fvar(1) &
             -nav%fac(2)*var(nav%it(nav%nt  )) &
             -nav%fac(3)*var(nav%it(nav%nt-1)) &
@@ -1115,7 +1115,7 @@ function sol(x,y,z,t,type,rey)
     call field_init(navier_extrapol,"extrapol",nav%nx,nav%ny,nav%nz)
 
     navier_extrapol%f=0._rk
-    if(nav%subite==0) then
+    if(nav%subite==1) then
       if(type=='p')then
 				if (nav%top==2) then
 				   navier_extrapol=1._rk*var(nav%it(nav%nt))
@@ -1298,6 +1298,10 @@ function sol(x,y,z,t,type,rey)
     call field_init(nav%rhs_px,"RHS_PX",nx,ny,nz)
     call field_init(nav%rhs_py,"RHS_PY",nx,ny,nz)
     call field_init(nav%rhs_pz,"RHS_PZ",nx,ny,nz)
+    call field_init(nav%sub_u,"SUB_U",nx,ny,nz)
+    call field_init(nav%sub_v,"SUB_V",nx,ny,nz)
+    call field_init(nav%sub_w,"SUB_W",nx,ny,nz)
+    call field_init(nav%sub_p,"SUB_P",nx,ny,nz)
 
     !--------------------------------------------------------------------
     !-> initialize type boundary_condition for velocity
@@ -1429,6 +1433,10 @@ function sol(x,y,z,t,type,rey)
     call field_destroy(nav%rhs_px)
     call field_destroy(nav%rhs_py)
     call field_destroy(nav%rhs_pz)
+    call field_destroy(nav%sub_u)
+    call field_destroy(nav%sub_v)
+    call field_destroy(nav%sub_w)
+    call field_destroy(nav%sub_p)
 
     !--------------------------------------------------------------------
     !-> finalize petsc

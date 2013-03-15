@@ -328,7 +328,7 @@ contains
     call KSPSetFromOptions(inf_mat%ksp,inf_mat%err)
 
     !-> use previous value for initial guess
-    call KSPSetInitialGuessNonzero(inf_mat%ksp,PETSC_TRUE,inf_mat%err)
+!    call KSPSetInitialGuessNonzero(inf_mat%ksp,PETSC_TRUE,inf_mat%err)
 
     !-> setup ksp
     call KSPSetUp(inf_mat%ksp,inf_mat%err)
