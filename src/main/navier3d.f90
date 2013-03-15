@@ -141,6 +141,39 @@ subit:  do subite=1,nav%nsubite
 
 
 testconv: if(subite>1)then
+     nav%aux%f=1._rk
+     ref=norme2(mpid,nav%aux)
+
+     nav%aux%f=0._rk
+     nav%aux=derx(nav%dcx,nav%u(nav%it(1)))+&
+          dery(nav%dcy,nav%v(nav%it(1)))+&
+          derz(nav%dcz,nav%w(nav%it(1)))
+    error=norme2(mpid,nav%aux)
+    if (mpid%rank==0) print*,'error Div V       : ',error/ref
+
+    nav%aux%f=sqrt(uex(:,:,:,1)**2 &
+                 + uex(:,:,:,2)**2 &
+                 + uex(:,:,:,3)**2)
+    ref=norme2(mpid,nav%aux)
+
+    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(1))%f)**2&
+                 + (uex(:,:,:,2)-nav%v(nav%it(1))%f)**2&
+                 + (uex(:,:,:,3)-nav%w(nav%it(1))%f)**2)
+
+    error=norme2(mpid,nav%aux)
+    if (mpid%rank==0) print*,'error tot V       : ',(error)/(ref)
+
+    nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
+    nav%aux%f=nav%p(nav%it(1))%f - pex
+    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+    error=integrale(mpid,nav%aux)
+    pex=pex+error/ref
+    nav%aux%f=pex
+    ref=norme2(mpid,nav%aux)
+
+    nav%aux%f=nav%p(nav%it(1))%f - pex
+    error=norme2(mpid,nav%aux)
+    if (mpid%rank==0) print*,'error tot P       : ',(error)/ref
 
     nav%aux%f=sqrt(nav%u(nav%it(1))%f**2&
                  + nav%v(nav%it(1))%f**2&

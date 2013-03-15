@@ -23,15 +23,15 @@ for points in `echo "16"`; do
 echo
 echo
 echo $points
-for pression in `echo "3"`; do
-for nsub in `echo "1"`; do
+for pression in `echo "1"`; do
+for nsub in `echo "5"`; do
 echo
 echo
   /usr/bin/time mpiexec -n $nproc numactl -l \
     ./testnav -dim $points,$points,$points -dom $blocs,$blocs,1 -period 0,0,0 -reynolds 10 -ts 0.01 -ntime $iter \
               -nlt 2 -pt $pression -to $ordrev,$ordrep -nsub $nsub \
-              -u_pc_type lu -u_pc_factor_mat_solver_package mumps        -u_ksp_type preonly \
-              -p_pc_type lu -p_pc_factor_mat_solver_package mumps        -p_ksp_type preonly -psm 2\
+              -u_ksp_rtol 1.e-8 -u_pc_type bjacobi -u_ksp_type gmres -u_ksp_max_it 10\
+              -p_ksp_rtol 1.e-8 -p_pc_type bjacobi -p_ksp_type gmres -p_ksp_max_it 60 -psm 1\
               $*   #  2>/dev/null   |  tail -n 11 #11
 #              $*    > test_$pression_$blocs.out
 #gnuplot cav2.gnu
