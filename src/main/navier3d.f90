@@ -58,7 +58,7 @@ subit:  do subite=1,nav%nsubite
      nav%subite=subite
      if (mpid%rank==0) print*,'Time : ',ite,subite
 
-!     lambda=0.9_rk
+!     lambda=0.5_rk
      !---------------------------------------------------------------------
 !     if (mpid%rank==0) then
 !        call color(ired);print'(a)','Time : ';call color(color_off)
@@ -124,7 +124,7 @@ subit:  do subite=1,nav%nsubite
 !    error=norme2(mpid,nav%aux)
 
 !    lambda=lambda+(lambda-1._rk)*ref/(error**2)
-!    lambda=min(max(0._rk,lambda),0.9_rk)
+!    lambda=min(max(0.1_rk,lambda),0.9_rk)
 
 
 !!    if (mpid%rank==0)     print*,lambda
@@ -140,81 +140,104 @@ subit:  do subite=1,nav%nsubite
 
 
 
-testconv: if(subite>1)then
-     nav%aux%f=1._rk
-     ref=norme2(mpid,nav%aux)
+!     nav%aux%f=1._rk
+!     ref=norme2(mpid,nav%aux)
 
-     nav%aux%f=0._rk
-     nav%aux=derx(nav%dcx,nav%u(nav%it(1)))+&
-          dery(nav%dcy,nav%v(nav%it(1)))+&
-          derz(nav%dcz,nav%w(nav%it(1)))
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error Div V       : ',error/ref
+!     nav%aux%f=0._rk
+!     nav%aux=derx(nav%dcx,nav%u(nav%it(1)))+&
+!          dery(nav%dcy,nav%v(nav%it(1)))+&
+!          derz(nav%dcz,nav%w(nav%it(1)))
+!    error=norme2(mpid,nav%aux)/ref
+!    if (mpid%rank==0) print*,'error Div V       : ',error
 
-    nav%aux%f=sqrt(uex(:,:,:,1)**2 &
-                 + uex(:,:,:,2)**2 &
-                 + uex(:,:,:,3)**2)
-    ref=norme2(mpid,nav%aux)
-
-    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(1))%f)**2&
-                 + (uex(:,:,:,2)-nav%v(nav%it(1))%f)**2&
-                 + (uex(:,:,:,3)-nav%w(nav%it(1))%f)**2)
-
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot V       : ',(error)/(ref)
-
-    nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
-    nav%aux%f=nav%p(nav%it(1))%f - pex
-    call navier_nullify_boundary(mpid,nav,nav%aux,0)
-    error=integrale(mpid,nav%aux)
-    pex=pex+error/ref
-    nav%aux%f=pex
-    ref=norme2(mpid,nav%aux)
-
-    nav%aux%f=nav%p(nav%it(1))%f - pex
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot P       : ',(error)/ref
-
-    nav%aux%f=sqrt(nav%u(nav%it(1))%f**2&
-                 + nav%v(nav%it(1))%f**2&
-                 + nav%w(nav%it(1))%f**2)
-    ref=norme2(mpid,nav%aux)
-
-    nav%aux%f=sqrt((nav%sub_u%f-nav%u(nav%it(1))%f)**2&
-                 + (nav%sub_v%f-nav%v(nav%it(1))%f)**2&
-                 + (nav%sub_w%f-nav%w(nav%it(1))%f)**2)
-    error=norme2(mpid,nav%aux)/ref
-
-    if (mpid%rank==0) print*,'conv tot V       : ',error
-
-
-!    nav%aux%f=sqrt(acc_u(1)%f**2&
-!                 + acc_v(1)%f**2&
-!                 + acc_w(1)%f**2)
+!    nav%aux%f=sqrt(uex(:,:,:,1)**2 &
+!                 + uex(:,:,:,2)**2 &
+!                 + uex(:,:,:,3)**2)
 !    ref=norme2(mpid,nav%aux)
 
-!    nav%aux%f=sqrt((acc_u(2)%f-acc_u(1)%f)**2&
-!                 + (acc_v(2)%f-acc_v(1)%f)**2&
-!                 + (acc_w(2)%f-acc_w(1)%f)**2)
-!    error=norme2(mpid,nav%aux)/ref
+!    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(1))%f)**2&
+!                 + (uex(:,:,:,2)-nav%v(nav%it(1))%f)**2&
+!                 + (uex(:,:,:,3)-nav%w(nav%it(1))%f)**2)
 
-!    if (mpid%rank==0) print*,'conv acc V       : ',error
+!    error=norme2(mpid,nav%aux)
+!    if (mpid%rank==0) print*,'error tot V       : ',(error)/(ref)
+
+!    nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
+!    nav%aux%f=nav%p(nav%it(1))%f - pex
+!    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+!    error=integrale(mpid,nav%aux)
+!    pex=pex+error/ref
+!    nav%aux%f=pex
+!    ref=norme2(mpid,nav%aux)
+
+!    nav%aux%f=nav%p(nav%it(1))%f - pex
+!    error=norme2(mpid,nav%aux)
+!    if (mpid%rank==0) print*,'error tot P       : ',(error)/ref
+
+!    nav%aux%f=1._rk ;     reft=(norme2(mpid,nav%aux))
+!    errort=norme2(mpid,nav%u(nav%it(1))-nav%u(nav%it(nav%nt)))**2 &
+!          +norme2(mpid,nav%v(nav%it(1))-nav%v(nav%it(nav%nt)))**2 &
+!          +norme2(mpid,nav%w(nav%it(1))-nav%w(nav%it(nav%nt)))
+!    if (mpid%rank==0) print*,'Station   V       : ',sqrt(errort)/(reft)
+
+!testconv: if(subite>1)then
+
+!     nav%aux%f=0._rk
+!     nav%aux=derx(nav%dcx,nav%u(nav%it(1)))+&
+!             dery(nav%dcy,nav%v(nav%it(1)))+&
+!             derz(nav%dcz,nav%w(nav%it(1)))
+!    ref=norme2(mpid,nav%aux)
+!    nav%aux=derx(nav%dcx,nav%u(nav%it(1)))+&
+!            dery(nav%dcy,nav%v(nav%it(1)))+&
+!            derz(nav%dcz,nav%w(nav%it(1)))-&
+!            derx(nav%dcx,nav%sub_u)-&
+!            dery(nav%dcy,nav%sub_v)-&
+!            derz(nav%dcz,nav%sub_w)
+
+!    error=norme2(mpid,nav%aux)!/ref
+!    if (mpid%rank==0) print*,'conv Div V       : ',error
 
 
-    nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
-    nav%aux%f=nav%p(nav%it(1))%f - nav%sub_p%f
-    call navier_nullify_boundary(mpid,nav,nav%aux,0)
-    errort=integrale(mpid,nav%aux)
-    nav%sub_p%f=nav%sub_p%f+errort/ref
-    nav%aux%f=nav%sub_p%f
-    ref=norme2(mpid,nav%aux)
+!    nav%aux%f=sqrt(nav%u(nav%it(1))%f**2&
+!                 + nav%v(nav%it(1))%f**2&
+!                 + nav%w(nav%it(1))%f**2)
+!    ref=norme2(mpid,nav%aux)
 
-    nav%aux%f=nav%p(nav%it(1))%f - nav%sub_p%f
-    errort=norme2(mpid,nav%aux)/ref
-    if (mpid%rank==0) print*,'conv tot P       : ',errort
-!    if (mpid%rank==0) print*, 'fin test conv'
-    if (error<1d-10.and.errort<1d-10)  exit subit
-endif testconv
+!    nav%aux%f=sqrt((nav%sub_u%f-nav%u(nav%it(1))%f)**2&
+!                 + (nav%sub_v%f-nav%v(nav%it(1))%f)**2&
+!                 + (nav%sub_w%f-nav%w(nav%it(1))%f)**2)
+!    error=norme2(mpid,nav%aux)!/ref
+
+!    if (mpid%rank==0) print*,'conv tot V       : ',error
+
+
+!!    nav%aux%f=sqrt(acc_u(1)%f**2&
+!!                 + acc_v(1)%f**2&
+!!                 + acc_w(1)%f**2)
+!!    ref=norme2(mpid,nav%aux)
+
+!!    nav%aux%f=sqrt((acc_u(2)%f-acc_u(1)%f)**2&
+!!                 + (acc_v(2)%f-acc_v(1)%f)**2&
+!!                 + (acc_w(2)%f-acc_w(1)%f)**2)
+!!    error=norme2(mpid,nav%aux)!/ref
+
+!!    if (mpid%rank==0) print*,'conv acc V       : ',error
+
+
+!    nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
+!    nav%aux%f=nav%p(nav%it(1))%f - nav%sub_p%f
+!    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+!    errort=integrale(mpid,nav%aux)
+!    nav%sub_p%f=nav%sub_p%f+errort/ref
+!    nav%aux%f=nav%sub_p%f
+!    ref=norme2(mpid,nav%aux)
+
+!    nav%aux%f=nav%p(nav%it(1))%f - nav%sub_p%f
+!    errort=norme2(mpid,nav%aux)!/ref
+!    if (mpid%rank==0) print*,'conv tot P       : ',errort
+!!    if (mpid%rank==0) print*, 'fin test conv'
+!!    if (error<1d-10.and.errort<1d-10)  exit subit
+!endif testconv
 
 
 !acc_u(2)=acc_u(1)
@@ -401,12 +424,17 @@ nav%sub_p=nav%p(nav%it(1))
 !100 continue
 if (.true.) then
 
- vectorerror(:,:,:,1)=nav%u(nav%it(nav%nt))%f-uex(:,:,:,1)
- vectorerror(:,:,:,2)=nav%v(nav%it(nav%nt))%f-uex(:,:,:,2)
- vectorerror(:,:,:,3)=nav%w(nav%it(nav%nt))%f-uex(:,:,:,3)
- vectorerror(:,:,:,4)=nav%p(nav%it(nav%nt))%f-pex
+ vectorerror(:,:,:,1)=nav%u(nav%it(nav%nt))%f!-uex(:,:,:,1)
+ vectorerror(:,:,:,2)=nav%v(nav%it(nav%nt))%f!-uex(:,:,:,2)
+ vectorerror(:,:,:,3)=nav%w(nav%it(nav%nt))%f!-uex(:,:,:,3)
+ vectorerror(:,:,:,4)=nav%p(nav%it(nav%nt))%f!-pex
  !vectorerror(:,:,:,1:3)=uex(:,:,:,1:3)
  !vectorerror(:,:,:,4)=pex
+!    nav%aux%f=0._rk
+!    nav%aux=derx(nav%dcx,nav%p(nav%it(nav%nt)))
+! vectorerror(:,:,:,4)=nav%aux%f
+!    nav%aux%f=0._rk
+!    nav%aux=derx(nav%dcx,nav%phi(nav%it(nav%nt)))
 ! vectorerror(:,:,:,5)=nav%aux%f
 
   do k=1,5

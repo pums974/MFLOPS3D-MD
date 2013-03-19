@@ -427,7 +427,7 @@ function sol(x,y,z,t,type,rey)
     sol=0._rk
     do i=1,n
       a(i)=1._rk*i ; b(i)=2._rk*i
-      wx(i)=1._rk*pi*i ; wy(i)=2._rk*pi*i ; wt(i)=1._rk*i*pi ; wp(i)=1.5_rk*pi*i
+      wx(i)=1.5_rk*pi*i ; wy(i)=2.5_rk*pi*i ; wt(i)=1.5_rk*i*pi ; wp(i)=3.5_rk*pi*i
 
     if (type=="u") then
        sol=sol+a(i)*sin(wx(i)*x)*cos(wy(i)*y)*cos(wt(i)*t)/wx(i)

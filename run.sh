@@ -8,6 +8,8 @@ iter=80
 #pression=""
 ordrev=2
 ordrep=2
+ts=1e-2
+re=10
 
 export TIME='Elapsed : %e ,User: %U ,CPU : %P ,Max Mem : %R , command : %C'
 nproc=`echo "$blocs^2" | bc -l `
@@ -17,27 +19,27 @@ echo
 cd build ; make testnav || exit ; cd ..
 cd bin
 
-for points in `echo "16"`; do
+#for re in `echo "1 "`; do
 #for blocs in `echo "2 3 4 5"`; do
   rm -f matrix_* *.nc
 echo
 echo
-echo $points
+echo $ts
 for pression in `echo "1"`; do
-for nsub in `echo "5"`; do
+for nsub in `echo "1"`; do
 echo
 echo
   /usr/bin/time mpiexec -n $nproc numactl -l \
-    ./testnav -dim $points,$points,$points -dom $blocs,$blocs,1 -period 0,0,0 -reynolds 10 -ts 0.01 -ntime $iter \
+    ./testnav -dim $points,$points,$points -dom $blocs,$blocs,1 -period 0,0,0 -reynolds 250 -ts $ts -ntime $iter \
               -nlt 2 -pt $pression -to $ordrev,$ordrep -nsub $nsub \
-              -u_ksp_rtol 1.e-8 -u_pc_type bjacobi -u_ksp_type gmres -u_ksp_max_it 10\
-              -p_ksp_rtol 1.e-8 -p_pc_type bjacobi -p_ksp_type gmres -p_ksp_max_it 60 -psm 1\
-              $*   #  2>/dev/null   |  tail -n 11 #11
+              -u_ksp_rtol 1.e-8 -u_pc_type jacobi -u_ksp_type gmres -u_ksp_max_it 100\
+              -p_ksp_rtol 1.e-8 -p_pc_type jacobi -p_ksp_type gmres -p_ksp_max_it 600 -psm 1\
+              $*    # 2>/dev/null   |  tail -n 11 #11
 #              $*    > test_$pression_$blocs.out
 #gnuplot cav2.gnu
 done
 done
-done
+#done
 
 
 
