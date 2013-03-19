@@ -366,11 +366,11 @@ contains
           z=gridz%grid1d(k)
           
           x=gridx%grid1d(1)
-          bc%bcx(j-1,k-1,1)=sol(x,y,z,t,var,rey)
-!          bc%bcx(j-1,k-1,1)=0._rk
+!          bc%bcx(j-1,k-1,1)=sol(x,y,z,t,var,rey)
+          bc%bcx(j-1,k-1,1)=0._rk
           x=gridx%grid1d(nx)
-          bc%bcx(j-1,k-1,2)=sol(x,y,z,t,var,rey)
-!          bc%bcx(j-1,k-1,2)=0._rk
+!          bc%bcx(j-1,k-1,2)=sol(x,y,z,t,var,rey)
+          bc%bcx(j-1,k-1,2)=0._rk
        enddo
     enddo
     !print*,x,y,z,t
@@ -381,15 +381,15 @@ contains
           z=gridz%grid1d(k)
 
           y=gridy%grid1d(1)
-          bc%bcy(i-1,k-1,1)=sol(x,y,z,t,var,rey)
-!          bc%bcy(i-1,k-1,1)=0._rk
+!          bc%bcy(i-1,k-1,1)=sol(x,y,z,t,var,rey)
+          bc%bcy(i-1,k-1,1)=0._rk
           y=gridy%grid1d(ny)
-          bc%bcy(i-1,k-1,2)=sol(x,y,z,t,var,rey)
-!          if (var=='u') then
-!             bc%bcy(i-1,k-1,2)=1._rk
-!          else
-!             bc%bcy(i-1,k-1,2)=0._rk
-!          endif
+!          bc%bcy(i-1,k-1,2)=sol(x,y,z,t,var,rey)
+          if (var=='u') then
+             bc%bcy(i-1,k-1,2)=(1._rk-x**3)
+          else
+             bc%bcy(i-1,k-1,2)=0._rk
+          endif
        enddo
     enddo
     !-> z-direction
@@ -399,11 +399,11 @@ contains
           y=gridy%grid1d(j)
           
           z=gridz%grid1d(1)
-          bc%bcz(i-1,j-1,1)=sol(x,y,z,t,var,rey)
-!          bc%bcz(i-1,j-1,1)=0._rk
+!          bc%bcz(i-1,j-1,1)=sol(x,y,z,t,var,rey)
+          bc%bcz(i-1,j-1,1)=0._rk
           z=gridz%grid1d(nz)
-          bc%bcz(i-1,j-1,2)=sol(x,y,z,t,var,rey)
-!          bc%bcz(i-1,j-1,2)=0._rk
+!          bc%bcz(i-1,j-1,2)=sol(x,y,z,t,var,rey)
+          bc%bcz(i-1,j-1,2)=0._rk
        enddo
     enddo
 
@@ -469,6 +469,7 @@ function sol(x,y,z,t,type,rey)
            *cos(wx(i)*x)**2*cos(wy(i)*y)**2)-2*b(i)*wp(i)**2*cos(t*wt(i))*sin(wp(i)*(x-y))
     endif
     end do
+    sol=0._rk
   end function sol
 
   function f(nav,var)
@@ -493,7 +494,7 @@ function sol(x,y,z,t,type,rey)
              x=nav%gridx%grid1d(i)
              y=nav%gridy%grid1d(j)
              z=nav%gridz%grid1d(k)
-             f%f(i,j,k)=sol(x,y,z,t,var,nav%rey)
+             f%f(i,j,k)=0._rk !sol(x,y,z,t,var,nav%rey)
           enddo
        enddo
     enddo
@@ -525,8 +526,8 @@ function sol(x,y,z,t,type,rey)
     if (nav%nlt==1) then
       do i=1,nav%nt
           tmp(i)=(nav%u(i)*derx(nav%dcx,x(i))+&
-                   nav%v(i)*dery(nav%dcy,x(i))+&
-                   nav%w(i)*derz(nav%dcz,x(i)))
+                  nav%v(i)*dery(nav%dcy,x(i))+&
+                  nav%w(i)*derz(nav%dcz,x(i)))
       enddo
     elseif (nav%nlt==2) then
       do i=1,nav%nt
@@ -534,12 +535,12 @@ function sol(x,y,z,t,type,rey)
                   nav%v(i)*dery(nav%dcy,x(i))+&
                   nav%w(i)*derz(nav%dcz,x(i)))*0.5_rk
 
-          nav%aux=x(i)*nav%u(i)*0.5_rk
-          tmp(i)=tmp(i)+derx(nav%dcx,nav%aux)
-          nav%aux=x(i)*nav%v(i)*0.5_rk
-          tmp(i)=tmp(i)+dery(nav%dcy,nav%aux)
-          nav%aux=x(i)*nav%w(i)*0.5_rk
-          tmp(i)=tmp(i)+derz(nav%dcz,nav%aux)
+          nav%aux=x(i)*nav%u(i)
+          tmp(i)=tmp(i)+derx(nav%dcx,nav%aux)*0.5_rk
+          nav%aux=x(i)*nav%v(i)
+          tmp(i)=tmp(i)+dery(nav%dcy,nav%aux)*0.5_rk
+          nav%aux=x(i)*nav%w(i)
+          tmp(i)=tmp(i)+derz(nav%dcz,nav%aux)*0.5_rk
 
       enddo
     endif
@@ -911,7 +912,7 @@ function sol(x,y,z,t,type,rey)
     nav%fphi=nav%fphi+ derx(nav%dcx,nav%rhs_px)&
                      + dery(nav%dcy,nav%rhs_py)&
                      + derz(nav%dcz,nav%rhs_pz)
-    
+
     goto 101
     nav%fphi=(1.5_rk/nav%ts)*(&
          derx(nav%dcx,nav%u(it(1)))+&
@@ -1134,7 +1135,7 @@ function sol(x,y,z,t,type,rey)
 				endif
       endif
     else
-      navier_extrapol%f=var(nav%it(1))%f
+  	    navier_extrapol%f=var(nav%it(1))%f
     endif
 
     call field_zero_edges(navier_extrapol)
