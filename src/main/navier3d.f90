@@ -9,8 +9,8 @@ program testnavier3d
   integer(ik) :: ite
   integer(ik) :: i,j,k,iaux
   real(rk),allocatable :: uex(:,:,:,:), pex(:,:,:)
-  real(rk) ::x,y,z,t,error,aux,time
-  integer(8) :: t1,t2,irate
+  real(rk) ::x,y,z,t,error,aux,time,ref,errort
+  integer(8) :: t1,t2,irate,subite
 
 
   !-> get command line informations
@@ -36,7 +36,7 @@ program testnavier3d
   !------------------------------------------------------------------------ 
 
   call system_clock(t1,irate)
-  do ite=1,nav%ntime
+temps:  do ite=1,nav%ntime
      !print*,mpid%coord
 
      
@@ -45,6 +45,9 @@ program testnavier3d
      !-> time update
      call navier_time(nav)
      if (mpid%rank==0) print*,'Time : ',nav%time
+subit:  do subite=1,nav%nsubite
+     nav%subite=subite
+     if (mpid%rank==0) print*,'Sub-iteration : ',subite
 
      !---------------------------------------------------------------------
 !     if (mpid%rank==0) then
@@ -88,6 +91,42 @@ program testnavier3d
        call navier_solve_v(mpid,nav)
        call navier_solve_w(mpid,nav)
      endif
+
+testconv: if(subite>1)then
+
+    nav%aux%f=sqrt(nav%u(nav%it(1))%f**2&
+                 + nav%v(nav%it(1))%f**2&
+                 + nav%w(nav%it(1))%f**2)
+    ref=norme2(mpid,nav%aux)
+
+    nav%aux%f=sqrt((nav%sub_u%f-nav%u(nav%it(1))%f)**2&
+                 + (nav%sub_v%f-nav%v(nav%it(1))%f)**2&
+                 + (nav%sub_w%f-nav%w(nav%it(1))%f)**2)
+    error=norme2(mpid,nav%aux)/ref
+
+    if (mpid%rank==0) print*,'conv tot V       : ',error
+
+    nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
+    nav%aux%f=nav%p(nav%it(1))%f - nav%sub_p%f
+    errort=integrale(mpid,nav%aux)
+    nav%sub_p%f=nav%sub_p%f+errort/ref
+    nav%aux%f=nav%sub_p%f
+    ref=norme2(mpid,nav%aux)
+
+    nav%aux%f=nav%p(nav%it(1))%f - nav%sub_p%f
+    errort=norme2(mpid,nav%aux)/ref
+    if (mpid%rank==0) print*,'conv tot P       : ',errort
+
+    if (error<1d-9.and.errort<1d-9)  exit subit
+
+endif testconv
+
+nav%sub_u=nav%u(nav%it(1))
+nav%sub_v=nav%v(nav%it(1))
+nav%sub_w=nav%w(nav%it(1))
+nav%sub_p=nav%p(nav%it(1))
+
+     enddo subit
 
      !-> switch it
      iaux=nav%it(1)
@@ -138,7 +177,7 @@ program testnavier3d
     print*,'rank : ',mpid%rank,', error : ',error 
     if (mpid%rank==0) write(1000+mpid%rank,*)nav%time,error
 
-  enddo
+  enddo temps
   call system_clock(t2,irate)
   time=real(t2-t1)/real(irate)
   print*,'rank : ',mpid%rank,', time : ',time
@@ -203,6 +242,83 @@ program testnavier3d
 
 
   call navier_finalization(cmd,mpid,nav)
+
+contains
+
+function integrale(mpid,x)
+  use class_field
+  use class_md
+  use precision
+  implicit none
+  type(field),intent(in) ::x
+  type(mpi_data) :: mpid
+  real(rk) :: integrale1,integrale
+  integer(ik) :: i,j,k
+
+  integrale1=0._rk
+  do k=2,x%nz-1
+     do j=2,x%ny-1
+        do i=2,x%nx-1
+           integrale1=integrale1+x%f(i,j,k)
+        enddo
+     enddo
+  enddo
+
+  !-> x boundary
+  integrale1=integrale1+sum(x%f(1,2:x%ny-1,2:x%nz-1))
+  integrale1=integrale1+sum(x%f(x%nx,2:x%ny-1,2:x%nz-1))
+
+  !-> y boundary
+  integrale1=integrale1+sum(x%f(2:x%nx-1,1,2:x%nz-1))
+  integrale1=integrale1+sum(x%f(2:x%nx-1,x%ny,2:x%nz-1))
+
+  !-> z boundary
+  integrale1=integrale1+sum(x%f(2:x%nx-1,2:x%ny-1,1))
+  integrale1=integrale1+sum(x%f(2:x%nx-1,2:x%ny-1,x%nz))
+
+  call md_mpi_reduce_double(mpid,integrale1,integrale)
+call md_mpi_bcast_double(mpid,integrale,0)
+end function integrale
+
+
+function norme2(mpid,x)
+  use class_field
+  use class_md
+  use precision
+  implicit none
+  type(field),intent(in) ::x
+  type(mpi_data) :: mpid
+  real(rk) :: norme2,som1
+  integer(ik) :: i,j,k
+
+  som1=0._rk
+  do k=2,x%nz-1
+     do j=2,x%ny-1
+        do i=2,x%nx-1
+           som1=som1+(x%f(i,j,k))**2
+        enddo
+     enddo
+  enddo
+
+  !-> x boundary
+  som1=som1+sum((x%f(1,2:x%ny-1,2:x%nz-1))**2)
+  som1=som1+sum((x%f(x%nx,2:x%ny-1,2:x%nz-1))**2)
+
+  !-> y boundary
+  som1=som1+sum((x%f(2:x%nx-1,1,2:x%nz-1))**2)
+  som1=som1+sum((x%f(2:x%nx-1,x%ny,2:x%nz-1))**2)
+
+  !-> z boundary
+  som1=som1+sum((x%f(2:x%nx-1,2:x%ny-1,1))**2)
+  som1=som1+sum((x%f(2:x%nx-1,2:x%ny-1,x%nz))**2)
+
+
+  call md_mpi_reduce_double(mpid,som1,norme2)
+  call md_mpi_bcast_double(mpid,norme2,0)
+
+  norme2=sqrt(norme2)
+
+end function norme2
 
 end program testnavier3d
 
