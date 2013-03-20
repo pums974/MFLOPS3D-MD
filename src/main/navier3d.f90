@@ -11,7 +11,7 @@ program testnavier3d
   real(rk),allocatable :: uex(:,:,:,:), pex(:,:,:)
   real(rk) ::x,y,z,t,error,aux,time,ref,errort
   integer(8) :: t1,t2,irate,subite
-
+  logical ::test
 
   !-> get command line informations
   call commandline(cmd)
@@ -92,34 +92,16 @@ subit:  do subite=1,nav%nsubite
        call navier_solve_w(mpid,nav)
      endif
 
-testconv: if(subite>1)then
-
-    nav%aux%f=sqrt(nav%u(nav%it(1))%f**2&
-                 + nav%v(nav%it(1))%f**2&
-                 + nav%w(nav%it(1))%f**2)
-    ref=norme2(mpid,nav%aux)
-
-    nav%aux%f=sqrt((nav%sub_u%f-nav%u(nav%it(1))%f)**2&
-                 + (nav%sub_v%f-nav%v(nav%it(1))%f)**2&
-                 + (nav%sub_w%f-nav%w(nav%it(1))%f)**2)
-    error=norme2(mpid,nav%aux)/ref
-
-    if (mpid%rank==0) print*,'conv tot V       : ',error
-
-    nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
-    nav%aux%f=nav%p(nav%it(1))%f - nav%sub_p%f
-    errort=integrale(mpid,nav%aux)
-    nav%sub_p%f=nav%sub_p%f+errort/ref
-    nav%aux%f=nav%sub_p%f
-    ref=norme2(mpid,nav%aux)
-
-    nav%aux%f=nav%p(nav%it(1))%f - nav%sub_p%f
-    errort=norme2(mpid,nav%aux)/ref
-    if (mpid%rank==0) print*,'conv tot P       : ',errort
-
-    if (error<1d-9.and.errort<1d-9)  exit subit
-
-endif testconv
+    test=.false.
+    if (subite>1) call testconv(mpid,nav%u(nav%it(1)),&
+                                     nav%v(nav%it(1)),&
+                                     nav%w(nav%it(1)),&
+                                     nav%p(nav%it(1)),&
+                                     nav%sub_u,&
+                                     nav%sub_v,&
+                                     nav%sub_w,&
+                                     nav%sub_p,nav%aux,test,1.d-9)
+    if (test)     exit subit
 
 nav%sub_u=nav%u(nav%it(1))
 nav%sub_v=nav%v(nav%it(1))
@@ -319,6 +301,39 @@ function norme2(mpid,x)
   norme2=sqrt(norme2)
 
 end function norme2
+
+subroutine testconv(mpid,u,v,w,p,sub_u,sub_v,sub_w,sub_p,aux,test,eps)
+  use class_md
+  use precision
+  implicit none
+  type(mpi_data) :: mpid
+  type(field) :: aux,u,    v,    w,    p
+  type(field) :: sub_u,sub_v,sub_w,sub_p
+  logical  :: test
+  real(rk) :: ref,error1,error2,eps
+
+    aux%f=sqrt(u%f**2 + v%f**2 + w%f**2)
+    ref=norme2(mpid,aux)
+
+    aux%f=sqrt((sub_u%f-u%f)**2 + (sub_v%f-v%f)**2 + (sub_w%f-w%f)**2)
+    error1=norme2(mpid,aux)/ref
+
+    if (mpid%rank==0) print*,'conv tot V       : ',error1
+
+    aux%f=1._rk         ;    ref=integrale(mpid,aux)
+    aux%f=p%f - sub_p%f ; error2=integrale(mpid,aux)
+
+    sub_p%f=sub_p%f + error2/ref
+    aux%f=sub_p%f       ;    ref=norme2(mpid,aux)
+    aux%f=p%f - sub_p%f ; error2=norme2(mpid,aux)/ref
+    if (mpid%rank==0) print*,'conv tot P       : ',error2
+
+    if (error1<eps.and.error2<eps)  test=.true.
+
+end subroutine testconv
+
+
+
 
 end program testnavier3d
 

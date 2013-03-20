@@ -476,15 +476,18 @@ contains
     type(navier3d) :: nav
     type(mpi_data) :: mpid
     integer(ik) :: it(nav%nt),nt,i
-    type(field) :: x(nav%nt),f,tmp(nav%nt)
-    
+    type(field) :: x(nav%nt),f
+    type(field),dimension(:),allocatable,save ::tmp
+
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
     it(:)=nav%it(:)
+    if(.not.allocated(tmp)) then
+    allocate(tmp(nav%nt))
     do i=1,nav%nt
-      call field_init(tmp(i),"NLT",nav%nx,nav%ny,nav%nz)
+       call field_init(tmp(i),"NLT",nav%nx,nav%ny,nav%nz)
     enddo
-
+    endif
     !-> nonlinear terms
     if (nav%nlt==1) then
       do i=1,nav%nt
@@ -509,9 +512,9 @@ contains
     endif
     f=f+navier_extrapol(nav,tmp,'v')
 
-    do i=1,nav%nt
-       call field_destroy(tmp(i))
-    enddo
+!    do i=1,nav%nt
+!       call field_destroy(tmp(i))
+!    enddo
 
 
 !    if (nav%nlt==1) then
