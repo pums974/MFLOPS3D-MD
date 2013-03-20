@@ -257,42 +257,40 @@ contains
     !->  x-direction
     if (sc%cx%bc(1)==1) then
        solf(0,1:n2,1:n3)=bcx(:,:,1)
-    elseif (sc%cx%bc(1)==2) then
+    elseif (sc%cx%bc(1)==2.or.sc%cx%bc(1)==3) then
        call extrapolation_neum_x(sc%cx%neum,solf,bcx,n1,n2,n3,1)
     endif
     if (sc%cx%bc(2)==1) then
        solf(n1+1,1:n2,1:n3)=bcx(:,:,2)
-    elseif (sc%cx%bc(2)==2) then
+    elseif (sc%cx%bc(2)==2.or.sc%cx%bc(2)==3) then
        call extrapolation_neum_x(sc%cx%neum,solf,bcx,n1,n2,n3,2)
     endif
 
     !-> y-direction
     if (sc%cy%bc(1)==1) then
        solf(1:n1,0,1:n3)=bcy(:,:,1)
-    elseif (sc%cy%bc(1)==2) then
+    elseif (sc%cy%bc(1)==2.or.sc%cy%bc(1)==3) then
        call extrapolation_neum_y(sc%cy%neum,solf,bcy,n1,n2,n3,1)
     endif
     if (sc%cy%bc(2)==1) then
        solf(1:n1,n2+1,1:n3)=bcy(:,:,2)
-    elseif (sc%cy%bc(2)==2) then
+    elseif (sc%cy%bc(2)==2.or.sc%cy%bc(2)==3) then
        call extrapolation_neum_y(sc%cy%neum,solf,bcy,n1,n2,n3,2)
     endif
 
     !-> z-directionn
     if (sc%cz%bc(1)==1) then
        solf(1:n1,1:n2,0)=bcz(:,:,1)
-    elseif (sc%cz%bc(1)==2) then
+    elseif (sc%cz%bc(1)==2.or.sc%cz%bc(1)==3) then
        call extrapolation_neum_z(sc%cz%neum,solf,bcz,n1,n2,n3,1)
     endif
     if (sc%cz%bc(2)==1) then
        solf(1:n1,1:n2,n3+1)=bcz(:,:,2)
-    elseif (sc%cz%bc(2)==2) then
+    elseif (sc%cz%bc(2)==2.or.sc%cz%bc(2)==3) then
        call extrapolation_neum_z(sc%cz%neum,solf,bcz,n1,n2,n3,2)
     endif
 
-
   end subroutine solve_3d
-
 
 ! -----------------------------------------------------------------------
 ! solver3d : solve system A*x=B with matrix diagonalization 
@@ -400,8 +398,6 @@ contains
     sc%cz%inv_vect=transpose(sc%cz%inv_vect)
     sc%cz%vect=transpose(sc%cz%vect)
     
-
-
   end subroutine solver_coeffs_init_3d
 
   subroutine solver_coeffs_init(grid,dc,n,bct,out_name)
@@ -451,13 +447,11 @@ contains
 !    call print(dc%n,dc%ddl,dc%ddr)
 
     !-> compute solver matrix
-
     call solver_matrix_init(dc%n,dc%ddl,dc%ddr,dc%eigen,dc%vect,dc%inv_vect,&
          dc%inv_lhs,dc%bc)
 
-
     !-> compute coefficients for neumann interpolation
-    call extrapolation_coeffs(dc%n,dc%neum,grid)
+    call extrapolation_coeffs(dc%n,dc%neum,grid,dc%bc)
 
   end subroutine solver_coeffs_init
 
@@ -654,7 +648,7 @@ contains
   end subroutine dder_coeffs
 
 
-  subroutine extrapolation_coeffs(n,ddr,grid)
+  subroutine extrapolation_coeffs(n,ddr,grid,bct)
 ! -----------------------------------------------------------------------
 ! solver3d : computation of coefficients for neumann extrapolation
 ! -----------------------------------------------------------------------
@@ -666,6 +660,7 @@ contains
     integer(ik) :: i
     real(rk),intent(out) :: ddr(2,7)
     real(rk),intent(in) :: grid(0:n+1)
+    integer(ik),intent(in) :: bct(2)
 
     ! alp1 : 1st points coefficients lhs
     real(rk) :: alp1
@@ -682,7 +677,7 @@ contains
     h4=grid(4)-grid(3)
     h5=grid(5)-grid(4)
     h6=grid(6)-grid(5)
-    call der_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alp1,h1,h2,h3,h4,h5,h6)
+    call der_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alp1,h1,h2,h3,h4,h5,h6,bct(1))
     ddr(1,1)=a1 ; ddr(1,2)=b1 ; ddr(1,3)=c1 ; ddr(1,4)=d1 ; ddr(1,5)=e1
     ddr(1,6)=f1 ; ddr(1,7)=g1
     
@@ -692,7 +687,7 @@ contains
     h4=grid(n-2)-grid(n-3)
     h5=grid(n-3)-grid(n-4)
     h6=grid(n-4)-grid(n-5)
-    call der_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alp1,h1,h2,h3,h4,h5,h6)
+    call der_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alp1,h1,h2,h3,h4,h5,h6,bct(2))
     ddr(2,1)=-g1 ; ddr(2,2)=-f1 
     ddr(2,3)=-e1 ; ddr(2,4)=-d1 ; ddr(2,5)=-c1 ; ddr(2,6)=-b1 ; ddr(2,7)=-a1
     
