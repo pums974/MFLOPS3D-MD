@@ -513,15 +513,19 @@ function sol(x,y,z,t,type,rey)
     type(navier3d) :: nav
     type(mpi_data) :: mpid
     integer(ik) :: it(nav%nt),nt,i
-    type(field) :: x(nav%nt),f,tmp(nav%nt)
-    
+    type(field) :: x(nav%nt),f
+    type(field),dimension(:),allocatable,save ::tmp
+
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
     it(:)=nav%it(:)
 
-    do i=1,nav%nt
-      call field_init(tmp(i),"NLT",nav%nx,nav%ny,nav%nz)
-    enddo
+    if(.not.allocated(tmp)) then
+      allocate(tmp(nav%nt))
+      do i=1,nav%nt
+        call field_init(tmp(i),"NLT",nav%nx,nav%ny,nav%nz)
+      enddo
+    endif
 
     !-> nonlinear terms
     if (nav%nlt==1) then
@@ -547,9 +551,9 @@ function sol(x,y,z,t,type,rey)
     endif
     f=f+navier_extrapol(nav,tmp,'v')
 
-    do i=1,nav%nt
-       call field_destroy(tmp(i))
-    enddo
+!    do i=1,nav%nt
+!       call field_destroy(tmp(i))
+!    enddo
 
 
 !    if (nav%nlt==1) then
