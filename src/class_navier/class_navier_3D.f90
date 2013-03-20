@@ -366,11 +366,11 @@ contains
           z=gridz%grid1d(k)
           
           x=gridx%grid1d(1)
-!          bc%bcx(j-1,k-1,1)=sol(x,y,z,t,var,rey)
-          bc%bcx(j-1,k-1,1)=0._rk
+          bc%bcx(j-1,k-1,1)=sol(x,y,z,t,var,rey)
+!          bc%bcx(j-1,k-1,1)=0._rk
           x=gridx%grid1d(nx)
-!          bc%bcx(j-1,k-1,2)=sol(x,y,z,t,var,rey)
-          bc%bcx(j-1,k-1,2)=0._rk
+          bc%bcx(j-1,k-1,2)=sol(x,y,z,t,var,rey)
+!          bc%bcx(j-1,k-1,2)=0._rk
        enddo
     enddo
     !print*,x,y,z,t
@@ -381,15 +381,15 @@ contains
           z=gridz%grid1d(k)
 
           y=gridy%grid1d(1)
-!          bc%bcy(i-1,k-1,1)=sol(x,y,z,t,var,rey)
-          bc%bcy(i-1,k-1,1)=0._rk
+          bc%bcy(i-1,k-1,1)=sol(x,y,z,t,var,rey)
+!          bc%bcy(i-1,k-1,1)=0._rk
           y=gridy%grid1d(ny)
-!          bc%bcy(i-1,k-1,2)=sol(x,y,z,t,var,rey)
-          if (var=='u') then
-             bc%bcy(i-1,k-1,2)=(1._rk-x**3)
-          else
-             bc%bcy(i-1,k-1,2)=0._rk
-          endif
+          bc%bcy(i-1,k-1,2)=sol(x,y,z,t,var,rey)
+!          if (var=='u') then
+!             bc%bcy(i-1,k-1,2)=(1._rk-x**2)
+!          else
+!             bc%bcy(i-1,k-1,2)=0._rk
+!          endif
        enddo
     enddo
     !-> z-direction
@@ -399,11 +399,11 @@ contains
           y=gridy%grid1d(j)
           
           z=gridz%grid1d(1)
-!          bc%bcz(i-1,j-1,1)=sol(x,y,z,t,var,rey)
-          bc%bcz(i-1,j-1,1)=0._rk
+          bc%bcz(i-1,j-1,1)=sol(x,y,z,t,var,rey)
+!          bc%bcz(i-1,j-1,1)=0._rk
           z=gridz%grid1d(nz)
-!          bc%bcz(i-1,j-1,2)=sol(x,y,z,t,var,rey)
-          bc%bcz(i-1,j-1,2)=0._rk
+          bc%bcz(i-1,j-1,2)=sol(x,y,z,t,var,rey)
+!          bc%bcz(i-1,j-1,2)=0._rk
        enddo
     enddo
 
@@ -419,7 +419,7 @@ function sol(x,y,z,t,type,rey)
     implicit none
     real(rk) :: sol,rey
     integer(ik) ::i,n
-    PARAMETER(n=1)
+    PARAMETER(n=5)
     real(rk) :: x,y,z,t,pi,wx(n),wt(n),wy(n),wp(n),a(n),b(n)
     character(*) :: type
 
@@ -427,7 +427,7 @@ function sol(x,y,z,t,type,rey)
     sol=0._rk
     do i=1,n
       a(i)=1._rk*i ; b(i)=2._rk*i
-      wx(i)=1.5_rk*pi*i ; wy(i)=2.5_rk*pi*i ; wt(i)=1.5_rk*i*pi ; wp(i)=3.5_rk*pi*i
+      wx(i)=1._rk*pi*i ; wy(i)=2._rk*pi*i ; wt(i)=1._rk*i*pi ; wp(i)=1.5_rk*pi*i
 
     if (type=="u") then
        sol=sol+a(i)*sin(wx(i)*x)*cos(wy(i)*y)*cos(wt(i)*t)/wx(i)
@@ -469,7 +469,7 @@ function sol(x,y,z,t,type,rey)
            *cos(wx(i)*x)**2*cos(wy(i)*y)**2)-2*b(i)*wp(i)**2*cos(t*wt(i))*sin(wp(i)*(x-y))
     endif
     end do
-    sol=0._rk
+!    sol=0._rk
   end function sol
 
   function f(nav,var)
@@ -494,7 +494,8 @@ function sol(x,y,z,t,type,rey)
              x=nav%gridx%grid1d(i)
              y=nav%gridy%grid1d(j)
              z=nav%gridz%grid1d(k)
-             f%f(i,j,k)=0._rk !sol(x,y,z,t,var,nav%rey)
+!             f%f(i,j,k)=0._rk 
+             f%f(i,j,k)=sol(x,y,z,t,var,nav%rey)
           enddo
        enddo
     enddo

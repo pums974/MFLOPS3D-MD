@@ -127,7 +127,7 @@ contains
     
     !-> parameters
     pi=4._rk*atan(1._rk)
-    aux=0.25_rk
+    aux=0.5_rk
     if (choice=="x") then
        xa=-aux ; xb=aux
     endif
