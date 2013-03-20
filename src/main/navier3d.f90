@@ -14,8 +14,9 @@ program testnavier3d
   real(rk),allocatable :: uex(:,:,:,:), pex(:,:,:),vectorerror(:,:,:,:)
   real(rk) ::x,y,z,t,error,aux,time,errort,ref,reft,err_vts_t,err_pre_t
   integer(8) :: t1,t2,irate,subite
-  logical :: test
 
+  type(field) :: acc_u(2),acc_v(2),acc_w(2),q_u(2),q_v(2),q_w(2)
+  logical ::test
 
   !-> get command line informations
   call commandline(cmd)
@@ -103,22 +104,105 @@ subit:  do subite=1,nav%nsubite
        call navier_solve_w(mpid,nav)
      endif
 
-     test=.false.
-     if (subite>1) call testconv(mpid,nav,nav%u(nav%it(1)),&
-                                          nav%v(nav%it(1)),&
-                                          nav%w(nav%it(1)),&
-                                          nav%p(nav%it(1)),&
-                                          nav%sub_u,&
-                                          nav%sub_v,&
-                                          nav%sub_w,&
-                                          nav%sub_p,nav%aux,test,1.d-9)
-     if (test)     exit subit
+!    q_u(1)=acc_u(2)-nav%u(nav%it(1))
+!    q_v(1)=acc_v(2)-nav%v(nav%it(1))
+!    q_w(1)=acc_w(2)-nav%w(nav%it(1))
+
+!acceleration: if(subite>2)then
+
+!nav%aux=(q_u(2)-q_u(1))*q_u(1) &
+!       +(q_v(2)-q_v(1))*q_v(1) &
+!       +(q_w(2)-q_w(1))*q_w(1)
+
+!    ref=integrale(mpid,nav%aux)
+
+!    nav%aux%f=sqrt((q_u(2)%f-q_u(1)%f)**2&
+!                 + (q_v(2)%f-q_v(1)%f)**2&
+!                 + (q_w(2)%f-q_w(1)%f)**2)
+
+!    error=norme2(mpid,nav,nav%aux)
+
+!    lambda=lambda+(lambda-1._rk)*ref/(error**2)
+!    lambda=min(max(0.1_rk,lambda),0.9_rk)
 
 
-     nav%sub_u=nav%u(nav%it(1))
-     nav%sub_v=nav%v(nav%it(1))
-     nav%sub_w=nav%w(nav%it(1))
-     nav%sub_p=nav%p(nav%it(1))
+!!    if (mpid%rank==0)     print*,lambda
+!    acc_u(1)=(1._rk-lambda)*acc_u(2)+lambda*nav%u(nav%it(1))
+!    acc_v(1)=(1._rk-lambda)*acc_v(2)+lambda*nav%v(nav%it(1))
+!    acc_w(1)=(1._rk-lambda)*acc_w(2)+lambda*nav%w(nav%it(1))
+!else
+!              acc_u(1)=nav%u(nav%it(1))
+!              acc_v(1)=nav%v(nav%it(1))
+!              acc_w(1)=nav%w(nav%it(1))
+!endif acceleration
+
+
+
+
+     nav%aux%f=1._rk
+     ref=norme2(mpid,nav,nav%aux)
+
+     nav%aux%f=0._rk
+     nav%aux=derx(nav%dcx,nav%u(nav%it(1)))+&
+          dery(nav%dcy,nav%v(nav%it(1)))+&
+          derz(nav%dcz,nav%w(nav%it(1)))
+    error=norme2(mpid,nav,nav%aux)/ref
+    if (mpid%rank==0) print*,'error Div V       : ',error
+
+!    nav%aux%f=sqrt(uex(:,:,:,1)**2 &
+!                 + uex(:,:,:,2)**2 &
+!                 + uex(:,:,:,3)**2)
+!    ref=norme2(mpid,nav,nav%aux)
+
+!    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(1))%f)**2&
+!                 + (uex(:,:,:,2)-nav%v(nav%it(1))%f)**2&
+!                 + (uex(:,:,:,3)-nav%w(nav%it(1))%f)**2)
+
+!    error=norme2(mpid,nav,nav%aux)
+!    if (mpid%rank==0) print*,'error tot V       : ',(error)/(ref)
+
+!    nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
+!    nav%aux%f=nav%p(nav%it(1))%f - pex
+!    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+!    error=integrale(mpid,nav%aux)
+!    pex=pex+error/ref
+!    nav%aux%f=pex
+!    ref=norme2(mpid,nav,nav%aux)
+
+!    nav%aux%f=nav%p(nav%it(1))%f - pex
+!    error=norme2(mpid,nav,nav%aux)
+!    if (mpid%rank==0) print*,'error tot P       : ',(error)/ref
+
+    nav%aux%f=1._rk ;     reft=integrale(mpid,nav,nav%aux)
+    errort=norme2(mpid,nav,nav%u(nav%it(1))-nav%u(nav%it(nav%nt)))**2 &
+          +norme2(mpid,nav,nav%v(nav%it(1))-nav%v(nav%it(nav%nt)))**2 &
+          +norme2(mpid,nav,nav%w(nav%it(1))-nav%w(nav%it(nav%nt)))
+    if (mpid%rank==0) print*,'Station   V       : ',sqrt(errort)/reft
+
+
+    test=.false.
+    if (subite>1) call testconv(mpid,nav,nav%u(nav%it(1)),&
+                                         nav%v(nav%it(1)),&
+                                         nav%w(nav%it(1)),&
+                                         nav%p(nav%it(1)),&
+                                         nav%sub_u,&
+                                         nav%sub_v,&
+                                         nav%sub_w,&
+                                         nav%sub_p,nav%aux,test,1.d-9)
+    if (test)     exit subit
+
+
+!acc_u(2)=acc_u(1)
+!acc_v(2)=acc_v(1)
+!acc_w(2)=acc_w(1)
+!q_u(2)=q_u(1)
+!q_v(2)=q_v(1)
+!q_w(2)=q_w(1)
+
+nav%sub_u=nav%u(nav%it(1))
+nav%sub_v=nav%v(nav%it(1))
+nav%sub_w=nav%w(nav%it(1))
+nav%sub_p=nav%p(nav%it(1))
 
      enddo subit
 
@@ -436,7 +520,6 @@ subroutine initialise_navier(nav,mpid)
   type(mesh_grid) :: gridxi,gridyi,gridzi
   type(field)     :: uo,vo,wo,po
   character(len=512) :: fich_grid(3),var_grid(3),fich_vel(4),var_vel(4)
-
 
   if (mpid%rank==0)     print*,'Initialisation'
 
