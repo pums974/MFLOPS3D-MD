@@ -10,8 +10,7 @@ program testnavier3d
   integer(ik) :: i,j,k,iaux
   real(rk),allocatable :: uex(:,:,:,:), pex(:,:,:),vectorerror(:,:,:,:)
   real(rk) ::x,y,z,t,error,aux,time,errort,ref,reft
-  integer(8) :: t1,t2,irate
-
+  integer(8) :: t1,t2,irate,subite
 
   !-> get command line informations
   call commandline(cmd)
@@ -24,8 +23,6 @@ program testnavier3d
   !------------------------------------------------------------------------ 
   call navier_initialization(cmd,mpid,nav)
 
-
-
   !-> write mesh
   call write_mesh('grid_x',nav%gridx,mpid)
   call write_mesh('grid_y',nav%gridy,mpid)
@@ -37,15 +34,17 @@ program testnavier3d
   !------------------------------------------------------------------------ 
 
   call system_clock(t1,irate)
-  do ite=1,nav%ntime
+temps:  do ite=1,nav%ntime
      !print*,mpid%coord
-
      
      if (ite==20) call system_clock(t1,irate)
 
      !-> time update
      call navier_time(nav)
-     if (mpid%rank==0) print*,'Time : ',ite
+
+subit:  do subite=1,nav%nsubite
+     nav%subite=subite
+     if (mpid%rank==0) print*,'Time : ',ite,subite
 
      !---------------------------------------------------------------------
 !     if (mpid%rank==0) then
@@ -90,6 +89,58 @@ program testnavier3d
        call navier_solve_w(mpid,nav)
      endif
 
+testconv: if(subite>1)then
+
+     nav%aux%f=0._rk
+     nav%aux=derx(nav%dcx,nav%u(nav%it(1)))+&
+             dery(nav%dcy,nav%v(nav%it(1)))+&
+             derz(nav%dcz,nav%w(nav%it(1)))
+    ref=norme2(mpid,nav%aux)
+    nav%aux=derx(nav%dcx,nav%u(nav%it(1)))+&
+            dery(nav%dcy,nav%v(nav%it(1)))+&
+            derz(nav%dcz,nav%w(nav%it(1)))-&
+            derx(nav%dcx,nav%sub_u)-&
+            dery(nav%dcy,nav%sub_v)-&
+            derz(nav%dcz,nav%sub_w)
+
+    error=norme2(mpid,nav%aux)/ref
+    if (mpid%rank==0) print*,'conv Div V       : ',error
+
+
+    nav%aux%f=sqrt(nav%u(nav%it(1))%f**2&
+                 + nav%v(nav%it(1))%f**2&
+                 + nav%w(nav%it(1))%f**2)
+    ref=norme2(mpid,nav%aux)
+
+    nav%aux%f=sqrt((nav%sub_u%f-nav%u(nav%it(1))%f)**2&
+                 + (nav%sub_v%f-nav%v(nav%it(1))%f)**2&
+                 + (nav%sub_w%f-nav%w(nav%it(1))%f)**2)
+    error=norme2(mpid,nav%aux)/ref
+
+    if (mpid%rank==0) print*,'conv tot V       : ',error
+
+    nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
+    nav%aux%f=nav%p(nav%it(1))%f - nav%sub_p%f
+    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+    errort=integrale(mpid,nav%aux)
+    nav%sub_p%f=nav%sub_p%f+errort/ref
+    nav%aux%f=nav%sub_p%f
+    ref=norme2(mpid,nav%aux)
+
+    nav%aux%f=nav%p(nav%it(1))%f - nav%sub_p%f
+    errort=norme2(mpid,nav%aux)/ref
+    if (mpid%rank==0) print*,'conv tot P       : ',errort
+    if (error<1d-9.and.errort<1d-9)  exit subit
+
+endif testconv
+
+nav%sub_u=nav%u(nav%it(1))
+nav%sub_v=nav%v(nav%it(1))
+nav%sub_w=nav%w(nav%it(1))
+nav%sub_p=nav%p(nav%it(1))
+
+     enddo subit
+
      !-> switch it
      iaux=nav%it(1)
      do i=1,nav%nt-1
@@ -123,32 +174,32 @@ program testnavier3d
      nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
           dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
           derz(nav%dcz,nav%w(nav%it(nav%nt)))
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error Div V       : ',error/ref
+    error=norme2(mpid,nav%aux)/ref
+    if (mpid%rank==0) print*,'error Div V       : ',error
 
-     nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
-          dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
-          derz(nav%dcz,nav%w(nav%it(nav%nt)))
-    call navier_nullify_boundary(mpid,nav,nav%aux,1)
+!     nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
+!          dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
+!          derz(nav%dcz,nav%w(nav%it(nav%nt)))
+!    call navier_nullify_boundary(mpid,nav,nav%aux,1)
 
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error Div V   HI  : ',error/ref
+!    error=norme2(mpid,nav%aux)/ref
+!    if (mpid%rank==0) print*,'error Div V   HI  : ',error
 
-     nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
-          dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
-          derz(nav%dcz,nav%w(nav%it(nav%nt)))
-    call navier_nullify_boundary(mpid,nav,nav%aux,-1)
+!     nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
+!          dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
+!          derz(nav%dcz,nav%w(nav%it(nav%nt)))
+!    call navier_nullify_boundary(mpid,nav,nav%aux,-1)
 
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error Div V   HB  : ',error/ref
+!    error=norme2(mpid,nav%aux)/ref
+!    if (mpid%rank==0) print*,'error Div V   HB  : ',error
 
-     nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
-          dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
-          derz(nav%dcz,nav%w(nav%it(nav%nt)))
-    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+!     nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
+!          dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
+!          derz(nav%dcz,nav%w(nav%it(nav%nt)))
+!    call navier_nullify_boundary(mpid,nav,nav%aux,0)
 
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error Div V   HBI : ',error/ref
+!    error=norme2(mpid,nav%aux)/ref
+!    if (mpid%rank==0) print*,'error Div V   HBI : ',error
 
     vectorerror(:,:,:,5)=nav%aux%f
 
@@ -162,29 +213,29 @@ program testnavier3d
                  + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
                  + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
 
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot V       : ',(error)/(ref)
+    error=norme2(mpid,nav%aux)/ref
+    if (mpid%rank==0) print*,'error tot V       : ',error
 
-    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
-                 + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
-                 + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
-    call navier_nullify_boundary(mpid,nav,nav%aux,1)
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot V   HI  : ',(error)/(ref)
+!    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
+!                 + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
+!                 + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
+!    call navier_nullify_boundary(mpid,nav,nav%aux,1)
+!    error=norme2(mpid,nav%aux)/ref
+!    if (mpid%rank==0) print*,'error tot V   HI  : ',error
 
-    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
-                 + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
-                 + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
-    call navier_nullify_boundary(mpid,nav,nav%aux,-1)
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot V   HB  : ',(error)/(ref)
+!    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
+!                 + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
+!                 + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
+!    call navier_nullify_boundary(mpid,nav,nav%aux,-1)
+!    error=norme2(mpid,nav%aux)/ref
+!    if (mpid%rank==0) print*,'error tot V   HB  : ',error
 
-    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
-                 + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
-                 + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
-    call navier_nullify_boundary(mpid,nav,nav%aux,0)
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot V   HBI : ',(error)/(ref)
+!    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
+!                 + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
+!                 + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
+!    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+!    error=norme2(mpid,nav%aux)/ref
+!    if (mpid%rank==0) print*,'error tot V   HBI : ',error
 
 
     nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
@@ -196,26 +247,26 @@ program testnavier3d
     ref=norme2(mpid,nav%aux)
 
     nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot P       : ',(error)/ref
+    error=norme2(mpid,nav%aux)/ref
+    if (mpid%rank==0) print*,'error tot P       : ',error
 
-    nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
-    call navier_nullify_boundary(mpid,nav,nav%aux,1)
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot P   HI  : ',error/ref
+!    nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
+!    call navier_nullify_boundary(mpid,nav,nav%aux,1)
+!    error=norme2(mpid,nav%aux)/ref
+!    if (mpid%rank==0) print*,'error tot P   HI  : ',error
 
-    nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
-    call navier_nullify_boundary(mpid,nav,nav%aux,-1)
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot P   HB  : ',error/ref
+!    nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
+!    call navier_nullify_boundary(mpid,nav,nav%aux,-1)
+!    error=norme2(mpid,nav%aux)/ref
+!    if (mpid%rank==0) print*,'error tot P   HB  : ',error
 
-    nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
-    call navier_nullify_boundary(mpid,nav,nav%aux,0)
-    error=norme2(mpid,nav%aux)
-    if (mpid%rank==0) print*,'error tot P   HBI : ',error/ref
+!    nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
+!    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+!    error=norme2(mpid,nav%aux)/ref
+!    if (mpid%rank==0) print*,'error tot P   HBI : ',error
 
 
-    nav%aux%f=1._rk ;     reft=(norme2(mpid,nav%aux))
+    nav%aux%f=1._rk ;     reft=integrale(mpid,nav%aux)
     errort=0.5_rk*(norme2(mpid,nav%u(nav%it(nav%nt)))**2 &
                   +norme2(mpid,nav%v(nav%it(nav%nt)))**2 &
                   +norme2(mpid,nav%w(nav%it(nav%nt))))
@@ -226,12 +277,12 @@ program testnavier3d
           +norme2(mpid,nav%w(nav%it(nav%nt))-nav%w(nav%it(nav%nt-1)))
     if (mpid%rank==0) print*,'Station   V       : ',sqrt(errort)/(reft)
 
-  if(ite>=5.and.sqrt(errort)/(reft)<1d-6) exit
+  if(ite>=10.and.sqrt(errort)/(reft)<1d-6) exit temps
 
-  enddo
+  enddo temps
   call system_clock(t2,irate)
   time=real(t2-t1)/real(irate)
-  if (mpid%rank==0) print*,'time : ',time
+  if (mpid%rank==0) print*,'time : ',time,time/(ite-20)
 
   !------------------------------------------------------------------------ 
   !-> time loop end
@@ -266,6 +317,11 @@ if (.true.) then
  vectorerror(:,:,:,4)=nav%p(nav%it(nav%nt))%f-pex
  !vectorerror(:,:,:,1:3)=uex(:,:,:,1:3)
  !vectorerror(:,:,:,4)=pex
+!    nav%aux%f=0._rk
+!    nav%aux=derx(nav%dcx,nav%p(nav%it(nav%nt)))
+! vectorerror(:,:,:,4)=nav%aux%f
+!    nav%aux%f=0._rk
+!    nav%aux=derx(nav%dcx,nav%phi(nav%it(nav%nt)))
 ! vectorerror(:,:,:,5)=nav%aux%f
 
   do k=1,5
@@ -274,10 +330,12 @@ if (.true.) then
     vectorerror(:,:,:,k)=nav%aux%f
   enddo
 
+  !k=((nav%nz-2)/2) + 2
   k=nav%nz-1
   do j=1,nav%ny
      do i=1,nav%nx
         write(20+mpid%rank,'(20es17.8)')nav%gridx%grid1d(i),nav%gridy%grid1d(j),&
+!             nav%gridz%grid1d(k),&
              vectorerror(i,j,k,1),&
              vectorerror(i,j,k,2),&
              vectorerror(i,j,k,3),&
@@ -300,7 +358,6 @@ endif
   !------------------------------------------------------------------------ 
   !-> post-computation
   !------------------------------------------------------------------------ 
-
 
   call navier_finalization(cmd,mpid,nav)
 

@@ -135,6 +135,7 @@ contains
        xa=-aux ; xb=aux
     endif
     if (choice=="z") then
+!       xa=-aux*0.5_rk ; xb=aux*0.5_rk
        xa=-aux ; xb=aux
     endif
 !    xa=-aux ; xb=aux
