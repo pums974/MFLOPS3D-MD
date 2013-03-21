@@ -16,7 +16,7 @@ echo
 echo
 cd build ; make testnav || exit ; cd ..
 cd bin
-
+ 
 #for points in `echo "20 30 40 50"`; do
 #for blocs in `echo "2 3 4 5"`; do
   rm -f matrix_* *.nc
