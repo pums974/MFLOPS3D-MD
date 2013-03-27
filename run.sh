@@ -1,106 +1,88 @@
-#! /bin/zsh
-trap 'exit 1' 2
-points=20
+#! /bin/bash
+
+points=100
+popul=180
 blocs=2
-#precond=none
-#solv=lgmres pgmres
-zmodload zsh/mathfunc 
-iter=80
-#pression=""
-ordrev=2
-ordrep=2
-ts=1e0
-re=1e0
-nsub=1
-ligne=8
-
+stretch_type=2
+stretch_value1=1
+stretch_value2=1
+stretch_value3=1
 export TIME='Elapsed : %e ,User: %U ,CPU : %P ,Max Mem : %R , command : %C'
-if [   "$blocs" -eq "1" ] ; then export OMP_NUM_THREADS=6;fi
-if [ ! "$blocs" -eq "1" ] ; then export OMP_NUM_THREADS=1;fi
 
 echo
 echo
-cd build ; make -j8 testnav || exit ; cd ..
+cd build ; make -j8 teststretch || exit ; cd ..
+cd build ; make -j8 testsolver_3d || exit ; cd ..
 cd bin
- 
+#rm fort.*
+echo 
+echo 
 
-for points   in `echo "16"`  ; do
-#for iter     in `echo "800"` ; do
-#for ts       in `echo "1e0"` ; do
-for re       in `echo "1e0"` ; do
-for ordrep   in `echo "2"`   ; do
-for ordrev   in `echo "2 "`   ; do
-#if [ $ordrep -le $ordrev ];then
-for pression in `echo "1"`  ; do
-echo
-echo
-oldv=0
-oldp=0
-olds=0
-oldd=0
-echo "iter="$iter",re="$re", to="$ordrev","$ordrep", pt="$pression
-#for ts in `echo "1 2 4 8 16 32 64 128 256 512 1024 2048 5096"`; do
-#ts=`echo "$((1.0/($ts)))"`
-#iter=`echo "$(($iters/(1*$ts)))"`
-#for points   in `echo "16 24 36 54 81"`  ; do
-for iter in `echo "20 40 80 160 320 640 1280 2560 5120 10240"`; do
-ts=`echo "$((5.0/$iter))"`
-#for blocs in `echo "1"`; do
-  nproc=`echo "$blocs^3" | bc -l `
-  if [ ! "`ls | grep -c 'matrix_'`" -eq "0" ]; then rm -f matrix_*;fi
-  if [ ! "`ls | grep -c '\.nc'`" -eq "0" ];    then rm -f *.nc    ;fi
-  if [ ! "`ls | grep -c 'fort.'`" -eq "0" ];   then rm -f fort.*  ;fi
-  
+#echo   "+------+-----+----------+----------+----------+--------+----------+----------+----------+--------+-----+"
+#printf "|      |     |   Rmin   |   Rmax   |   Rmoy   | Rratio |   Smin   |   Smax   |   Smoy   | Sratio |  S  |\n"
+#printf  "    nf    nm         alpha         err_s/err_r   err_r_b/err_r_m      err__sb/err_s_m\n"
 
-#for pression in `echo " 1 3"`; do
-#for nsub in `echo "1"`; do
-lignes=$ligne
-if [ ! "$blocs" -eq "1" ] ; then lignes=`echo "$ligne+4" | bc -l `;fi
-if [ ! "$nsub"  -eq "1" ] ; then lignes=`echo "$ligne+2" | bc -l `;fi
+for popul in `echo " 70 "`; do # population de l'echantillon
+#for blocs in `echo "1 2 4 8"`; do   # points par domaines
+#points=`echo 64/$blocs | bc `
+
+for stretch_value1 in `echo "3 4 5 "`; do   # points par domaines
+#echo 
+#echo $stretch_value1
 #echo
-#echo
-#echo $pression $nsub
-s=$iter
-resultat=` /usr/bin/time mpiexec -n $nproc numactl -l \
-    ./testnav -dim $points,$points,$points -dom $blocs,$blocs,$blocs -period 0,0,0 -reynolds $re -ts $ts -ntime $iter \
-              -nlt 2 -pt $pression -to $ordrev,$ordrep -nsub $nsub \
-              -u_ksp_rtol 1.e-12 -u_pc_type jacobi -u_ksp_type gmres -u_ksp_max_it 60 -u_ksp_initial_guess_nonzero \
-              -p_ksp_rtol 1.e-12 -p_pc_type jacobi -p_ksp_sub_pc_type ilu -p_sub_ksp_type gmres -p_sub_ksp_max_it 6 -p_sub_pc_type bjacobi -p_sub_sub_pc_type ilu -p_ksp_max_it 60 -p_ksp_initial_guess_nonzero -psm 1 \
-              $*    2>/dev/null   | tee run.out |  tail -n $lignes `
+#for stretch_value2 in `echo "1.2 1.3"`; do   # points par domaines
+#for stretch_value3 in `echo "1.5 2.5 3.5 4.5 5.5 6.5 "`; do   # points par domaines
 
-#resultat=`numactl -l ./testnav -dim $points,$points,$points -dom $blocs,$blocs,1 -period 0,0,0 -reynolds $re -ts $ts -ntime $iter \
-#              -nlt 2 -pt $pression -to $ordrev,$ordrep -nsub $nsub \
-#              $*    2>/dev/null   | tee run.out |  tail -n $lignes`
-#echo $resultat
-d=`echo $resultat | grep "error Div V" | awk '{print $5}'`
-v=`echo $resultat | grep "error tot V" | awk '{print $5}'`
-p=`echo $resultat | grep "error tot P" | awk '{print $5}'`
+err=0
+solv=1
 
-printf " %5i %E %E %E %E " $iter $ts $v $p $d
-if [ ! "$olds" = "0" ]; then
-ov=`echo $(((log($v)-log($oldv))/(log($olds)-log($s))))`
-op=`echo $(((log($p)-log($oldp))/(log($olds)-log($s))))`
-od=`echo $(((log($d)-log($oldd))/(log($olds)-log($s))))`
-printf "%4.2f %4.2f %4.2f" $ov $op $od
-fi
-#echo
-olds=$s
-oldv=$v
-oldp=$p
-oldd=$d
-#              $*    > test_$pression_$blocs.out
-#gnuplot cav2.gnu
+for points in `echo "16 32 64 128"`; do   # points par domaines
+
+#printf  "  $points"
+#printf "| %4d | %3d |" $points $popul
+err1=`mpiexec -n $blocs numactl -l ./teststretch -dim $points,$popul,$popul -dom $blocs,1,1 -stretch_type $stretch_type -stretch_value $stretch_value1,$stretch_value2,$stretch_value3 $*    # >/dev/null `
+
+  printf  " $stretch_value1  $points  $err1"
+
+#if [ "$err1" = "              NaN" ]; then err1="0"; solv="0"; fi
+
+#err2=`echo $err1 | sed 's/E/\\*10\\^/' | sed 's/+//' `
+#err=`echo "$err + $err2" | bc -l`
+
+solv1=`./testsolver_3d -dim $points,$points,$points -stretch_type $stretch_type -stretch_value  $stretch_value1,$stretch_value2,$stretch_value3 | head -n 1 | awk '{print $2}' `
+
+  printf  "  $solv1\n"
+
+#if [ "$solv1" = "cmplx" ]; then solv="0"; fi
+#if [ "$solv1" = "ACML" ]; then solv="0"; fi
+
+#echo "  $err1  $err  $solv1  $solv"
+#  cat fort.1? | awk 'BEGIN{min=1e15;max=1e-15;moy=0}{if($4<min){min=$4};if($4>max){max=$4};moy=moy+$4}END{printf(" %4.2e | %4.2e | %4.2e | %6d |",min,max,moy/NR,max/min)}'
+#  cat fort.2? | awk 'BEGIN{min=1e15;max=1e-15;moy=0}{if($4<min){min=$4};if($4>max){max=$4};moy=moy+$4}END{printf(" %4.2e | %4.2e | %4.2e | %6d |",min,max,moy/NR,max/min)}'
+#  cat fort.3? | awk 'BEGIN{min=1e15;max=1e-15}{if($3<min){min=$3};if($3>max){max=$3}}END{printf(" %3d |\n",max/min)}'
+#gnuplot stretch.gnu  -persist
+
 done
-done
+
+#if [ "$solv1" = "cmplx" ]; then solv1="0"; fi
+#if [ "$solv1" = "ACML" ]; then solv1="0"; fi
+
+#solv1=`echo $solv1 | sed 's/E/\\*10\\^/' | sed 's/+//' `
+#solv=`echo "$solv * $solv1" | bc -l `
+
+##  printf  "  $stretch_value2  $stretch_value3  %4.2e  %4.2e\n" $err  $solv
+#if [ ! "$solv" = "0" ]; then
+#if [ $(echo "$solv < 0.001" | bc) -eq 1 ]; then
+#solv=`echo $solv | sed 's/\./,/'`
+#err=`echo $err | sed 's/\./,/'`
+#  printf  "  $stretch_value2  $stretch_value3  %4.2e  %4.2e\n" $err  $solv
 #fi
+#fi
+#done
 done
 done
-done
-done
-done
-
-
-
+#done
+#echo   "+------+-----+----------+----------+----------+--------+----------+----------+----------+--------+-----+"
 cd ..
 
 echo
@@ -108,42 +90,3 @@ echo
 
 exit 0
 
-
-              -u_pc_type lu -u_pc_factor_mat_solver_package mumps        -u_ksp_type preonly \
-              -p_pc_type lu -p_pc_factor_mat_solver_package mumps        -p_ksp_type preonly -psm 2 \
-
-              -u_ksp_rtol 1.e-12 -u_pc_type jacobi -u_ksp_type gmres -u_ksp_max_it 10 -u_ksp_initial_guess_nonzero \
-              -p_ksp_rtol 1.e-12 -p_pc_type jacobi -p_ksp_type gmres -p_ksp_max_it 60 -p_ksp_initial_guess_nonzero -psm 1 \
-
-              -u_ksp_rtol 1.e-12 -u_pc_type jacobi -u_ksp_type gmres -u_ksp_max_it 10 -u_ksp_initial_guess_nonzero \
-              -p_ksp_rtol 1.e-12 -p_pc_type jacobi -p_ksp_sub_pc_type ilu -p_sub_ksp_type gmres -p_sub_ksp_max_it 6 -p_sub_pc_type bjacobi -p_sub_sub_pc_type ilu -p_ksp_max_it 10 -p_ksp_initial_guess_nonzero -psm 1 \
-
-
-
-
-
-points=16
-blocs=2
-precond=none
-solv=gmres
-iter=120
-pression=4
-ordrev=2
-ordrep=2
-
-export TIME='Elapsed : %e ,User: %U ,CPU : %P ,Max Mem : %R , command : %C'
-
-
-cd build ; make testnav || exit ; cd ..
-cd bin
-rm -f matrix_* *.nc
-/usr/bin/time mpiexec -n 4 numactl -l ./testnav -dim $points,$points,$points -dom $blocs,$blocs,1 -period 0,0,0 -reynolds 10 -ts 0.01 -ntime $iter -nlt 2 -pt $pression -to $ordrev,$ordrep -ksp_rtol 1.e-13 -pc_type lu -pc_factor_mat_solver_package superlu_dist -ksp_type preonly $*
-cd ..
-
-
-exit 0
-
--pc_type lu -pc_factor_mat_solver_package superlu_dist -ksp_type preonly \
--pc_type lu -pc_factor_mat_solver_package mumps        -ksp_type preonly \
--pc_type $precond -ksp_type $solv \
-gnuplot cav2.gnu

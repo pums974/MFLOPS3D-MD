@@ -54,7 +54,7 @@ module class_solver_3d
 
   !-> Declare exported procedure
   public :: solver_coeffs_init_3d,solve_3d
-  
+
 contains
 
   subroutine print(n,ddl,ddr)

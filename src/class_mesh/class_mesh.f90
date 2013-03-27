@@ -109,13 +109,13 @@ contains
 
   end subroutine mesh_init
 
-  subroutine mesh_grid_init(grid,choice,nx,ny,nz,mpid)
+  subroutine mesh_grid_init(grid,choice,nx,ny,nz,mpid,stretch1,taille1)
 ! -----------------------------------------------------------------------
 ! mesh : initialize type mesh
 ! -----------------------------------------------------------------------
 ! Matthieu Marquillie
 ! 06/2011
-!
+    use command_line
     use class_md
     use mpi
     implicit none
@@ -126,15 +126,24 @@ contains
     integer(ik) :: dom_coord(3),nd(3)
     real(rk) :: xa,xb,ya,yb,za,zb,x1,x2
     real(rk) :: xi,yi,zi,alpha,beta,delta,pi,gam,ksi
-    integer(ik) :: i,j,k
-    real(rk) :: size_dom,num_dom,num_dom_tot,xat,xbt
-    real(rk) :: r(grid%n),aux 
+    integer(ik) :: i,j,k,type
+    real(rk) :: size_dom,num_dom,num_dom_tot,xat,xbt,r(grid%n),aux,taille
+    real(rk),optional ::taille1
+    logical,optional :: stretch1
+    logical ::stretch
+    type(cmd_line) :: cmd
     
+    stretch=.false.
+    if(present(stretch1)) stretch=stretch1
+
     !-> parameters
     pi=4._rk*atan(1._rk)
     aux=0.5_rk
+
+    taille=2._rk*pi
+    if(present(taille1)) taille=taille1
     if (choice=="x") then
-       xa=-aux ; xb=aux
+       xa=0._rk ; xb=taille 
     endif
     if (choice=="y") then
        xa=-aux ; xb=aux
@@ -168,17 +177,34 @@ contains
     endif
 
     !-> gridx1d
-    grid%pas=(xb-xa)/real(grid%n-1,rk)
+    grid%pas=(xb-xa)/(real(grid%n-1,rk))
 
+!    alpha=0.99_rk    !2
+!    alpha=0.1_rk     !3
+!    alpha=1.1        !4
+!    gam=3._rk
+!    ksi=0.5_rk*(xb-xa)
+    call commandline(cmd)
+    type=cmd%stretch_type
+    alpha=cmd%stretch_value2
+    k=cmd%stretch_value1
 
-
-!    beta=70.0_rk
-!    beta=2.77_rk ! ratio max = 2 ratio bord = 1.7
-!    beta=8.77_rk ! ratio max = 3 ratio bord = 2.2
+     SELECT CASE(k)
+    case(2)
+    beta=2.77_rk ! ratio max = 2 ratio bord = 1.7
+    case(3)
+    beta=8.77_rk ! ratio max = 3 ratio bord = 2.2
+     case(4)
     beta=10.7_rk ! ratio max = 4 ratio bord = 2.5
-!    beta=33.3_rk ! ratio max = 5 ratio bord = 2.6
-    alpha=1._rk-beta/real((grid%n**2),rk)
-!    alpha=0.99_rk
+      case(5)
+    beta=33.3_rk  ! ratio max = 5 ratio bord = 2.6
+    end SELECT
+    alpha=1._rk-beta/(grid%n**2)
+
+!    alpha=2.524863254_rk
+!    beta=4.71_rk
+!    alpha=alpha-beta/(grid%n**(1.11_rk))
+
     do i=1,grid%n
        xi=xa+real(i-1,rk)*grid%pas
 
@@ -192,14 +218,17 @@ contains
 !            /sinh(1._rk-beta)+1._rk)*0.5_rk
 
 !       if (choice=="x".or.choice=="y".or.choice=="z") grid%grid1d(i)=xi
+        if(stretch)then
 
-!        grid%grid1d(i)=xi
-!        if (choice=="x") 
-grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._rk)*0.5_rk
-!        grid%grid1d(i)=xa+2._rk*xi-(xb-xa)*(sinh((2._rk*(xi-xa)/(xb-xa)-1._rk)*(1._rk-alpha))&
-!            /sinh(1._rk-alpha)+1._rk)*0.5_rk
-!        grid%grid1d(i)=xa+(xb-xa)*(1._rk+tanh(alpha*(2*(xi-xa)/(xb-xa)-1._rk))/tanh(alpha))/2._rk
-        
+            if(type==1) grid%grid1d(i)=xi
+            if(type==2) grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._rk)*0.5_rk
+            if(type==3) grid%grid1d(i)=xa+2._rk*xi-(xb-xa)*(sinh((2._rk*(xi-xa)/(xb-xa)-1._rk)*(1._rk-alpha))&
+            /sinh(1._rk-alpha)+1._rk)*0.5_rk
+            if(type==4) grid%grid1d(i)=xa+(xb-xa)*(1._rk+tanh(alpha*(2*(xi-xa)/(xb-xa)-1._rk))/tanh(alpha))*0.5_rk
+            if(type==5) grid%grid1d(i)=xa+(xb-xa)*(cos(pi*i/(grid%n+1))+1._rk)*0.5_rk
+        else
+            grid%grid1d(i)=xi
+        endif
 !       if (choice=="x".or.choice=="y".or.choice=="z") &
 !            grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa))) &
 !            /asin(alpha)+1._rk)/2._rk 
@@ -212,44 +241,48 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
 !            grid%grid1d(i)=xa+ksi*(1._rk-tanh(gam*(ksi-(xi-xa)))/tanh(gam*ksi))
     enddo
 
-    !-> piecewise geometric stretching (only work with even number of points)
+!print*,
+!    print*,'rmax ',(grid%grid1d(grid%n/2+1)-grid%grid1d(grid%n/2-1))/(2._rk*(grid%grid1d(grid%n)-grid%grid1d(grid%n-1)))
+!    print*,'rbord',(grid%grid1d(grid%n-1)-grid%grid1d(grid%n-2))/(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))
 
-    goto 100  
 
-!->alpha + delta -> k
+
+    !-> piecestretchwise geometric stretching (only work with even number of points)
+!print*,stretch,type,alpha
+!    goto 100  
+ if(stretch.and.type==6) then
+
+ !->alpha + delta -> k
 !    alpha=cmd%stretch_value2 ! ratio bord
 !    delta=cmd%stretch_value3  ! ratio max
-!    j=cmd%stretch_value1
-!    delta=3.5_rk  ! ratio max
-!    k=max(0,grid%n/2-1)    ! nb mailles max de stretch
+!    j=0
+!    k=nint(log(delta)/log(alpha))    ! nb mailles max de stretch
 
 
 !-> alpha +k -> delta
 !    alpha=cmd%stretch_value2 ! ratio bord
 !    k=cmd%stretch_value1    ! nb mailles max de stretch
-!    delta=0  ! ratio max
+!    delta=alpha**k  ! ratio max
 !    j=0
 
 
  !->k + delta -> alpha
-    delta=0._rk !1.1_rk  ! ratio max
-    k=1    ! nb mailles max de stretch
-    j=0
-    alpha=1.01_rk !delta**(1._rk/k) ! ratio bord
+!    delta=cmd%stretch_value3  ! ratio max
+!    k=cmd%stretch_value1    ! nb mailles max de stretch
+!    j=0
+!    alpha=delta**(1._rk/k) ! ratio bord
 
-    k=min(k,grid%n/2-1)    ! nb mailles max de stretch
-200 r=1._rk
-    beta=1._rk    ! ratio max = prod r(i)
+!    k=k+1
+!200 k=k-1
+    r=1._rk
+    beta=1._rk!-> ratio max = prod r(i)
     do i=1,k
       r(i)= 1._rk + (alpha-1._rk)*((real(k-1,rk)-i)/real(k-2,rk))**j
       beta=beta*r(i)
-      if(delta.gt.0._rk) then
-      if (beta.gt.(delta+1e-8)) then
-        k=k-1
-        goto 200
-      endif
-      endif
+!      if (beta.gt.(delta+1e-8)) goto 200
     enddo
+!     print*,i,beta
+
     grid%grid1d(1)=0._rk
     grid%grid1d(2)=grid%pas
     do i=3,(grid%n)/2+1
@@ -260,6 +293,8 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
     enddo
     grid%grid1d(:)=xa+ grid%grid1d(:)*(xb-xa)  /grid%grid1d(grid%n)
 !    print*,grid%grid1d
+
+endif
 100 continue
 
     !-> dgrid1d
@@ -301,7 +336,7 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
        enddo
     endif
 
-xi=maxval(grid%grid1d(2:grid%n)-grid%grid1d(1:grid%n-1))
+xi=maxval(grid%dgrid1d(1:grid%n))
 x1=xi
     if (present(mpid)) then
     if (mpid%dims.ne.0) then
@@ -310,7 +345,7 @@ x1=xi
     endif
     endif
 
-xi=minval(grid%grid1d(2:grid%n)-grid%grid1d(1:grid%n-1))
+xi=minval(grid%dgrid1d(1:grid%n))
 x2=xi
     if (present(mpid)) then
     if (mpid%dims.ne.0)  then
@@ -320,10 +355,10 @@ x2=xi
    endif
 
     if (mpid%rank==0) then
-!     write(*,'(2A)') trim(grid%gridn),"    rmax              rbord"
-!     write(*,'(2es17.8)') &
-!         (grid%grid1d(grid%n/2+1)-grid%grid1d(grid%n/2-1))/(2._rk*(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))), &
-!         (grid%grid1d(grid%n-1)-grid%grid1d(grid%n-2))/(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))
+     write(*,'(2A)') trim(grid%gridn),"    rmax              rbord"
+     write(*,'(2es17.8)') &
+         grid%dgrid1d(grid%n/2)/grid%dgrid1d(grid%n), &
+         grid%dgrid1d(grid%n-1)/grid%dgrid1d(grid%n)
      write(*,'(2A)') trim(grid%gridn),"    dxmax              dxmin"
      write(*,'(2es17.8)') x1, x2 
    endif

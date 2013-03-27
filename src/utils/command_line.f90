@@ -33,6 +33,10 @@ module command_line
      integer(ik) :: so(2)=(/6,6/)
      integer(ik) :: les_type=0
      real(rk) :: les_c=0._rk
+
+     integer(ik) :: stretch_value1,stretch_type
+     real(rk) :: stretch_value2,stretch_value3
+
   end type cmd_line
 
 
@@ -111,6 +115,12 @@ contains
        endif
        if (cmdl(num)=='-mapt') then
           read(cmdl(num+1),*,err=10)cmd%mapt ; check(14)=0
+       endif
+       if (cmdl(num)=='-stretch_type') then
+          read(cmdl(num+1),*,err=10)cmd%stretch_type ; check(15)=0
+       endif
+       if (cmdl(num)=='-stretch_value') then
+          read(cmdl(num+1),*,err=10)cmd%stretch_value1,cmd%stretch_value2,cmd%stretch_value3 ; check(16)=0
        endif
 !       if (cmdl(num)=='-file') then
 !          namel=cmdl(num+1) ; check(4)=0

@@ -29,14 +29,14 @@ program test_solver
   out='LOW'
 
   !-> define sigma : equal to zero -> poisson , different of zero -> helmholtz 
-  sigma=2._rk
+  sigma= 2._rk
 
   !-> initial dimensions
   nx=cmd%nx ; ny=cmd%ny ; nz=cmd%nz
 
   allocate(uex(nx,ny,nz))
 
-  call color(ired) ; print'(a)','Initialization : ' ; call color(color_off)
+!  call color(ired) ; print'(a)','Initialization : ' ; call color(color_off)
 
   !-> initialize mesh
   call mesh_init(gridx,'gridx','x',nx,1,1)
@@ -64,7 +64,7 @@ program test_solver
   call solution_init(gridx,gridy,gridz,u,g,uex,bc,bctype,sigma)
 
   ! solve poisson equation  
-  call color(ired) ; print'(a)','Solver : ' ; call color(color_off)
+!  call color(ired) ; print'(a)','Solver : ' ; call color(color_off)
 
   call system_clock(t1,irate)
   call solver_3d(scx,g,u,bc,sigma)
