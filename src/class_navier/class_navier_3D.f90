@@ -566,7 +566,7 @@ contains
     implicit none
     real(rk) :: sol,rey
     integer(ik) ::i,n
-    PARAMETER(n=5)
+    PARAMETER(n=1)
     real(rk) :: x,y,z,t,pi,wx(n),wt(n),wy(n),wp(n),a(n),b(n)
     character(*) :: type
 
@@ -574,7 +574,7 @@ contains
     sol=0._rk
     do i=1,n
       a(i)=1._rk*i ; b(i)=2._rk*i
-      wx(i)=1._rk*pi*i ; wy(i)=2._rk*pi*i ; wt(i)=1._rk*i*pi ; wp(i)=1.5_rk*pi*i
+      wx(i)=1._rk*pi*i ; wy(i)=2._rk*pi*i ; wt(i)=0._rk*i*pi ; wp(i)=1.5_rk*pi*i
 
     if (type=="u") then
        sol=sol+a(i)*sin(wx(i)*x)*cos(wy(i)*y)*cos(wt(i)*t)/wx(i)
@@ -1365,7 +1365,7 @@ contains
 
     !-> initialize grid
     call mesh_grid_init(nav%gridx,'x',nx,1,1,mpid)
-    call mesh_grid_init(nav%gridy,'y',nx,ny,1,mpid)
+    call mesh_grid_init(nav%gridy,'y',1,ny,1,mpid)
     call mesh_grid_init(nav%gridz,'z',1,1,nz,mpid)
 
     if (nav%tou==2) then

@@ -1,6 +1,6 @@
 #! /bin/bash
 
-points=16
+points=20
 blocs=2
 #precond=none
 #solv=lgmres pgmres
@@ -9,13 +9,13 @@ iter=80
 ordrev=2
 ordrep=2
 ts=1e-2
-re=1e1
+re=1e-5
 
 export TIME='Elapsed : %e ,User: %U ,CPU : %P ,Max Mem : %R , command : %C'
 
 echo
 echo
-cd build ; make testnav || exit ; cd ..
+cd build ; make -j8 testnav || exit ; cd ..
 cd bin
  
 #for points in `echo "20 30 40 50"`; do
@@ -26,7 +26,7 @@ for ts in `echo "1e-2 "`; do
 echo
 echo
 echo $ts
-for pression in `echo "1 2 3 4"`; do
+for pression in `echo " 1"`; do
 echo
 echo
 echo $pression
@@ -36,9 +36,9 @@ echo
   /usr/bin/time mpiexec -n $nproc numactl -l \
     ./testnav -dim $points,$points,$points -dom $blocs,$blocs,1 -period 0,0,0 -reynolds $re -ts $ts -ntime $iter \
               -nlt 2 -pt $pression -to $ordrev,$ordrep -nsub $nsub \
-              -u_ksp_rtol 1.e-13 -u_pc_type jacobi -u_ksp_type gmres -u_ksp_max_it 10 \
-              -p_ksp_rtol 1.e-13 -p_pc_type jacobi -p_ksp_type gmres -p_ksp_max_it 60 -psm 1 \
-              $*    2>/dev/null   | tee run.out |  tail -n 11 #11
+              -u_pc_type lu -u_pc_factor_mat_solver_package mumps        -u_ksp_type preonly \
+              -p_pc_type lu -p_pc_factor_mat_solver_package mumps        -p_ksp_type preonly -psm 2 \
+              $*   # 2>/dev/null   | tee run.out |  tail -n 11 #11
 #              $*    > test_$pression_$blocs.out
 #gnuplot cav2.gnu
 done

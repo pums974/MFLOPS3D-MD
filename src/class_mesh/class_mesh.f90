@@ -161,14 +161,23 @@ contains
     endif
 
     !-> gridx1d
-    grid%pas=(xb-xa)/(real(grid%n,rk)-1._rk)
+    grid%pas=(xb-xa)/real(grid%n-1,rk)
 
-    beta=0.1_rk
-    alpha=0.99_rk
+!    beta=0.1_rk
+!    alpha=0.99_rk
     !alpha=1._rk
-    delta=1.1
-    gam=3._rk
-    ksi=0.5_rk*(xb-xa)
+!    delta=1.1
+!    gam=3._rk
+!    ksi=0.5_rk*(xb-xa)
+
+
+    beta=2.7_rk
+!    beta=2.77_rk ! ratio max = 2 ratio bord = 1.7
+!    beta=8.77_rk ! ratio max = 3 ratio bord = 2.2
+!    beta=10.7_rk ! ratio max = 4 ratio bord = 2.5
+!    beta=33.3_rk ! ratio max = 5 ratio bord = 2.6
+    alpha=1._rk-beta/real((grid%n**2),rk)
+!    alpha=0.99_rk
     do i=1,grid%n
        xi=xa+real(i-1,rk)*grid%pas
 
@@ -181,8 +190,15 @@ contains
 !            (sinh((2._rk*(xi-xa)/(xb-xa)-1._rk)*(1._rk-beta))&
 !            /sinh(1._rk-beta)+1._rk)*0.5_rk
 
-       if (choice=="x".or.choice=="y".or.choice=="z") grid%grid1d(i)=xi
+!       if (choice=="x".or.choice=="y".or.choice=="z") grid%grid1d(i)=xi
 
+        grid%grid1d(i)=xi
+!        if (choice=="x") 
+!grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._rk)*0.5_rk
+!        grid%grid1d(i)=xa+2._rk*xi-(xb-xa)*(sinh((2._rk*(xi-xa)/(xb-xa)-1._rk)*(1._rk-alpha))&
+!            /sinh(1._rk-alpha)+1._rk)*0.5_rk
+!        grid%grid1d(i)=xa+(xb-xa)*(1._rk+tanh(alpha*(2*(xi-xa)/(xb-xa)-1._rk))/tanh(alpha))/2._rk
+        
 !       if (choice=="x".or.choice=="y".or.choice=="z") &
 !            grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa))) &
 !            /asin(alpha)+1._rk)/2._rk 
@@ -195,25 +211,60 @@ contains
 !            grid%grid1d(i)=xa+ksi*(1._rk-tanh(gam*(ksi-(xi-xa)))/tanh(gam*ksi))
     enddo
 
-
     !-> piecewise geometric stretching (only work with even number of points)
 
-    goto 100    
-    if (choice=="x".or.choice=="y") then
-    r=1.1
-    r(1:5)=1.1_rk ; r(6:)=1._rk
-    grid%grid1d(1)=xa
-    grid%grid1d(2)=xa+grid%pas
-    do i=3,grid%n/2+1
-       grid%grid1d(i)=grid%grid1d(i-1)+r(i)*(grid%grid1d(i-1)-grid%grid1d(i-2))
+!    goto 100  
+
+!->alpha + delta -> k
+!    alpha=cmd%stretch_value2 ! ratio bord
+!    delta=cmd%stretch_value3  ! ratio max
+!    j=cmd%stretch_value1
+!    delta=3.5_rk  ! ratio max
+!    k=max(0,grid%n/2-1)    ! nb mailles max de stretch
+
+
+!-> alpha +k -> delta
+!    alpha=cmd%stretch_value2 ! ratio bord
+!    k=cmd%stretch_value1    ! nb mailles max de stretch
+!    delta=0  ! ratio max
+!    j=0
+
+
+ !->k + delta -> alpha
+    delta=0._rk !1.1_rk  ! ratio max
+    k=1    ! nb mailles max de stretch
+    j=0
+    alpha=1.01_rk !delta**(1._rk/k) ! ratio bord
+
+    k=min(k,grid%n/2-1)    ! nb mailles max de stretch
+200 r=1._rk
+    beta=1._rk    ! ratio max = prod r(i)
+    do i=1,k
+      r(i)= 1._rk + (alpha-1._rk)*((real(k-1,rk)-i)/real(k-2,rk))**j
+      beta=beta*r(i)
+      if(delta.gt.0._rk) then
+      if (beta.gt.(delta+1e-8)) then
+        k=k-1
+        goto 200
+      endif
+      endif
     enddo
-    grid%grid1d(2:grid%n/2+1)=grid%grid1d(1)+ &
-         (grid%grid1d(2:grid%n/2+1)-grid%grid1d(1))*0.5_rk*(xb-xa) &
-         /(grid%grid1d(grid%n/2+1)-grid%grid1d(1))
-    grid%grid1d(grid%n/2+2:grid%n)=grid%grid1d(1)+xb-grid%grid1d(grid%n/2:1:-1)
+    grid%grid1d(1)=0._rk
+    grid%grid1d(2)=grid%pas
+    do i=3,(grid%n)/2+1
+       grid%grid1d(i)=grid%grid1d(i-1)+r(i-2)*(grid%grid1d(i-1)-grid%grid1d(i-2))
+    enddo
+    do i=(grid%n)/2+2,grid%n
+      grid%grid1d((grid%n)/2+2:grid%n)=grid%grid1d((grid%n)/2+1)+grid%grid1d((grid%n+1)/2)-grid%grid1d(grid%n-(grid%n)/2-1:1:-1)
+    enddo
+    grid%grid1d(:)=xa+ grid%grid1d(:)*(xb-xa)  /grid%grid1d(grid%n)
 !    print*,grid%grid1d
-    endif
-100 continue
+!100 continue
+
+     write(*,'(A)')"   k       rmax              rbord"
+     write(*,'(I4,2es17.8)') k, &
+         (grid%grid1d(grid%n/2+1)-grid%grid1d(grid%n/2-1))/(2._rk*(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))), &
+         (grid%grid1d(grid%n-1)-grid%grid1d(grid%n-2))/(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))
 
     !-> grid3d
 
