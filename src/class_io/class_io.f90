@@ -114,26 +114,60 @@ contains
 
   end subroutine write_var3d
 
-  subroutine read_var3d(file_name,var_name,var)
+  subroutine read_var3d(file_name,var_name,var,mpid)
 ! -----------------------------------------------------------------------
 ! io : read 3d variable in a netcdf file
 ! -----------------------------------------------------------------------
 ! Matthieu Marquillie
-! 07/2011
+! 04/2013
 !
+    use mpi
+    use class_md
+    implicit none
     character(len=*),intent(in) :: file_name,var_name
     real(rk) :: var(:,:,:)
     integer(ik) :: varid(1),i
     integer(ik) :: ncid
+
+    integer(ik),parameter :: ndim=3
+    type(mpi_data),optional :: mpid
+    integer(ik) :: dim_len(ndim),dimid(ndim),dim_len_check
+    integer(ik) :: dimt(3),coord(3,2)
+    integer(ik) :: startv(3),countv(3)
     
     !-> open file
-    call io_check(nf90_open(path=file_name,mode=nf90_write,ncid=ncid))
+    if (present(mpid)) then
+       call io_check(nf90_open(path=file_name,&
+!               mode=IOR(NF90_WRITE,NF90_MPIPOSIX),ncid=ncid,&
+            mode=IOR(NF90_WRITE,NF90_MPIIO),ncid=ncid,&
+            comm=mpid%comm,info=MPI_INFO_NULL))
+    else
+       call io_check(nf90_open(path=file_name,mode=nf90_write,ncid=ncid))
+    endif
     
     !-> get variable id
     call io_check(nf90_inq_varid(ncid,var_name,varid(1)))
 
+    !-> recompute dimensions, start and count if mpi
+    if (present(mpid)) then
+       call md_mpi_global_coord(mpid,dimt,coord)
+       startv=(/1,1,1/)
+       countv=(/1,1,1/)
+       do i=1,3
+          !if (dim_len(i)>1) then 
+             dim_len(i)=dimt(i)
+             startv(i)=coord(i,1)
+             countv(i)=coord(i,2)
+          !endif
+       enddo
+    else
+       startv=(/1,1,1/)
+       countv=get_dim_size(var)
+    endif
+
     !-> read field variable
-    call io_check(nf90_get_var(ncid,varid(1),var))
+!    call io_check(nf90_get_var(ncid,varid(1),var))
+    call io_check(nf90_get_var(ncid,varid(1),var,start=startv,count=countv))
 
     !-> close file
     call io_check(nf90_close(ncid))

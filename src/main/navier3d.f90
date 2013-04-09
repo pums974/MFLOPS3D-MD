@@ -31,6 +31,9 @@ program testnavier3d
   call write_mesh('grid_z',nav%gridz,mpid)
 
   
+  !-> read restart files if they exists
+  call restart_read(mpid,nav)
+
   !------------------------------------------------------------------------ 
   !-> time loop
   !------------------------------------------------------------------------ 
@@ -167,6 +170,10 @@ nav%sub_p=nav%p(nav%it(1))
   !------------------------------------------------------------------------ 
   !-> time loop end
   !------------------------------------------------------------------------ 
+
+  !-> write restart files
+  call restart_write(mpid,nav)
+
 
   if (mpid%rank==0) then
      aux=nav%p(nav%it(nav%nt))%f(nav%nx/2,nav%ny/2,nav%nz/2)-&

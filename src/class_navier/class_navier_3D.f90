@@ -66,6 +66,127 @@ module class_navier_3D
 
 contains
 
+  subroutine restart_write(mpid,nav)
+! -----------------------------------------------------------------------
+! navier : restart write
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2013
+!
+    implicit none
+    type(mpi_data) :: mpid
+    type(navier3d) :: nav
+    integer(ik) :: it(nav%nt),nt,i
+    character(1) :: stepn
+    character(100) :: dirname
+    character(100) :: timen
+    logical :: exist
+
+    !-> put nav%nt in nt for ease of use
+    nt=nav%nt
+    it(:)=nav%it(:)
+    
+    !-> create dirname and test existence
+    write(timen,'(i8.8,f0.8)')floor(nav%time),nav%time-floor(nav%time)
+    dirname='restart_'//timen
+    inquire(file=dirname,exist=exist)
+    if (.not.exist) then
+       if (mpid%rank==0) then
+          call system('mkdir '//trim(dirname))
+       endif
+    endif
+
+    if (mpid%rank==0) then
+       open(10,file=trim(dirname)//'/param.dat',access='stream')
+       write(10)nav%time
+       write(10)nav%it(:)
+       close(10)
+    endif
+
+    do i=1,nt
+       write(stepn,'(i0)')i
+       call write_field(trim(dirname)//'/vel_u_'//stepn,nav%u(it(i)),mpid)
+       call write_field(trim(dirname)//'/vel_v_'//stepn,nav%v(it(i)),mpid)
+       call write_field(trim(dirname)//'/vel_w_'//stepn,nav%w(it(i)),mpid)
+       call write_field(trim(dirname)//'/vel_p_'//stepn,nav%p(it(i)),mpid)
+       call write_field(trim(dirname)//'/vel_phi_'//stepn,nav%phi(it(i)),mpid)
+    enddo
+
+    call md_influence_guess_write(mpid,nav%infsolu,trim(dirname)//'/guess_u.dat')
+    call md_influence_guess_write(mpid,nav%infsolv,trim(dirname)//'/guess_v.dat')
+    call md_influence_guess_write(mpid,nav%infsolw,trim(dirname)//'/guess_w.dat')
+    call md_influence_guess_write(mpid,nav%infsolphi,trim(dirname)//'/guess_phi.dat')
+
+  end subroutine restart_write
+
+  subroutine restart_read(mpid,nav)
+! -----------------------------------------------------------------------
+! navier : restart read
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2013
+!
+    implicit none
+    type(mpi_data) :: mpid
+    type(navier3d) :: nav
+    integer(ik) :: it(nav%nt),nt,i
+    character(1) :: stepn
+    character(100) :: dirname
+    character(100) :: timen
+    logical :: exist
+    integer(ik) :: l,m,c(3),inter(3,2)
+
+    !-> get interface type
+    call md_mpi_getcoord(mpid,c)
+    call md_get_interfaces_number(nav%infu,c,inter)
+
+    !-> create dirname and test existence
+    !write(timen,'(i8.8,f0.8)')floor(nav%time),nav%time-floor(nav%time)
+    dirname='restart'
+    inquire(file=dirname,exist=exist)
+    if (.not.exist) then
+       return
+    endif
+
+    !-> read parameters
+    open(10,file=trim(dirname)//'/param.dat',access='stream')
+    read(10)nav%time
+    read(10)nav%it(:)
+    close(10)
+
+    !-> put nav%nt in nt for ease of use
+    nt=nav%nt
+    it(:)=nav%it(:)
+    
+    do i=1,nt
+       write(stepn,'(i0)')i
+       call read_field(trim(dirname)//'/vel_u_'//stepn,nav%u(it(i)),&
+            nav%u(it(i))%name,mpid)
+       call read_field(trim(dirname)//'/vel_v_'//stepn,nav%v(it(i)),&
+            nav%v(it(i))%name,mpid)
+       call read_field(trim(dirname)//'/vel_w_'//stepn,nav%w(it(i)),&
+            nav%w(it(i))%name,mpid)
+       call read_field(trim(dirname)//'/vel_p_'//stepn,nav%p(it(i)),&
+            nav%p(it(i))%name,mpid)
+       call read_field(trim(dirname)//'/vel_phi_'//stepn,nav%phi(it(i)),&
+            nav%phi(it(i))%name,mpid)
+    enddo
+
+    do i=1,nt
+       call boundary_put_field(nav%u(it(i)),nav%bcu(it(i)),inter)
+       call boundary_put_field(nav%v(it(i)),nav%bcv(it(i)),inter)
+       call boundary_put_field(nav%w(it(i)),nav%bcw(it(i)),inter)
+       call boundary_put_field(nav%p(it(i)),nav%bcp(it(i)),inter)
+       call boundary_put_field(nav%phi(it(i)),nav%bcphi(it(i)),inter)
+    enddo
+
+    call md_influence_guess_read(mpid,nav%infsolu,trim(dirname)//'/guess_u.dat')
+    call md_influence_guess_read(mpid,nav%infsolv,trim(dirname)//'/guess_v.dat')
+    call md_influence_guess_read(mpid,nav%infsolw,trim(dirname)//'/guess_w.dat')
+    call md_influence_guess_read(mpid,nav%infsolphi,trim(dirname)//'/guess_phi.dat')
+
+  end subroutine restart_read
+
   subroutine navier_bc_pressure(mpid,nav)
 ! -----------------------------------------------------------------------
 ! navier : 
@@ -1252,7 +1373,7 @@ contains
        call field_init(nav%fv(i),"RHS_V",nx,ny,nz)
        call field_init(nav%fw(i),"RHS_W",nx,ny,nz)
        call field_init(nav%fp(i),"RHS_P",nx,ny,nz)
-       call field_init(nav%phi(i),"PHI",nx,ny,nz)
+       call field_init(nav%phi(i),"P",nx,ny,nz)
     enddo
     do i=1,2
        call field_init(nav%rhs_u(i),"RHS2_U",nx,ny,nz)

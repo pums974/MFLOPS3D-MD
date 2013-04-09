@@ -384,6 +384,35 @@ contains
 
   end subroutine field_put_boundary
 
+  subroutine boundary_put_field(x1,bc,inter)
+! -----------------------------------------------------------------------
+! field : put field into bc
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2013
+!
+    implicit none
+    type(field),intent(in) :: x1
+    type(boundary_condition),intent(inout) :: bc
+    integer(ik) :: l,m,inter(3,2)
+    
+    do m=1,2
+       do l=1,3
+          !if (inter(l,m)<0) then
+             if (l==1.and.m==1) bc%bcx(:,:,1)=x1%f(1,2:x1%ny-1,2:x1%nz-1)
+             if (l==1.and.m==2) bc%bcx(:,:,2)=x1%f(x1%nx,2:x1%ny-1,2:x1%nz-1)
+
+             if (l==2.and.m==1) bc%bcy(:,:,1)=x1%f(2:x1%nx-1,1,2:x1%nz-1)
+             if (l==2.and.m==2) bc%bcy(:,:,2)=x1%f(2:x1%nx-1,x1%ny,2:x1%nz-1)
+
+             if (l==3.and.m==1) bc%bcz(:,:,1)=x1%f(2:x1%nx-1,2:x1%ny-1,1)
+             if (l==3.and.m==2) bc%bcz(:,:,2)=x1%f(2:x1%nx-1,2:x1%ny-1,x1%nz)
+          !endif
+       enddo
+    enddo
+
+  end subroutine boundary_put_field
+
 ! =======================================================================
 ! =======================================================================
 ! field : initialization and destruction methods
@@ -486,29 +515,40 @@ contains
 
   end subroutine write_field
 
-  subroutine read_field(file_name,x,var_name)
+  subroutine read_field(file_name,x,var_name,mpid)
 ! -----------------------------------------------------------------------
 ! field : read field variable in input file
 ! -----------------------------------------------------------------------
 ! Matthieu Marquillie
-! 07/2011
+! 04/2013
 !
+    use class_md
     use class_io
     implicit none
     type(field),intent(inout) :: x
     character(len=*),intent(in) :: file_name,var_name
     integer(ik) :: dim_len(3)
     character(len=512) :: dim_name(3)
+    type(mpi_data),intent(in),optional :: mpid
 
     !-> get field informations in input file 
     call get_var3d_info(file_name//".nc",var_name,dim_name,dim_len)
 
     !-> initialize field
+    if (present(mpid)) then
+       dim_len(1)=x%nx
+       dim_len(2)=x%ny
+       dim_len(3)=x%nz
+    endif
     call field_init(x,var_name,dim_len(1),dim_len(2),dim_len(3),&
          n1n=dim_name(1),n2n=dim_name(2),n3n=dim_name(3))
 
     !-> read field array in input file
-    call read_var3d(file_name//".nc",x%name,x%f)
+    if (present(mpid)) then
+       call read_var3d(file_name//".nc",x%name,x%f,mpid=mpid)
+    else
+       call read_var3d(file_name//".nc",x%name,x%f)
+    endif
 
   end subroutine read_field
 

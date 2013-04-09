@@ -120,6 +120,7 @@ module class_md
   public :: md_mpi_global_coord,md_vector_sol_setvalues
   public :: md_guess_init
   public :: md_add_pert,md_vector_zero_lastpoint
+  public :: md_influence_guess_write,md_influence_guess_read
 contains
 
 ! =======================================================================
@@ -873,6 +874,61 @@ end subroutine md_vector_setvalues
 
   end subroutine md_influence_matrix_read
 
+!------------------------------------------------------------------------
+! md : guess vector write
+!------------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2013
+!
+  subroutine md_influence_guess_write(mpid,inf_sol,filename)
+    implicit none
+    type(mpi_data) :: mpid
+    type(mpi_inf_sol) :: inf_sol
+    PetscViewer :: viewer
+    PetscErrorCode :: err
+    character(*) :: filename
+
+    !-> open viewer
+    call PetscViewerBinaryOpen(PETSC_COMM_WORLD,filename, &
+         FILE_MODE_WRITE,viewer,err)
+    !-> write vector
+    call VecView(inf_sol%sol_old(1),viewer,err)
+    !-> write vector
+    call VecView(inf_sol%sol_old(2),viewer,err)
+    !-> write vector
+    call VecView(inf_sol%sol_old(3),viewer,err)
+    !-> destroy viewer
+    call PetscViewerDestroy(viewer,err)
+
+  end subroutine md_influence_guess_write
+
+!------------------------------------------------------------------------
+! md : guess vector write
+!------------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2013
+!
+  subroutine md_influence_guess_read(mpid,inf_sol,filename)
+    implicit none
+    type(mpi_data) :: mpid
+    type(mpi_inf_sol) :: inf_sol
+    PetscViewer :: viewer
+    PetscErrorCode :: err
+    character(*) :: filename
+
+    !-> open viewer
+    call PetscViewerBinaryOpen(PETSC_COMM_WORLD,filename, &
+         FILE_MODE_READ,viewer,err)
+    !-> read vector
+    call VecLoad(inf_sol%sol_old(1),viewer,err)
+    !-> read vector
+    call VecLoad(inf_sol%sol_old(2),viewer,err)
+    !-> read vector
+    call VecLoad(inf_sol%sol_old(3),viewer,err)
+    !-> destroy viewer
+    call PetscViewerDestroy(viewer,err)
+
+  end subroutine md_influence_guess_read
 
 !------------------------------------------------------------------------
 ! md : influence matrix initialization
