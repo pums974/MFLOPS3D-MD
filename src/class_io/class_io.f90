@@ -19,7 +19,8 @@ module class_io
 
 contains
 
-  subroutine write_var3d(file_name,dim_name,dim_len,var_name,var,mode,mpid)
+  subroutine write_var3d(file_name,dim_name,dim_len,var_name,var,mode,mpid,&
+       dbl,inter)
 ! -----------------------------------------------------------------------
 ! io : write 3d variable in a netcdf file
 ! -----------------------------------------------------------------------
@@ -34,6 +35,7 @@ contains
     character(len=*),intent(in) :: dim_name(ndim)
     character(len=*),intent(in),optional :: mode
     type(mpi_data),optional :: mpid
+    character(*),optional :: dbl,inter
 
     real(rk) :: var(:,:,:)
     logical :: file_exist
@@ -67,10 +69,13 @@ contains
        endif
     endif
 
-
     !-> recompute dimensions, start and count if mpi
     if (present(mpid)) then
-       call md_mpi_global_coord(mpid,dimt,coord)
+       if (present(inter)) then
+          call md_mpi_global_coord(mpid,dimt,coord,inter=inter)
+       else
+          call md_mpi_global_coord(mpid,dimt,coord)
+       endif
        startv=(/1,1,1/)
        countv=(/1,1,1/)
        do i=1,3
@@ -80,11 +85,9 @@ contains
              countv(i)=coord(i,2)
           endif
        enddo
-       
     else
        startv=(/1,1,1/)
        countv=get_dim_size(var)
-
     endif
 
     !-> create/add dimensions
@@ -93,14 +96,19 @@ contains
           call io_check(nf90_def_dim(ncid,dim_name(i),dim_len(i),dimid(i)))
        else
           call io_check(nf90_inquire_dimension(ncid,dimid(i),len=dim_len_check))
-          if (dim_len_check/=dim_len(i)) call error_stop("NETCDF Error : wrong dimensions")
+          if (dim_len_check/=dim_len(i)) &
+               call error_stop("NETCDF Error : wrong dimensions")
        endif
     enddo
 
     !-> if variable exist         : get variable id
     !-> if variable doesn't exist : define variable
-    if (nf90_inq_varid(ncid,var_name,varid(1))/=nf90_noerr) then 
-       call io_check(nf90_def_var(ncid,var_name,nf90_real,dimid,varid(1)))
+    if (nf90_inq_varid(ncid,var_name,varid(1))/=nf90_noerr) then
+       if (present(dbl)) then
+          call io_check(nf90_def_var(ncid,var_name,nf90_double,dimid,varid(1)))
+       else
+          call io_check(nf90_def_var(ncid,var_name,nf90_real,dimid,varid(1)))
+       endif
     endif
 
     !-> end of definition
@@ -114,7 +122,7 @@ contains
 
   end subroutine write_var3d
 
-  subroutine read_var3d(file_name,var_name,var,mpid)
+  subroutine read_var3d(file_name,var_name,var,mpid,inter)
 ! -----------------------------------------------------------------------
 ! io : read 3d variable in a netcdf file
 ! -----------------------------------------------------------------------
@@ -134,6 +142,7 @@ contains
     integer(ik) :: dim_len(ndim),dimid(ndim),dim_len_check
     integer(ik) :: dimt(3),coord(3,2)
     integer(ik) :: startv(3),countv(3)
+    character(*),optional :: inter
     
     !-> open file
     if (present(mpid)) then
@@ -150,7 +159,11 @@ contains
 
     !-> recompute dimensions, start and count if mpi
     if (present(mpid)) then
-       call md_mpi_global_coord(mpid,dimt,coord)
+       if (present(inter)) then
+          call md_mpi_global_coord(mpid,dimt,coord,inter=inter)
+       else
+          call md_mpi_global_coord(mpid,dimt,coord)
+       endif
        startv=(/1,1,1/)
        countv=(/1,1,1/)
        do i=1,3

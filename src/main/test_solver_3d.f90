@@ -50,6 +50,7 @@ program test_solver
 
   !-> initialize poisson solver coefficient
   bctype=(/1,1,1,1,1,1/)
+!  bctype=(/1,2,2,2,2,2/)
   call solver_init_3d(gridx,gridy,gridz,scx,bctype)
 
   !-> initialize type field
@@ -223,7 +224,49 @@ function sol(x,y,z,type)
 !
   use parameters
   implicit none
-  real(rk) :: sol
+  real(rk) :: sol1,sol
+  real(rk) :: x,y,z,t,alp,bet,gam,delt,pi
+  integer(ik) ::i
+  character(*) :: type
+
+  i=8
+  if (type=="func") then
+     sol=(x**i)+(y**i)+x*y
+  endif
+  if (type=="derx") then
+     sol=i*(x**(i-1))+y
+  endif
+  if (type=="dery") then
+     sol=i*(y**(i-1))+x
+  endif
+  if (type=="derz") then
+     sol=0._rk
+  endif
+  if (type=="dderx") then
+     sol=(i-1)*i*x**(i-2)
+  endif
+  if (type=="ddery") then
+     sol=(i-1)*i*y**(i-2)
+  endif
+  if (type=="dderz") then
+     sol=0._rk
+  endif
+  if (type=="rhs") then
+     sol=(i-1)*i*x**(i-2)+(i-1)*i*y**(i-2)
+  endif
+
+end function sol
+
+function sol1(x,y,z,type)
+! -----------------------------------------------------------------------
+! exact solution : function, derivatives and rhs
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 05/2012
+!
+  use parameters
+  implicit none
+  real(rk) :: sol,sol1
   real(rk) :: x,y,z,alp,bet,gam,pi
   character(*) :: type
 
@@ -250,8 +293,7 @@ function sol(x,y,z,type)
           12._rk*x+80._rk*z**3+36._rk*y**2
   endif
 
-end function sol
-
+end function sol1
 
 subroutine error_stop(error_mesg)
 !  use mpi_utils, only : code,rang

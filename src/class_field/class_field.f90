@@ -52,7 +52,7 @@ module class_field
      module procedure field_pow
   end interface
   interface assignment(=) 
-     module procedure field_assign
+     module procedure field_assign,field_assign_scalar
      module procedure bc_assign
   end interface
 
@@ -84,6 +84,19 @@ contains
 
   subroutine field_assign(x1,x2)
 ! -----------------------------------------------------------------------
+! field : assign a field type in another field type variable
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 10/2012
+!
+    implicit none
+    type(field),intent(in) :: x2
+    type(field),intent(inout) :: x1
+    x1%f=x2%f
+  end subroutine field_assign
+
+  subroutine field_assign_scalar(x1,x2)
+! -----------------------------------------------------------------------
 ! field : assign a scalar in a field type variable
 ! -----------------------------------------------------------------------
 ! Matthieu Marquillie
@@ -93,7 +106,7 @@ contains
     real(rk),intent(in) :: x2
     type(field),intent(out) :: x1
     x1%f=x2
-  end subroutine field_assign
+  end subroutine field_assign_scalar
 
   function field_add(x1,x2)
 ! -----------------------------------------------------------------------
@@ -489,7 +502,7 @@ contains
 ! =======================================================================
 ! =======================================================================
 
-  subroutine write_field(file_name,x,mpid)
+  subroutine write_field(file_name,x,mpid,dbl,inter)
 ! -----------------------------------------------------------------------
 ! field : create/open and add field variable in output file
 ! -----------------------------------------------------------------------
@@ -502,20 +515,45 @@ contains
     type(field),intent(in) :: x
     character(len=*),intent(in) :: file_name
     type(mpi_data),intent(in),optional :: mpid
+    character(*),optional :: dbl,inter
 
     if (present(mpid)) then
-       call write_var3d(file_name//".nc",&
-            [character(len=512) :: x%nxn,x%nyn,x%nzn],&
-            (/x%nx,x%ny,x%nz/),x%name,x%f,mpid=mpid)
+       if (present(dbl)) then
+          if (present(inter)) then
+             call write_var3d(file_name//".nc",&
+                  [character(len=512) :: x%nxn,x%nyn,x%nzn],&
+                  (/x%nx,x%ny,x%nz/),x%name,x%f,mpid=mpid,dbl=dbl,inter=inter)
+          else
+             call write_var3d(file_name//".nc",&
+                  [character(len=512) :: x%nxn,x%nyn,x%nzn],&
+                  (/x%nx,x%ny,x%nz/),x%name,x%f,mpid=mpid,dbl=dbl)
+          endif
+       else
+          if (present(inter)) then
+             call write_var3d(file_name//".nc",&
+                  [character(len=512) :: x%nxn,x%nyn,x%nzn],&
+                  (/x%nx,x%ny,x%nz/),x%name,x%f,mpid=mpid,inter=inter)
+          else
+             call write_var3d(file_name//".nc",&
+                  [character(len=512) :: x%nxn,x%nyn,x%nzn],&
+                  (/x%nx,x%ny,x%nz/),x%name,x%f,mpid=mpid)
+          endif
+       endif
     else
-       call write_var3d(file_name//".nc",&
-            [character(len=512) :: x%nxn,x%nyn,x%nzn],&
-            (/x%nx,x%ny,x%nz/),x%name,x%f)
+       if (present(dbl)) then
+          call write_var3d(file_name//".nc",&
+               [character(len=512) :: x%nxn,x%nyn,x%nzn],&
+               (/x%nx,x%ny,x%nz/),x%name,x%f,dbl=dbl)
+       else
+          call write_var3d(file_name//".nc",&
+               [character(len=512) :: x%nxn,x%nyn,x%nzn],&
+               (/x%nx,x%ny,x%nz/),x%name,x%f)
+       endif
     endif
 
   end subroutine write_field
 
-  subroutine read_field(file_name,x,var_name,mpid)
+  subroutine read_field(file_name,x,var_name,mpid,inter)
 ! -----------------------------------------------------------------------
 ! field : read field variable in input file
 ! -----------------------------------------------------------------------
@@ -530,6 +568,7 @@ contains
     integer(ik) :: dim_len(3)
     character(len=512) :: dim_name(3)
     type(mpi_data),intent(in),optional :: mpid
+    character(*),optional :: inter
 
     !-> get field informations in input file 
     call get_var3d_info(file_name//".nc",var_name,dim_name,dim_len)
@@ -545,7 +584,11 @@ contains
 
     !-> read field array in input file
     if (present(mpid)) then
-       call read_var3d(file_name//".nc",x%name,x%f,mpid=mpid)
+       if (present(inter)) then
+          call read_var3d(file_name//".nc",x%name,x%f,mpid=mpid,inter=inter)
+       else
+          call read_var3d(file_name//".nc",x%name,x%f,mpid=mpid)
+       endif
     else
        call read_var3d(file_name//".nc",x%name,x%f)
     endif

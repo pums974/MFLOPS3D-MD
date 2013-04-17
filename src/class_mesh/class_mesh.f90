@@ -182,14 +182,14 @@ contains
 
        if (choice=="x".or.choice=="y".or.choice=="z") grid%grid1d(i)=xi
 
-!       if (choice=="x".or.choice=="y".or.choice=="z") &
-!            grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa))) &
-!            /asin(alpha)+1._rk)/2._rk 
+       if (choice=="x".or.choice=="y".or.choice=="z") &
+            grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa))) &
+            /asin(alpha)+1._rk)/2._rk 
 
 !       if (choice=="x".or.choice=="y".or.choice=="z") &
 !            grid%grid1d(i)=xa+(xb-xa)*(1._rk+tanh(delta*(2*(xi-xa)/(xb-xa)-1._rk)) &
 !       /tanh(delta))/2._rk
-      
+     
 !       if (choice=="x".or.choice=="y".or.choice=="z") &
 !            grid%grid1d(i)=xa+ksi*(1._rk-tanh(gam*(ksi-(xi-xa)))/tanh(gam*ksi))
     enddo
@@ -198,9 +198,9 @@ contains
     !-> piecewise geometric stretching (only work with even number of points)
 
     goto 100    
-    if (choice=="x".or.choice=="y") then
+    if (choice=="x".or.choice=="y".or.choice=="z") then
     r=1.1
-    r(1:5)=1.1_rk ; r(6:)=1._rk
+    r(1:8)=1.4_rk ; r(9:)=1._rk
     grid%grid1d(1)=xa
     grid%grid1d(2)=xa+grid%pas
     do i=3,grid%n/2+1
@@ -346,11 +346,11 @@ contains
 
     !-> write grid 
     if (present(mpid)) then
-       call write_var3d(file_name//".nc",&
+       call write_var3d(trim(file_name)//".nc",&
             [character(len=512) :: grid%nxn,grid%nyn,grid%nzn],&
             get_dim_size(grid%grid3d),grid%gridn,grid%grid3d,mpid=mpid)
     else
-       call write_var3d(file_name//".nc",&
+       call write_var3d(trim(file_name)//".nc",&
             [character(len=512) :: grid%nxn,grid%nyn,grid%nzn],&
             get_dim_size(grid%grid3d),grid%gridn,grid%grid3d)
     endif

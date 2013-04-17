@@ -1792,27 +1792,42 @@ end subroutine md_vector_setvalues
     c(1)=mpid%nd(1) ; c(2)=mpid%nd(2) ; c(3)=mpid%nd(3) 
 
   end subroutine md_mpi_getnumberdomains
+
 !------------------------------------------------------------------------
-! md : mpi barrier
+! md : mpi write coord
 !------------------------------------------------------------------------
 ! Matthieu Marquillie
 ! 09/2012
 !
-  subroutine md_mpi_global_coord(mpid,dim,coord)
+  subroutine md_mpi_global_coord(mpid,dim,coord,inter)
     implicit none
     type(mpi_data) :: mpid
     integer(ik),intent(out) :: dim(3),coord(3,2)
+    character(*),optional :: inter
 
     !-> compute total number of points
-    dim(1)=mpid%nx*mpid%nd(1)
-    dim(2)=mpid%ny*mpid%nd(2)
-    dim(3)=mpid%nz*mpid%nd(3)
+    if (present(inter)) then
+       dim(1)=mpid%nx*mpid%nd(1)!-(mpid%nd(1)-1)
+       dim(2)=mpid%ny*mpid%nd(2)!-(mpid%nd(2)-1)
+       dim(3)=mpid%nz*mpid%nd(3)!-(mpid%nd(3)-1)
+    else
+       dim(1)=mpid%nx*mpid%nd(1)-(mpid%nd(1)-1)
+       dim(2)=mpid%ny*mpid%nd(2)-(mpid%nd(2)-1)
+       dim(3)=mpid%nz*mpid%nd(3)-(mpid%nd(3)-1)
+    endif
 
     !-> compute global indices
-    coord(1,1)=mpid%coord(1)*mpid%nx+1
-    coord(2,1)=mpid%coord(2)*mpid%ny+1
-    coord(3,1)=mpid%coord(3)*mpid%nz+1
+    if (present(inter)) then
+       coord(1,1)=mpid%coord(1)*mpid%nx+1!-mpid%coord(1)
+       coord(2,1)=mpid%coord(2)*mpid%ny+1!-mpid%coord(2)
+       coord(3,1)=mpid%coord(3)*mpid%nz+1!-mpid%coord(3)
+    else
+       coord(1,1)=mpid%coord(1)*mpid%nx+1-mpid%coord(1)
+       coord(2,1)=mpid%coord(2)*mpid%ny+1-mpid%coord(2)
+       coord(3,1)=mpid%coord(3)*mpid%nz+1-mpid%coord(3)
+    endif
 
+    !-> compute dimensions to write
     coord(1,2)=mpid%nx
     coord(2,2)=mpid%ny
     coord(3,2)=mpid%nz

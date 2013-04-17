@@ -583,23 +583,23 @@ contains
 
     ddl=0._rk ; ddr=0._rk
 
-    h1=grid(2)-grid(1)
-    h2=grid(3)-grid(2)
-    h3=grid(4)-grid(3)
-    h4=grid(5)-grid(4)
-    h5=grid(6)-grid(5)
-    h6=grid(7)-grid(6)
+    h1=grid(1)-grid(0)
+    h2=grid(2)-grid(1)
+    h3=grid(3)-grid(2)
+    h4=grid(4)-grid(3)
+    h5=grid(5)-grid(4)
+    h6=grid(6)-grid(5)
     call dder_coeffs_i2(a1,b1,c1,d1,e1,f1,g1,alp1,bet1,gam1,del1,h1,h2,h3,h4,h5,h6,bct(1))
     ddl(1,1)=del1 ; ddl(1,2)=0._rk ; ddl(1,3)=alp1 ; ddl(1,4)=bet1 ; ddl(1,5)=gam1
     ddr(1,1)=a1 ; ddr(1,2)=b1 ; ddr(1,3)=c1 ; ddr(1,4)=d1 ; ddr(1,5)=e1
     ddr(1,6)=f1 ; ddr(1,7)=g1
 
-    h1=grid(2)-grid(1)
-    h2=grid(3)-grid(2)
-    h3=grid(4)-grid(3)
-    h4=grid(5)-grid(4)
-    h5=grid(6)-grid(5)
-    h6=grid(7)-grid(6)
+    h1=grid(1)-grid(0)
+    h2=grid(2)-grid(1)
+    h3=grid(3)-grid(2)
+    h4=grid(4)-grid(3)
+    h5=grid(5)-grid(4)
+    h6=grid(6)-grid(5)
     call dder_coeffs_i3(a2,b2,c2,d2,e2,f2,g2,alp2,bet2,gam2,del2,h1,h2,h3,h4,h5,h6,bct(1))
     ddl(2,1)=0._rk ; ddl(2,2)=alp2 ; ddl(2,3)=bet2 ; ddl(2,4)=gam2 ; ddl(2,5)=del2
     ddr(2,1)=a2 ; ddr(2,2)=b2 ; ddr(2,3)=c2 ; ddr(2,4)=d2 ; ddr(2,5)=e2
@@ -619,12 +619,12 @@ contains
 !$OMP END DO
 !$OMP END PARALLEL
 
-    h1=grid(n)-grid(n-1)
-    h2=grid(n-1)-grid(n-2)
-    h3=grid(n-2)-grid(n-3)
-    h4=grid(n-3)-grid(n-4)
-    h5=grid(n-4)-grid(n-5)
-    h6=grid(n-5)-grid(n-6)
+    h1=grid(n+1)-grid(n)
+    h2=grid(n)-grid(n-1)
+    h3=grid(n-1)-grid(n-2)
+    h4=grid(n-2)-grid(n-3)
+    h5=grid(n-3)-grid(n-4)
+    h6=grid(n-4)-grid(n-5)
     call dder_coeffs_i3(a2,b2,c2,d2,e2,f2,g2,alp2,bet2,gam2,del2,h1,h2,h3,h4,h5,h6,bct(2))
     ddl(n-1,1)=del2 ; ddl(n-1,2)=gam2 ; ddl(n-1,3)=bet2 ; ddl(n-1,4)=alp2 ; ddl(n-1,5)=0._rk
     !ddr(n-1,1)=hh2 
@@ -633,12 +633,12 @@ contains
     if (bct(2)==2) ddr(n-1,8)=-a2
 
 
-    h1=grid(n)-grid(n-1)
-    h2=grid(n-1)-grid(n-2)
-    h3=grid(n-2)-grid(n-3)
-    h4=grid(n-3)-grid(n-4)
-    h5=grid(n-4)-grid(n-5)
-    h6=grid(n-5)-grid(n-6)
+    h1=grid(n+1)-grid(n)
+    h2=grid(n)-grid(n-1)
+    h3=grid(n-1)-grid(n-2)
+    h4=grid(n-2)-grid(n-3)
+    h5=grid(n-3)-grid(n-4)
+    h6=grid(n-4)-grid(n-5)
     call dder_coeffs_i2(a1,b1,c1,d1,e1,f1,g1,alp1,bet1,gam1,del1,h1,h2,h3,h4,h5,h6,bct(2))
     ddl(n,1)=gam1 ; ddl(n,2)=bet1 ; ddl(n,3)=alp1 ; ddl(n,4)=0._rk ; ddl(n,5)=del1
     ddr(n,1)=g1 ; ddr(n,2)=f1 

@@ -79,16 +79,16 @@ contains
     integer(ik) :: it(nav%nt),nt,i
     character(1) :: stepn
     character(100) :: dirname
-    character(100) :: timen
+    character(100) :: timen,proc
     logical :: exist
-
+    
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
     it(:)=nav%it(:)
     
     !-> create dirname and test existence
     write(timen,'(i8.8,f0.8)')floor(nav%time),nav%time-floor(nav%time)
-    dirname='restart_'//timen
+    dirname='restart_'//trim(timen)
     inquire(file=dirname,exist=exist)
     if (.not.exist) then
        if (mpid%rank==0) then
@@ -105,12 +105,27 @@ contains
 
     do i=1,nt
        write(stepn,'(i0)')i
-       call write_field(trim(dirname)//'/vel_u_'//stepn,nav%u(it(i)),mpid)
-       call write_field(trim(dirname)//'/vel_v_'//stepn,nav%v(it(i)),mpid)
-       call write_field(trim(dirname)//'/vel_w_'//stepn,nav%w(it(i)),mpid)
-       call write_field(trim(dirname)//'/vel_p_'//stepn,nav%p(it(i)),mpid)
-       call write_field(trim(dirname)//'/vel_phi_'//stepn,nav%phi(it(i)),mpid)
+       call write_field(trim(dirname)//'/vel_u_'//stepn,nav%u(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/vel_v_'//stepn,nav%v(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/vel_w_'//stepn,nav%w(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/vel_p_'//stepn,nav%p(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/vel_phi_'//stepn,nav%phi(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/rhs_u_'//stepn,nav%fu(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/rhs_v_'//stepn,nav%fv(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/rhs_w_'//stepn,nav%fw(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/rhs_p_'//stepn,nav%fp(it(i)),&
+            mpid,dbl='y',inter='y')
     enddo
+    call write_field(trim(dirname)//'/rhs_phi_'//stepn,nav%fphi,&
+         mpid,dbl='y',inter='y')
 
     call md_influence_guess_write(mpid,nav%infsolu,trim(dirname)//'/guess_u.dat')
     call md_influence_guess_write(mpid,nav%infsolv,trim(dirname)//'/guess_v.dat')
@@ -132,7 +147,7 @@ contains
     integer(ik) :: it(nav%nt),nt,i
     character(1) :: stepn
     character(100) :: dirname
-    character(100) :: timen
+    character(100) :: timen,proc
     logical :: exist
     integer(ik) :: l,m,c(3),inter(3,2)
 
@@ -143,7 +158,7 @@ contains
     !-> create dirname and test existence
     !write(timen,'(i8.8,f0.8)')floor(nav%time),nav%time-floor(nav%time)
     dirname='restart'
-    inquire(file=dirname,exist=exist)
+    inquire(file=trim(dirname)//'/param.dat',exist=exist)
     if (.not.exist) then
        return
     endif
@@ -161,16 +176,26 @@ contains
     do i=1,nt
        write(stepn,'(i0)')i
        call read_field(trim(dirname)//'/vel_u_'//stepn,nav%u(it(i)),&
-            nav%u(it(i))%name,mpid)
+            nav%u(it(i))%name,mpid,inter='y')
        call read_field(trim(dirname)//'/vel_v_'//stepn,nav%v(it(i)),&
-            nav%v(it(i))%name,mpid)
+            nav%v(it(i))%name,mpid,inter='y')
        call read_field(trim(dirname)//'/vel_w_'//stepn,nav%w(it(i)),&
-            nav%w(it(i))%name,mpid)
+            nav%w(it(i))%name,mpid,inter='y')
        call read_field(trim(dirname)//'/vel_p_'//stepn,nav%p(it(i)),&
-            nav%p(it(i))%name,mpid)
+            nav%p(it(i))%name,mpid,inter='y')
        call read_field(trim(dirname)//'/vel_phi_'//stepn,nav%phi(it(i)),&
-            nav%phi(it(i))%name,mpid)
+            nav%phi(it(i))%name,mpid,inter='y')
+       call read_field(trim(dirname)//'/rhs_u_'//stepn,nav%fu(it(i)),&
+            nav%fu(it(i))%name,mpid,inter='y')
+       call read_field(trim(dirname)//'/rhs_v_'//stepn,nav%fv(it(i)),&
+            nav%fv(it(i))%name,mpid,inter='y')
+       call read_field(trim(dirname)//'/rhs_w_'//stepn,nav%fw(it(i)),&
+            nav%fw(it(i))%name,mpid,inter='y')
+       call read_field(trim(dirname)//'/rhs_p_'//stepn,nav%fp(it(i)),&
+            nav%fp(it(i))%name,mpid,inter='y')
     enddo
+    call read_field(trim(dirname)//'/rhs_phi_'//stepn,nav%fphi,&
+         nav%fphi%name,mpid,inter='y')
 
     do i=1,nt
        call boundary_put_field(nav%u(it(i)),nav%bcu(it(i)),inter)
@@ -585,8 +610,7 @@ contains
     enddo
 
   end function f
-
-  subroutine navier_nonlinear(mpid,nav,x,f)
+ subroutine navier_nonlinear(mpid,nav,x,f)
 ! -----------------------------------------------------------------------
 ! navier : solve u helmholtz problem
 ! -----------------------------------------------------------------------
@@ -603,12 +627,14 @@ contains
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
     it(:)=nav%it(:)
+
     if(.not.allocated(tmp)) then
-    allocate(tmp(nav%nt))
-    do i=1,nav%nt
-       call field_init(tmp(i),"NLT",nav%nx,nav%ny,nav%nz)
-    enddo
+      allocate(tmp(nav%nt))
+      do i=1,nav%nt
+         call field_init(tmp(i),"NLT",nav%nx,nav%ny,nav%nz)
+      enddo
     endif
+
     !-> nonlinear terms
     if (nav%nlt==1) then
       do i=1,nav%nt
@@ -730,6 +756,7 @@ contains
 !    endif
 
   end subroutine navier_nonlinear
+
 
   subroutine navier_presolve_u(mpid,nav)
 ! -----------------------------------------------------------------------
@@ -1373,6 +1400,7 @@ contains
        call field_init(nav%fv(i),"RHS_V",nx,ny,nz)
        call field_init(nav%fw(i),"RHS_W",nx,ny,nz)
        call field_init(nav%fp(i),"RHS_P",nx,ny,nz)
+!       call field_init(nav%phi(i),"PHI",nx,ny,nz)
        call field_init(nav%phi(i),"P",nx,ny,nz)
     enddo
     do i=1,2
