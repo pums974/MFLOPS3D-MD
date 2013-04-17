@@ -347,11 +347,11 @@ contains
 
     !-> write grid 
     if (present(mpid)) then
-       call write_var3d(file_name//".nc",&
+       call write_var3d(trim(file_name)//".nc",&
             [character(len=512) :: grid%nxn,grid%nyn,grid%nzn],&
             get_dim_size(grid%grid3d),grid%gridn,grid%grid3d,mpid=mpid)
     else
-       call write_var3d(file_name//".nc",&
+       call write_var3d(trim(file_name)//".nc",&
             [character(len=512) :: grid%nxn,grid%nyn,grid%nzn],&
             get_dim_size(grid%grid3d),grid%gridn,grid%grid3d)
     endif

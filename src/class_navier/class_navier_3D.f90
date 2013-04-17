@@ -66,6 +66,152 @@ module class_navier_3D
 
 contains
 
+  subroutine restart_write(mpid,nav)
+! -----------------------------------------------------------------------
+! navier : restart write
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2013
+!
+    implicit none
+    type(mpi_data) :: mpid
+    type(navier3d) :: nav
+    integer(ik) :: it(nav%nt),nt,i
+    character(1) :: stepn
+    character(100) :: dirname
+    character(100) :: timen,proc
+    logical :: exist
+    
+    !-> put nav%nt in nt for ease of use
+    nt=nav%nt
+    it(:)=nav%it(:)
+    
+    !-> create dirname and test existence
+    write(timen,'(i8.8,f0.8)')floor(nav%time),nav%time-floor(nav%time)
+    dirname='restart_'//trim(timen)
+    inquire(file=dirname,exist=exist)
+    if (.not.exist) then
+       if (mpid%rank==0) then
+          call system('mkdir '//trim(dirname))
+       endif
+    endif
+
+    if (mpid%rank==0) then
+       open(10,file=trim(dirname)//'/param.dat',access='stream')
+       write(10)nav%time
+       write(10)nav%it(:)
+       close(10)
+    endif
+
+    do i=1,nt
+       write(stepn,'(i0)')i
+       call write_field(trim(dirname)//'/vel_u_'//stepn,nav%u(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/vel_v_'//stepn,nav%v(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/vel_w_'//stepn,nav%w(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/vel_p_'//stepn,nav%p(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/vel_phi_'//stepn,nav%phi(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/rhs_u_'//stepn,nav%fu(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/rhs_v_'//stepn,nav%fv(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/rhs_w_'//stepn,nav%fw(it(i)),&
+            mpid,dbl='y',inter='y')
+       call write_field(trim(dirname)//'/rhs_p_'//stepn,nav%fp(it(i)),&
+            mpid,dbl='y',inter='y')
+    enddo
+    call write_field(trim(dirname)//'/rhs_phi_'//stepn,nav%fphi,&
+         mpid,dbl='y',inter='y')
+
+    call md_influence_guess_write(mpid,nav%infsolu,trim(dirname)//'/guess_u.dat')
+    call md_influence_guess_write(mpid,nav%infsolv,trim(dirname)//'/guess_v.dat')
+    call md_influence_guess_write(mpid,nav%infsolw,trim(dirname)//'/guess_w.dat')
+    call md_influence_guess_write(mpid,nav%infsolphi,trim(dirname)//'/guess_phi.dat')
+
+  end subroutine restart_write
+
+  subroutine restart_read(mpid,nav)
+! -----------------------------------------------------------------------
+! navier : restart read
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2013
+!
+    implicit none
+    type(mpi_data) :: mpid
+    type(navier3d) :: nav
+    integer(ik) :: it(nav%nt),nt,i
+    character(1) :: stepn
+    character(100) :: dirname
+    character(100) :: timen,proc
+    logical :: exist
+    integer(ik) :: l,m,c(3),inter(3,2)
+
+    !-> get interface type
+    call md_mpi_getcoord(mpid,c)
+    call md_get_interfaces_number(nav%infu,c,inter)
+
+    !-> create dirname and test existence
+    !write(timen,'(i8.8,f0.8)')floor(nav%time),nav%time-floor(nav%time)
+    dirname='restart'
+    inquire(file=trim(dirname)//'/param.dat',exist=exist)
+    if (.not.exist) then
+       return
+    endif
+
+    !-> read parameters
+    open(10,file=trim(dirname)//'/param.dat',access='stream')
+    read(10)nav%time
+    read(10)nav%it(:)
+    close(10)
+
+    !-> put nav%nt in nt for ease of use
+    nt=nav%nt
+    it(:)=nav%it(:)
+    
+    do i=1,nt
+       write(stepn,'(i0)')i
+       call read_field(trim(dirname)//'/vel_u_'//stepn,nav%u(it(i)),&
+            nav%u(it(i))%name,mpid,inter='y')
+       call read_field(trim(dirname)//'/vel_v_'//stepn,nav%v(it(i)),&
+            nav%v(it(i))%name,mpid,inter='y')
+       call read_field(trim(dirname)//'/vel_w_'//stepn,nav%w(it(i)),&
+            nav%w(it(i))%name,mpid,inter='y')
+       call read_field(trim(dirname)//'/vel_p_'//stepn,nav%p(it(i)),&
+            nav%p(it(i))%name,mpid,inter='y')
+       call read_field(trim(dirname)//'/vel_phi_'//stepn,nav%phi(it(i)),&
+            nav%phi(it(i))%name,mpid,inter='y')
+       call read_field(trim(dirname)//'/rhs_u_'//stepn,nav%fu(it(i)),&
+            nav%fu(it(i))%name,mpid,inter='y')
+       call read_field(trim(dirname)//'/rhs_v_'//stepn,nav%fv(it(i)),&
+            nav%fv(it(i))%name,mpid,inter='y')
+       call read_field(trim(dirname)//'/rhs_w_'//stepn,nav%fw(it(i)),&
+            nav%fw(it(i))%name,mpid,inter='y')
+       call read_field(trim(dirname)//'/rhs_p_'//stepn,nav%fp(it(i)),&
+            nav%fp(it(i))%name,mpid,inter='y')
+    enddo
+    call read_field(trim(dirname)//'/rhs_phi_'//stepn,nav%fphi,&
+         nav%fphi%name,mpid,inter='y')
+
+    do i=1,nt
+       call boundary_put_field(nav%u(it(i)),nav%bcu(it(i)),inter)
+       call boundary_put_field(nav%v(it(i)),nav%bcv(it(i)),inter)
+       call boundary_put_field(nav%w(it(i)),nav%bcw(it(i)),inter)
+       call boundary_put_field(nav%p(it(i)),nav%bcp(it(i)),inter)
+       call boundary_put_field(nav%phi(it(i)),nav%bcphi(it(i)),inter)
+    enddo
+
+    call md_influence_guess_read(mpid,nav%infsolu,trim(dirname)//'/guess_u.dat')
+    call md_influence_guess_read(mpid,nav%infsolv,trim(dirname)//'/guess_v.dat')
+    call md_influence_guess_read(mpid,nav%infsolw,trim(dirname)//'/guess_w.dat')
+    call md_influence_guess_read(mpid,nav%infsolphi,trim(dirname)//'/guess_phi.dat')
+
+  end subroutine restart_read
+
   subroutine navier_bc_pressure(mpid,nav)
 ! -----------------------------------------------------------------------
 ! navier : 
@@ -212,6 +358,7 @@ contains
     enddo
 
   end subroutine navier_nullify_boundary
+
   subroutine add_boundary_gradient(mpid,nav)
 ! -----------------------------------------------------------------------
 ! navier : 
@@ -409,7 +556,7 @@ contains
 
   end subroutine navier_bc_velocity_utils
 
-function sol(x,y,z,t,type,rey)
+  function sol(x,y,z,t,type,rey)
 ! -----------------------------------------------------------------------
 ! exact solution : function, derivatives and rhs
 ! -----------------------------------------------------------------------
@@ -501,8 +648,7 @@ function sol(x,y,z,t,type,rey)
     enddo
 
   end function f
-
-  subroutine navier_nonlinear(mpid,nav,x,f)
+ subroutine navier_nonlinear(mpid,nav,x,f)
 ! -----------------------------------------------------------------------
 ! navier : solve u helmholtz problem
 ! -----------------------------------------------------------------------
@@ -523,7 +669,7 @@ function sol(x,y,z,t,type,rey)
     if(.not.allocated(tmp)) then
       allocate(tmp(nav%nt))
       do i=1,nav%nt
-        call field_init(tmp(i),"NLT",nav%nx,nav%ny,nav%nz)
+         call field_init(tmp(i),"NLT",nav%nx,nav%ny,nav%nz)
       enddo
     endif
 
@@ -649,6 +795,7 @@ function sol(x,y,z,t,type,rey)
 
   end subroutine navier_nonlinear
 
+
   subroutine navier_presolve_u(mpid,nav)
 ! -----------------------------------------------------------------------
 ! navier : solve u helmholtz problem
@@ -763,7 +910,7 @@ function sol(x,y,z,t,type,rey)
     !-> solve
 !    call md_set_guess(mpid,nav%infu,nt,it,nav%bcu,nav%u)
     call multidomain_solve(mpid,nav%infu,nav%scu,nav%bcu(it(1)),nav%u(it(1)),&
-          nav%fu(it(nt)),nav%aux,nav%sigmau,nav%dcx,nav%dcy,nav%dcz ,&
+          nav%fu(it(nt)),nav%aux,nav%sigmau,nav%dcx,nav%dcy,nav%dcz,&
           inf_sol=nav%infsolu)
 
   end subroutine navier_solve_u
@@ -812,7 +959,7 @@ function sol(x,y,z,t,type,rey)
     !-> solve
 !    call md_set_guess(mpid,nav%infv,nt,it,nav%bcv,nav%v)
     call multidomain_solve(mpid,nav%infv,nav%scv,nav%bcv(it(1)),nav%v(it(1)),&
-          nav%fv(it(nt)),nav%aux,nav%sigmau,nav%dcx,nav%dcy,nav%dcz ,&
+          nav%fv(it(nt)),nav%aux,nav%sigmau,nav%dcx,nav%dcy,nav%dcz,&
           inf_sol=nav%infsolv)
 
   end subroutine navier_solve_v
@@ -861,7 +1008,7 @@ function sol(x,y,z,t,type,rey)
     !-> solve
 !    call md_set_guess(mpid,nav%infw,nt,it,nav%bcw,nav%w)
     call multidomain_solve(mpid,nav%infw,nav%scw,nav%bcw(it(1)),nav%w(it(1)),&
-          nav%fw(it(nt)),nav%aux,nav%sigmau,nav%dcx,nav%dcy,nav%dcz ,&
+          nav%fw(it(nt)),nav%aux,nav%sigmau,nav%dcx,nav%dcy,nav%dcz,&
           inf_sol=nav%infsolw)
 
   end subroutine navier_solve_w
@@ -917,7 +1064,7 @@ function sol(x,y,z,t,type,rey)
     nav%fphi=nav%fphi+ derx(nav%dcx,nav%rhs_px)&
                      + dery(nav%dcy,nav%rhs_py)&
                      + derz(nav%dcz,nav%rhs_pz)
-
+    
     goto 101
     nav%fphi=(1.5_rk/nav%ts)*(&
          derx(nav%dcx,nav%u(it(1)))+&
@@ -1105,7 +1252,6 @@ function sol(x,y,z,t,type,rey)
         navier_phi_rhs=fvar(1)- fvar(2) + nav%fac(1)*var(nav%it(1))
       endif
     endif
-
        call field_zero_edges(navier_phi_rhs)
 
   end function navier_phi_rhs
@@ -1292,7 +1438,8 @@ function sol(x,y,z,t,type,rey)
        call field_init(nav%fv(i),"RHS_V",nx,ny,nz)
        call field_init(nav%fw(i),"RHS_W",nx,ny,nz)
        call field_init(nav%fp(i),"RHS_P",nx,ny,nz)
-       call field_init(nav%phi(i),"PHI",nx,ny,nz)
+!       call field_init(nav%phi(i),"PHI",nx,ny,nz)
+       call field_init(nav%phi(i),"P",nx,ny,nz)
     enddo
     do i=1,2
        call field_init(nav%rhs_u(i),"RHS2_U",nx,ny,nz)

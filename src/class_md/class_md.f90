@@ -120,6 +120,7 @@ module class_md
   public :: md_mpi_global_coord,md_vector_sol_setvalues
   public :: md_guess_init
   public :: md_add_pert,md_vector_zero_lastpoint
+  public :: md_influence_guess_write,md_influence_guess_read
 contains
 
 ! =======================================================================
@@ -873,6 +874,61 @@ end subroutine md_vector_setvalues
 
   end subroutine md_influence_matrix_read
 
+!------------------------------------------------------------------------
+! md : guess vector write
+!------------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2013
+!
+  subroutine md_influence_guess_write(mpid,inf_sol,filename)
+    implicit none
+    type(mpi_data) :: mpid
+    type(mpi_inf_sol) :: inf_sol
+    PetscViewer :: viewer
+    PetscErrorCode :: err
+    character(*) :: filename
+
+    !-> open viewer
+    call PetscViewerBinaryOpen(PETSC_COMM_WORLD,filename, &
+         FILE_MODE_WRITE,viewer,err)
+    !-> write vector
+    call VecView(inf_sol%sol_old(1),viewer,err)
+    !-> write vector
+    call VecView(inf_sol%sol_old(2),viewer,err)
+    !-> write vector
+    call VecView(inf_sol%sol_old(3),viewer,err)
+    !-> destroy viewer
+    call PetscViewerDestroy(viewer,err)
+
+  end subroutine md_influence_guess_write
+
+!------------------------------------------------------------------------
+! md : guess vector write
+!------------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2013
+!
+  subroutine md_influence_guess_read(mpid,inf_sol,filename)
+    implicit none
+    type(mpi_data) :: mpid
+    type(mpi_inf_sol) :: inf_sol
+    PetscViewer :: viewer
+    PetscErrorCode :: err
+    character(*) :: filename
+
+    !-> open viewer
+    call PetscViewerBinaryOpen(PETSC_COMM_WORLD,filename, &
+         FILE_MODE_READ,viewer,err)
+    !-> read vector
+    call VecLoad(inf_sol%sol_old(1),viewer,err)
+    !-> read vector
+    call VecLoad(inf_sol%sol_old(2),viewer,err)
+    !-> read vector
+    call VecLoad(inf_sol%sol_old(3),viewer,err)
+    !-> destroy viewer
+    call PetscViewerDestroy(viewer,err)
+
+  end subroutine md_influence_guess_read
 
 !------------------------------------------------------------------------
 ! md : influence matrix initialization
@@ -1736,27 +1792,42 @@ end subroutine md_vector_setvalues
     c(1)=mpid%nd(1) ; c(2)=mpid%nd(2) ; c(3)=mpid%nd(3) 
 
   end subroutine md_mpi_getnumberdomains
+
 !------------------------------------------------------------------------
-! md : mpi barrier
+! md : mpi write coord
 !------------------------------------------------------------------------
 ! Matthieu Marquillie
 ! 09/2012
 !
-  subroutine md_mpi_global_coord(mpid,dim,coord)
+  subroutine md_mpi_global_coord(mpid,dim,coord,inter)
     implicit none
     type(mpi_data) :: mpid
     integer(ik),intent(out) :: dim(3),coord(3,2)
+    character(*),optional :: inter
 
     !-> compute total number of points
-    dim(1)=mpid%nx*mpid%nd(1)
-    dim(2)=mpid%ny*mpid%nd(2)
-    dim(3)=mpid%nz*mpid%nd(3)
+    if (present(inter)) then
+       dim(1)=mpid%nx*mpid%nd(1)!-(mpid%nd(1)-1)
+       dim(2)=mpid%ny*mpid%nd(2)!-(mpid%nd(2)-1)
+       dim(3)=mpid%nz*mpid%nd(3)!-(mpid%nd(3)-1)
+    else
+       dim(1)=mpid%nx*mpid%nd(1)-(mpid%nd(1)-1)
+       dim(2)=mpid%ny*mpid%nd(2)-(mpid%nd(2)-1)
+       dim(3)=mpid%nz*mpid%nd(3)-(mpid%nd(3)-1)
+    endif
 
     !-> compute global indices
-    coord(1,1)=mpid%coord(1)*mpid%nx+1
-    coord(2,1)=mpid%coord(2)*mpid%ny+1
-    coord(3,1)=mpid%coord(3)*mpid%nz+1
+    if (present(inter)) then
+       coord(1,1)=mpid%coord(1)*mpid%nx+1!-mpid%coord(1)
+       coord(2,1)=mpid%coord(2)*mpid%ny+1!-mpid%coord(2)
+       coord(3,1)=mpid%coord(3)*mpid%nz+1!-mpid%coord(3)
+    else
+       coord(1,1)=mpid%coord(1)*mpid%nx+1-mpid%coord(1)
+       coord(2,1)=mpid%coord(2)*mpid%ny+1-mpid%coord(2)
+       coord(3,1)=mpid%coord(3)*mpid%nz+1-mpid%coord(3)
+    endif
 
+    !-> compute dimensions to write
     coord(1,2)=mpid%nx
     coord(2,2)=mpid%ny
     coord(3,2)=mpid%nz
