@@ -338,32 +338,60 @@ function integrale(mpid,x)
   implicit none
   type(field),intent(in) ::x
   type(mpi_data) :: mpid
-  real(rk) :: integrale1,integrale
+  real(rk) :: integrale1,integrale,dx,dy,dz
   integer(ik) :: i,j,k
 
   integrale1=0._rk
   do k=2,x%nz-1
      do j=2,x%ny-1
         do i=2,x%nx-1
-           integrale1=integrale1+x%f(i,j,k)
+           dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+           dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+           dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+           integrale1=integrale1+x%f(i,j,k)*dx*dy*dz
         enddo
      enddo
   enddo
 
   !-> x boundary
-  integrale1=integrale1+sum(x%f(1,2:x%ny-1,2:x%nz-1))
-  integrale1=integrale1+sum(x%f(x%nx,2:x%ny-1,2:x%nz-1))
+   do j=2,x%ny-1
+      do k=2,x%nz-1
+         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+         dx=nav%gridx%grid1d(2)-nav%gridx%grid1d(1)
+         integrale1=integrale1+x%f(1,j,k)*dx*dy*dz
+         dx=nav%gridx%grid1d(x%nx)-nav%gridx%grid1d(x%nx-1)
+         integrale1=integrale1+x%f(x%nx,j,k)*dx*dy*dz
+      enddo
+  enddo
 
   !-> y boundary
-  integrale1=integrale1+sum(x%f(2:x%nx-1,1,2:x%nz-1))
-  integrale1=integrale1+sum(x%f(2:x%nx-1,x%ny,2:x%nz-1))
+   do i=2,x%nx-1
+      do k=2,x%nz-1
+         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+         dy=nav%gridy%grid1d(2)-nav%gridy%grid1d(1)
+         integrale1=integrale1+x%f(i,1,k)*dx*dy*dz
+         dy=nav%gridy%grid1d(x%ny)-nav%gridy%grid1d(x%ny-1)
+         integrale1=integrale1+x%f(i,x%ny,k)*dx*dy*dz
+      enddo
+  enddo
 
   !-> z boundary
-  integrale1=integrale1+sum(x%f(2:x%nx-1,2:x%ny-1,1))
-  integrale1=integrale1+sum(x%f(2:x%nx-1,2:x%ny-1,x%nz))
+   do i=2,x%nx-1
+      do j=2,x%ny-1
+         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+         dz=nav%gridz%grid1d(2)-nav%gridz%grid1d(1)
+         integrale1=integrale1+x%f(i,j,1)*dx*dy*dz
+         dz=nav%gridz%grid1d(x%nz)-nav%gridz%grid1d(x%nz-1)
+         integrale1=integrale1+x%f(i,j,x%nz)*dx*dy*dz
+      enddo
+  enddo
 
   call md_mpi_reduce_double(mpid,integrale1,integrale)
-call md_mpi_bcast_double(mpid,integrale,0)
+  call md_mpi_bcast_double(mpid,integrale,0)
+
 end function integrale
 
 
@@ -374,29 +402,56 @@ function norme2(mpid,x)
   implicit none
   type(field),intent(in) ::x
   type(mpi_data) :: mpid
-  real(rk) :: norme2,som1
+  real(rk) :: norme2,som1,dx,dy,dz
   integer(ik) :: i,j,k
 
   som1=0._rk
   do k=2,x%nz-1
      do j=2,x%ny-1
         do i=2,x%nx-1
-           som1=som1+(x%f(i,j,k))**2
+           dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+           dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+           dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+           som1=som1+dx*dy*dz*x%f(i,j,k)**2
         enddo
      enddo
   enddo
 
   !-> x boundary
-  som1=som1+sum((x%f(1,2:x%ny-1,2:x%nz-1))**2)
-  som1=som1+sum((x%f(x%nx,2:x%ny-1,2:x%nz-1))**2)
+   do j=2,x%ny-1
+      do k=2,x%nz-1
+         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+         dx=nav%gridx%grid1d(2)-nav%gridx%grid1d(1)
+         som1=som1+dx*dy*dz*x%f(1,j,k)**2
+         dx=nav%gridx%grid1d(x%nx)-nav%gridx%grid1d(x%nx-1)
+         som1=som1+dx*dy*dz*x%f(x%nx,j,k)**2
+      enddo
+  enddo
 
   !-> y boundary
-  som1=som1+sum((x%f(2:x%nx-1,1,2:x%nz-1))**2)
-  som1=som1+sum((x%f(2:x%nx-1,x%ny,2:x%nz-1))**2)
+   do i=2,x%nx-1
+      do k=2,x%nz-1
+         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+         dy=nav%gridy%grid1d(2)-nav%gridy%grid1d(1)
+         som1=som1+dx*dy*dz*x%f(i,1,k)**2
+         dy=nav%gridy%grid1d(x%ny)-nav%gridy%grid1d(x%ny-1)
+         som1=som1+dx*dy*dz*x%f(i,x%ny,k)**2
+      enddo
+  enddo
 
   !-> z boundary
-  som1=som1+sum((x%f(2:x%nx-1,2:x%ny-1,1))**2)
-  som1=som1+sum((x%f(2:x%nx-1,2:x%ny-1,x%nz))**2)
+   do i=2,x%nx-1
+      do j=2,x%ny-1
+         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+         dz=nav%gridz%grid1d(2)-nav%gridz%grid1d(1)
+         som1=som1+dx*dy*dz*x%f(i,j,1)**2
+         dz=nav%gridz%grid1d(x%nz)-nav%gridz%grid1d(x%nz-1)
+         som1=som1+dx*dy*dz*x%f(i,j,x%nz)**2
+      enddo
+  enddo
 
 
   call md_mpi_reduce_double(mpid,som1,norme2)
