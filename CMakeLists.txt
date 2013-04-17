@@ -105,16 +105,16 @@ SET(CMDL cmdl)
 ADD_LIBRARY(${CMDL} STATIC src/utils/command_line.f90 ) 
 target_link_libraries(${CMDL} ${PREC})
 
-# class io
-SET(IO io)
-ADD_LIBRARY( ${IO} STATIC src/class_io/class_io.f90) 
-target_link_libraries(${IO} ${PREC} ${NETCDFLIB} ${MD})
-
 # class dierckx
-#SET(DIERCKX dierckx)
-#ADD_LIBRARY( ${DIERCKX} STATIC src/class_filter/dierckx.f) 
-#target_link_libraries(${DIERCKX})
-#set_target_properties(${DIERCKX} PROPERTIES COMPILE_FLAGS ${DOUBLE})
+SET(DIERCKX dierckx)
+ADD_LIBRARY( ${DIERCKX} STATIC src/class_filter/dierckx.f) 
+target_link_libraries(${DIERCKX})
+set_target_properties(${DIERCKX} PROPERTIES COMPILE_FLAGS ${DOUBLE})
+
+# class md
+SET(MD md)
+ADD_LIBRARY( ${MD} STATIC src/class_md/class_md.f90  )
+target_link_libraries(${MD} ${PETSCLIB} ${X11LIB} ${LAPACKLIB} ${CMDL})# ${PREC})
 
 # class derivatives
 SET(DER der)
@@ -133,29 +133,29 @@ ADD_LIBRARY( ${SOLVER_3D} STATIC src/class_solver/class_solver_coefficient_3d.f9
 target_link_libraries(${SOLVER_3D} ${PREC} ${LAPACKLIB})
 
 # class filter
-#SET(FILTER filter)
-#ADD_LIBRARY( ${FILTER} STATIC src/class_filter/class_filter.f90)
-#target_link_libraries(${FILTER} ${DIERCKX} ${PREC})
+SET(FILTER filter)
+ADD_LIBRARY( ${FILTER} STATIC src/class_filter/class_filter.f90)
+target_link_libraries(${FILTER} ${DIERCKX} ${PREC})
 
-# class md
-SET(MD md)
-ADD_LIBRARY( ${MD} STATIC src/class_md/class_md.f90  )
-target_link_libraries(${MD} ${PREC} ${PETSCLIB} ${X11LIB} ${LAPACKLIB})
+# class io
+SET(IO io)
+ADD_LIBRARY( ${IO} STATIC src/class_io/class_io.f90) 
+target_link_libraries(${IO} ${NETCDFLIB} ${MD})#  ${PREC})
 
 # class libfield 
 SET(FIELD field)
 ADD_LIBRARY( ${FIELD} STATIC src/class_field/class_field.f90) 
-target_link_libraries(${FIELD} ${PREC} ${IO} ${DER} ${FILTER} ${SOLVER_1D} ${SOLVER_3D} ${MD})
+target_link_libraries(${FIELD} ${IO} ${DER} ${SOLVER_1D} ${SOLVER_3D}) # ${MD} ${PREC})
 
 # class mesh
 SET(MESH mesh)
 ADD_LIBRARY( ${MESH} STATIC src/class_mesh/class_mesh.f90) 
-target_link_libraries(${MESH} ${FILTER} ${PREC} ${DER} ${SOLVER_1D} ${SOLVER_3D})
+target_link_libraries(${MESH} ${IO} ${DER} ${SOLVER_1D} ${SOLVER_3D}) # ${MD} ${PREC})
 
 # class navier3d 
 SET(NAVIER3D navier3d)
 ADD_LIBRARY( ${NAVIER3D} STATIC src/class_navier/class_navier_3D.f90) 
-target_link_libraries(${NAVIER3D} ${FIELD} ${MESH} ${COLOR} ${CMDL})
+target_link_libraries(${NAVIER3D} ${FIELD} ${MESH} ${COLOR} )# ${CMDL} ${DER} ${MD} ${SOLVER_3D})
 
 # -------------------------------------------------------------------------------------------------------------------------
 # Test executables
@@ -164,42 +164,46 @@ target_link_libraries(${NAVIER3D} ${FIELD} ${MESH} ${COLOR} ${CMDL})
 # test solver_1d
 SET(TESTSOLVER_1D testsolver_1d)
 ADD_EXECUTABLE( ${TESTSOLVER_1D} src/main/test_solver_1d.f90 src/main/parameters.f90)
-target_link_libraries(${TESTSOLVER_1D} ${FIELD} ${MESH} ${LAPACKLIB} ${COLOR})
+target_link_libraries(${TESTSOLVER_1D} ${FIELD} ${MESH} ${COLOR})# ${SOLVER_1D} ${LAPACKLIB} ${PREC})
 
 # test solver_3d
 SET(TESTSOLVER_3D testsolver_3d)
 ADD_EXECUTABLE( ${TESTSOLVER_3D} src/main/test_solver_3d.f90 src/main/parameters.f90)
-target_link_libraries(${TESTSOLVER_3D} ${FIELD} ${MESH} ${LAPACKLIB} ${COLOR} ${CMDL})
+target_link_libraries(${TESTSOLVER_3D} ${FIELD} ${MESH} ${COLOR})# ${SOLVER_3D} ${LAPACKLIB} ${CMDL} ${PREC})
 
 # test md
 SET(TESTMD testmd)
 ADD_EXECUTABLE( ${TESTMD} src/main/test_md.f90 src/main/parameters.f90)
-target_link_libraries(${TESTMD} ${MD} ${FIELD} ${MESH} ${LAPACKLIB} ${COLOR} ${CMDL})
+target_link_libraries(${TESTMD} ${FIELD} ${MESH} ${COLOR})# ${DER} ${MD} ${SOLVER_3D} ${LAPACKLIB} ${CMDL} ${PREC}
 
 # test derivatives
 SET(TESTDERO testdero)
 ADD_EXECUTABLE( ${TESTDERO} src/main/test_derivatives_omp.f90 src/main/parameters.f90)
-target_link_libraries(${TESTDERO} ${FIELD} ${MESH} ${LAPACKLIB} ${COLOR} ${CMDL})
+target_link_libraries(${TESTDERO} ${FIELD} ${MESH} ${COLOR})#${LAPACKLIB} ${DER} ${CMDL} ${PREC})
 
 # test derivatives
 SET(TESTDER testder)
 ADD_EXECUTABLE( ${TESTDER} src/main/test_derivatives.f90 src/main/parameters.f90)
-target_link_libraries(${TESTDER} ${FIELD} ${MESH} ${LAPACKLIB} ${COLOR})
+target_link_libraries(${TESTDER} ${FIELD} ${MESH} ${COLOR})#${LAPACKLIB} ${DER} ${PREC})
 
 # test io
 SET(TESTIO testio)
 ADD_EXECUTABLE( ${TESTIO} src/main/test_io.f90 src/main/parameters.f90)
-target_link_libraries(${TESTIO} ${FIELD} ${MESH} ${COLOR})
+target_link_libraries(${TESTIO} ${FIELD} ${MESH} ${COLOR})# ${PREC})
 
 # test filter
 #SET(TESTFILTER testfilter)
 #ADD_EXECUTABLE( ${TESTFILTER} src/main/test_filter.f90)
 #target_link_libraries(${TESTFILTER} ${FIELD} ${MESH} ${COLOR})
 
-
 # navier3d
 SET(TESTNAV testnav)
 ADD_EXECUTABLE( ${TESTNAV} src/main/navier3d.f90 src/main/parameters.f90)
-target_link_libraries(${TESTNAV} ${NAVIER3D} ${MD} ${FIELD} ${MESH} ${COLOR} ${CMDL})
+target_link_libraries(${TESTNAV} ${NAVIER3D})# ${MD} ${FIELD} ${CMDL} ${PREC} )
+
+# test stretch
+SET(TESTSTRETCH teststretch)
+ADD_EXECUTABLE( ${TESTSTRETCH} src/main/test_deriv_stretching.f90)
+target_link_libraries(${TESTSTRETCH} ${FILTER} ${FIELD} ${MESH} ${COLOR})# ${DER} ${IO} ${MD} ${CMDL})
 
 
