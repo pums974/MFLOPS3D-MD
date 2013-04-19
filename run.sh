@@ -9,7 +9,8 @@ iter=80
 ordrev=2
 ordrep=2
 ts=1e-2
-re=1e-5
+re=1e1
+nsub=1
 
 export TIME='Elapsed : %e ,User: %U ,CPU : %P ,Max Mem : %R , command : %C'
 
@@ -22,23 +23,21 @@ cd bin
 for ts in `echo "1e-2 "`; do
 #for blocs in `echo "2 3 4 5"`; do
   nproc=`echo "$blocs^2" | bc -l `
-  rm -f matrix_* *.nc
+  rm -f matrix_* *.nc fort.*
 echo
 echo
 echo $ts
-for pression in `echo " 1"`; do
+for pression in `echo "1 3"`; do
+for nsub in `echo " 1 2 5"`; do
 echo
 echo
-echo $pression
-for nsub in `echo "1"`; do
-echo
-echo
-  /usr/bin/time mpiexec -n $nproc numactl -l \
+echo $pression $nsub
+ /usr/bin/time mpiexec -n $nproc numactl -l \
     ./testnav -dim $points,$points,$points -dom $blocs,$blocs,1 -period 0,0,0 -reynolds $re -ts $ts -ntime $iter \
               -nlt 2 -pt $pression -to $ordrev,$ordrep -nsub $nsub \
               -u_pc_type lu -u_pc_factor_mat_solver_package mumps        -u_ksp_type preonly \
               -p_pc_type lu -p_pc_factor_mat_solver_package mumps        -p_ksp_type preonly -psm 2 \
-              $*   # 2>/dev/null   | tee run.out |  tail -n 11 #11
+              $*    2>/dev/null   | tee run.out |  tail -n 12 #12
 #              $*    > test_$pression_$blocs.out
 #gnuplot cav2.gnu
 done
@@ -58,10 +57,12 @@ exit 0
 
               -u_pc_type lu -u_pc_factor_mat_solver_package mumps        -u_ksp_type preonly \
               -p_pc_type lu -p_pc_factor_mat_solver_package mumps        -p_ksp_type preonly -psm 2 \
-              -u_ksp_rtol 1.e-8 -u_pc_type jacobi -u_ksp_type gmres -u_ksp_max_it 10 \
-              -p_ksp_rtol 1.e-8 -p_pc_type jacobi -p_ksp_type gmres -p_ksp_max_it 60 -psm 1 \
-              -u_ksp_rtol 1.e-8 -u_pc_type jacobi -u_ksp_type gmres -u_ksp_max_it 20 \
-              -p_ksp_rtol 1.e-8 -p_pc_type jacobi -p_ksp_sub_pc_type ilu -p_sub_ksp_type gmres -p_sub_ksp_max_it 6 -p_sub_pc_type bjacobi -p_sub_sub_pc_type ilu -p_ksp_max_it 20 -psm 1 \
+
+              -u_ksp_rtol 1.e-12 -u_pc_type jacobi -u_ksp_type gmres -u_ksp_max_it 10 -u_ksp_initial_guess_nonzero \
+              -p_ksp_rtol 1.e-12 -p_pc_type jacobi -p_ksp_type gmres -p_ksp_max_it 60 -p_ksp_initial_guess_nonzero -psm 1 \
+
+              -u_ksp_rtol 1.e-12 -u_pc_type jacobi -u_ksp_type gmres -u_ksp_max_it 10 -u_ksp_initial_guess_nonzero \
+              -p_ksp_rtol 1.e-12 -p_pc_type jacobi -p_ksp_sub_pc_type ilu -p_sub_ksp_type gmres -p_sub_ksp_max_it 6 -p_sub_pc_type bjacobi -p_sub_sub_pc_type ilu -p_ksp_max_it 10 -p_ksp_initial_guess_nonzero -psm 1 \
 
 
 

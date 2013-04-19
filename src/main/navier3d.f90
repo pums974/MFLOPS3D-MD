@@ -26,17 +26,19 @@ program testnavier3d
   call navier_initialization(cmd,mpid,nav)
 
   !-> write mesh
-  call write_mesh('grid_x',nav%gridx,mpid)
-  call write_mesh('grid_y',nav%gridy,mpid)
-  call write_mesh('grid_z',nav%gridz,mpid)
+!  call write_mesh('grid_x',nav%gridx,mpid)
+!  call write_mesh('grid_y',nav%gridy,mpid)
+!  call write_mesh('grid_z',nav%gridz,mpid)
 
   
   !-> read restart files if they exists
-  call restart_read(mpid,nav)
+!  call restart_read(mpid,nav)
 
   !------------------------------------------------------------------------ 
   !-> time loop
   !------------------------------------------------------------------------ 
+
+
 
   call system_clock(t1,irate)
 temps:  do ite=1,nav%ntime
@@ -48,10 +50,35 @@ temps:  do ite=1,nav%ntime
      !-> time update
      call navier_time(nav)
 
-subit:  do subite=1,nav%nsubite
-     nav%subite=subite
-     if (mpid%rank==0) print*,'Time : ',ite,subite
+     if(ite==1) then
+     do iaux=0,nav%nt-1
+     t=-iaux*nav%ts
+     do k=1,nav%nz
+        z=nav%gridz%grid1d(k)
+        do j=1,nav%ny
+           y=nav%gridy%grid1d(j)
+           do i=1,nav%nx
+             x=nav%gridx%grid1d(i)
+             nav%u(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'u',nav%rey)
+             nav%v(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'v',nav%rey)
+             nav%w(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'w',nav%rey)
+             nav%p(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'p',nav%rey)
+!             if(nav%pt==1)
+!             if(nav%pt==2)
+             if(nav%pt==3) nav%phi(nav%it(nav%nt-iaux))%f(i,j,k)=nav%p(nav%it(nav%nt-iaux))%f(i,j,k)
+!             if(nav%pt==4)
+           enddo
+        enddo
+     enddo
+     enddo
+     endif
 
+
+
+
+subit:  do subite=1,nav%nsubite
+     nav%subite=int(subite,ik)
+     if (mpid%rank==0) print*,'Time : ',ite,subite
      !---------------------------------------------------------------------
 !     if (mpid%rank==0) then
 !        call color(ired);print'(a)','Time : ';call color(color_off)
@@ -186,8 +213,8 @@ subit:  do subite=1,nav%nsubite
                  + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
                  + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
 
-    error=norme2(mpid,nav%aux)/ref
-    if (mpid%rank==0) print*,'error tot V       : ',error
+    error=norme2(mpid,nav%aux)
+    if (mpid%rank==0) print*,'error tot V       : ',error,error/ref
 
 !    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
 !                 + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
@@ -212,16 +239,20 @@ subit:  do subite=1,nav%nsubite
 
 
     nav%aux%f=1._rk  ;    ref=integrale(mpid,nav%aux)
-    nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
+    nav%aux%f=nav%p(nav%it(nav%nt))%f! - pex
     call navier_nullify_boundary(mpid,nav,nav%aux,0)
     error=integrale(mpid,nav%aux)
-    pex=pex+error/ref
+    nav%p(nav%it(nav%nt))%f=nav%p(nav%it(nav%nt))%f-error/ref
+    nav%aux%f=pex
+    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+    error=integrale(mpid,nav%aux)
+    pex=pex-error/ref
     nav%aux%f=pex
     ref=norme2(mpid,nav%aux)
 
     nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
-    error=norme2(mpid,nav%aux)/ref
-    if (mpid%rank==0) print*,'error tot P       : ',error
+    error=norme2(mpid,nav%aux)
+    if (mpid%rank==0) print*,'error tot P       : ',error,error/ref
 
 !    nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
 !    call navier_nullify_boundary(mpid,nav,nav%aux,1)
@@ -245,19 +276,26 @@ subit:  do subite=1,nav%nsubite
                   +norme2(mpid,nav%w(nav%it(nav%nt))))
     if (mpid%rank==0) print*,'En Cinet  V       : ',errort/reft
 
+    nav%aux%f=nav%p(nav%it(nav%nt))%f - nav%p(nav%it(nav%nt-1))%f
+    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+    error=integrale(mpid,nav%aux)
+    nav%aux%f=nav%aux%f- error/reft
+    error=norme2(mpid,nav%aux)
+    if (mpid%rank==0) print*,'Station   P       : ',error,error/(reft)
+
     errort=norme2(mpid,nav%u(nav%it(nav%nt))-nav%u(nav%it(nav%nt-1)))**2 &
           +norme2(mpid,nav%v(nav%it(nav%nt))-nav%v(nav%it(nav%nt-1)))**2 &
           +norme2(mpid,nav%w(nav%it(nav%nt))-nav%w(nav%it(nav%nt-1)))
-    if (mpid%rank==0) print*,'Station   V       : ',sqrt(errort)/(reft)
+    if (mpid%rank==0) print*,'Station   V       : ',sqrt(errort),sqrt(errort)/(reft)
 
-  if(ite>=10.and.sqrt(errort)/(reft)<1d-6) exit temps
+  if(ite>=10.and.sqrt(errort)/(reft)<1d-20) exit temps
 
   enddo temps
   call system_clock(t2,irate)
   time=real(t2-t1)/real(irate)
   if (mpid%rank==0) print*,'time : ',time,time/(ite-20)
 
-  call restart_write(mpid,nav)
+!  call restart_write(mpid,nav)
   !------------------------------------------------------------------------ 
   !-> time loop end
   !------------------------------------------------------------------------ 
@@ -304,8 +342,8 @@ if (.true.) then
     vectorerror(:,:,:,k)=nav%aux%f
   enddo
 
-  !k=((nav%nz-2)/2) + 2
-  k=nav%nz-1
+  k=nav%nz/2
+!  k=nav%nz-1
   do j=1,nav%ny
      do i=1,nav%nx
         write(20+mpid%rank,'(20es17.8)')nav%gridx%grid1d(i),nav%gridy%grid1d(j),&
@@ -322,11 +360,11 @@ if (.true.) then
 endif
 
 
-  call write_field('vel_u',nav%u(nav%it(nav%nt)),mpid)
-  call write_field('vel_v',nav%v(nav%it(nav%nt)),mpid)
-  call write_field('vel_w',nav%w(nav%it(nav%nt)),mpid)
-  call write_field('vel_p',nav%p(nav%it(nav%nt)),mpid)
-  call write_field('vel_phi',nav%phi(nav%it(nav%nt)),mpid)
+!  call write_field('vel_u',nav%u(nav%it(nav%nt)),mpid)
+!  call write_field('vel_v',nav%v(nav%it(nav%nt)),mpid)
+!  call write_field('vel_w',nav%w(nav%it(nav%nt)),mpid)
+!  call write_field('vel_p',nav%p(nav%it(nav%nt)),mpid)
+!  call write_field('vel_phi',nav%phi(nav%it(nav%nt)),mpid)
 
 
   !------------------------------------------------------------------------ 
@@ -400,46 +438,46 @@ function integrale(mpid,x)
            dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
            dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
            dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
-           integrale1=integrale1+x%f(i,j,k)*dx*dy*dz
+           integrale1=integrale1+x%f(i,j,k)!*dx*dy*dz
         enddo
      enddo
   enddo
 
-  !-> x boundary
-   do j=2,x%ny-1
-      do k=2,x%nz-1
-         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
-         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
-         dx=nav%gridx%grid1d(2)-nav%gridx%grid1d(1)
-         integrale1=integrale1+x%f(1,j,k)*dx*dy*dz
-         dx=nav%gridx%grid1d(x%nx)-nav%gridx%grid1d(x%nx-1)
-         integrale1=integrale1+x%f(x%nx,j,k)*dx*dy*dz
-      enddo
-  enddo
+!  !-> x boundary
+!   do j=2,x%ny-1
+!      do k=2,x%nz-1
+!         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+!         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+!         dx=(nav%gridx%grid1d(2)-nav%gridx%grid1d(1))*0.5_rk
+!         integrale1=integrale1+x%f(1,j,k)*dx*dy*dz
+!         dx=(nav%gridx%grid1d(x%nx)-nav%gridx%grid1d(x%nx-1))*0.5_rk
+!         integrale1=integrale1+x%f(x%nx,j,k)*dx*dy*dz
+!      enddo
+!  enddo
 
-  !-> y boundary
-   do i=2,x%nx-1
-      do k=2,x%nz-1
-         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
-         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
-         dy=nav%gridy%grid1d(2)-nav%gridy%grid1d(1)
-         integrale1=integrale1+x%f(i,1,k)*dx*dy*dz
-         dy=nav%gridy%grid1d(x%ny)-nav%gridy%grid1d(x%ny-1)
-         integrale1=integrale1+x%f(i,x%ny,k)*dx*dy*dz
-      enddo
-  enddo
+!  !-> y boundary
+!   do i=2,x%nx-1
+!      do k=2,x%nz-1
+!         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+!         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+!         dy=(nav%gridy%grid1d(2)-nav%gridy%grid1d(1))*0.5_rk
+!         integrale1=integrale1+x%f(i,1,k)*dx*dy*dz
+!         dy=(nav%gridy%grid1d(x%ny)-nav%gridy%grid1d(x%ny-1))*0.5_rk
+!         integrale1=integrale1+x%f(i,x%ny,k)*dx*dy*dz
+!      enddo
+!  enddo
 
-  !-> z boundary
-   do i=2,x%nx-1
-      do j=2,x%ny-1
-         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
-         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
-         dz=nav%gridz%grid1d(2)-nav%gridz%grid1d(1)
-         integrale1=integrale1+x%f(i,j,1)*dx*dy*dz
-         dz=nav%gridz%grid1d(x%nz)-nav%gridz%grid1d(x%nz-1)
-         integrale1=integrale1+x%f(i,j,x%nz)*dx*dy*dz
-      enddo
-  enddo
+!  !-> z boundary
+!   do i=2,x%nx-1
+!      do j=2,x%ny-1
+!         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+!         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+!         dz=(nav%gridz%grid1d(2)-nav%gridz%grid1d(1))*0.5_rk
+!         integrale1=integrale1+x%f(i,j,1)*dx*dy*dz
+!         dz=(nav%gridz%grid1d(x%nz)-nav%gridz%grid1d(x%nz-1))*0.5_rk
+!         integrale1=integrale1+x%f(i,j,x%nz)*dx*dy*dz
+!      enddo
+!  enddo
 
   call md_mpi_reduce_double(mpid,integrale1,integrale)
   call md_mpi_bcast_double(mpid,integrale,0)
@@ -464,46 +502,46 @@ function norme2(mpid,x)
            dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
            dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
            dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
-           som1=som1+dx*dy*dz*x%f(i,j,k)**2
+           som1=som1+x%f(i,j,k)**2!*dx*dy*dz
         enddo
      enddo
   enddo
 
-  !-> x boundary
-   do j=2,x%ny-1
-      do k=2,x%nz-1
-         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
-         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
-         dx=nav%gridx%grid1d(2)-nav%gridx%grid1d(1)
-         som1=som1+dx*dy*dz*x%f(1,j,k)**2
-         dx=nav%gridx%grid1d(x%nx)-nav%gridx%grid1d(x%nx-1)
-         som1=som1+dx*dy*dz*x%f(x%nx,j,k)**2
-      enddo
-  enddo
+!  !-> x boundary
+!   do j=2,x%ny-1
+!      do k=2,x%nz-1
+!         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+!         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+!         dx=(nav%gridx%grid1d(2)-nav%gridx%grid1d(1))*0.5_rk
+!         som1=som1+x%f(1,j,k)**2*dx*dy*dz
+!         dx=(nav%gridx%grid1d(x%nx)-nav%gridx%grid1d(x%nx-1))*0.5_rk
+!         som1=som1+x%f(x%nx,j,k)**2*dx*dy*dz
+!      enddo
+!  enddo
 
-  !-> y boundary
-   do i=2,x%nx-1
-      do k=2,x%nz-1
-         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
-         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
-         dy=nav%gridy%grid1d(2)-nav%gridy%grid1d(1)
-         som1=som1+dx*dy*dz*x%f(i,1,k)**2
-         dy=nav%gridy%grid1d(x%ny)-nav%gridy%grid1d(x%ny-1)
-         som1=som1+dx*dy*dz*x%f(i,x%ny,k)**2
-      enddo
-  enddo
+!  !-> y boundary
+!   do i=2,x%nx-1
+!      do k=2,x%nz-1
+!         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+!         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+!         dy=(nav%gridy%grid1d(2)-nav%gridy%grid1d(1))*0.5_rk
+!         som1=som1+x%f(i,1,k)**2*dx*dy*dz
+!         dy=(nav%gridy%grid1d(x%ny)-nav%gridy%grid1d(x%ny-1))*0.5_rk
+!         som1=som1+x%f(i,x%ny,k)**2*dx*dy*dz
+!      enddo
+!  enddo
 
-  !-> z boundary
-   do i=2,x%nx-1
-      do j=2,x%ny-1
-         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
-         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
-         dz=nav%gridz%grid1d(2)-nav%gridz%grid1d(1)
-         som1=som1+dx*dy*dz*x%f(i,j,1)**2
-         dz=nav%gridz%grid1d(x%nz)-nav%gridz%grid1d(x%nz-1)
-         som1=som1+dx*dy*dz*x%f(i,j,x%nz)**2
-      enddo
-  enddo
+!  !-> z boundary
+!   do i=2,x%nx-1
+!      do j=2,x%ny-1
+!         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+!         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+!         dz=(nav%gridz%grid1d(2)-nav%gridz%grid1d(1))*0.5_rk
+!         som1=som1+x%f(i,j,1)**2*dx*dy*dz
+!         dz=(nav%gridz%grid1d(x%nz)-nav%gridz%grid1d(x%nz-1))*0.5_rk
+!         som1=som1+x%f(i,j,x%nz)**2*dx*dy*dz
+!      enddo
+!  enddo
 
 
   call md_mpi_reduce_double(mpid,som1,norme2)

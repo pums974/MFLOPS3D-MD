@@ -524,6 +524,10 @@ contains
     !-> compute eigenvalue and eigenvector
     call dgeev('N','V',n,temp,n,wr,wi,vl,1,vr,n,work,n*n,info)
 
+if (maxval(abs(wi)).gt.1e-13) then
+print*, 'vp imaginaire -> revois ton maillage', maxval(abs(wi))
+stop
+endif
 !    print*,'dgeev info=',info
 !    print*,'eigenvalues : real imag'
 !    do i=1,n

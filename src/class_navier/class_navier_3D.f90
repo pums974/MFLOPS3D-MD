@@ -251,7 +251,12 @@ contains
         endif
       enddo
     enddo
+
    if(nav%pt==3)      call add_boundary_rotrot(mpid,nav)
+
+!nav%bcphi(it(1))%bcx(:,:,:)=0._rk
+!nav%bcphi(it(1))%bcy(:,:,:)=0._rk
+!nav%bcphi(it(1))%bcz(:,:,:)=0._rk
 
   call erase_boundary_inter(inter,nav%bcphi(nav%it(1)))
 
@@ -383,6 +388,13 @@ contains
     
 
     !-> bcx
+!    nav%aux%f=0._rk
+!    nav%aux=derx(nav%dcy,navier_extrapol(nav,nav%phi,'p'))
+!    nav%bcu(it(1))%bcx(:,:,1)=nav%bcu(it(1))%bcx(:,:,1)&
+!                             +nav%aux%f(1,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
+!    nav%bcu(it(1))%bcx(:,:,2)=nav%bcu(it(1))%bcx(:,:,2)&
+!                             +nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
+
     nav%aux%f=0._rk
     nav%aux=dery(nav%dcy,navier_extrapol(nav,nav%phi,'p'))
     nav%bcv(it(1))%bcx(:,:,1)=nav%bcv(it(1))%bcx(:,:,1)&
@@ -398,6 +410,13 @@ contains
                              +nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
 
     !-> bcy
+!    nav%aux%f=0._rk
+!    nav%aux=dery(nav%dcx,navier_extrapol(nav,nav%phi,'p'))
+!    nav%bcv(it(1))%bcy(:,:,1)=nav%bcv(it(1))%bcy(:,:,1)&
+!                             +nav%aux%f(2:nav%nx-1,1,2:nav%nz-1)/nav%fac(1)
+!    nav%bcv(it(1))%bcy(:,:,2)=nav%bcv(it(1))%bcy(:,:,2)&
+!                             +nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)/nav%fac(1)
+
     nav%aux%f=0._rk
     nav%aux=derx(nav%dcx,navier_extrapol(nav,nav%phi,'p'))
     nav%bcu(it(1))%bcy(:,:,1)=nav%bcu(it(1))%bcy(:,:,1)&
@@ -413,6 +432,13 @@ contains
                              +nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)/nav%fac(1)
 
     !-> bcz
+!    nav%aux%f=0._rk
+!    nav%aux=derz(nav%dcx,navier_extrapol(nav,nav%phi,'p'))
+!    nav%bcw(it(1))%bcz(:,:,1)=nav%bcw(it(1))%bcz(:,:,1)&
+!                             +nav%aux%f(2:nav%nx-1,2:nav%ny-1,1)/nav%fac(1)
+!    nav%bcw(it(1))%bcz(:,:,2)=nav%bcw(it(1))%bcz(:,:,2)&
+!                             +nav%aux%f(2:nav%nx-1,2:nav%ny-1,nav%nz)/nav%fac(1)
+
     nav%aux%f=0._rk
     nav%aux=derx(nav%dcx,navier_extrapol(nav,nav%phi,'p'))
     nav%bcu(it(1))%bcz(:,:,1)=nav%bcu(it(1))%bcz(:,:,1)&
@@ -445,8 +471,8 @@ contains
     implicit none
     type(navier3d) :: nav
     type(mpi_data) :: mpid
-    integer(ik) :: it(nav%nt),nt
-    real(rk) :: fac1,fac2,fac3
+    integer(ik) :: it(nav%nt),nt,i,j,k
+    real(rk) :: fac1,fac2,fac3,x,y,z,t
     integer(ik) :: l,m,c(3),inter(3,2)
 
     !-> get interface type
@@ -465,6 +491,7 @@ contains
                                  -dderz(nav%dcz,navier_extrapol(nav,nav%u,'p'))
     nav%bcphi(it(1))%bcx(:,:,1)=nav%bcphi(it(1))%bcx(:,:,1)-nav%aux%f(1     ,2:nav%ny-1,2:nav%nz-1)/nav%rey
     nav%bcphi(it(1))%bcx(:,:,2)=nav%bcphi(it(1))%bcx(:,:,2)-nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%rey
+
 
     !-> bcy
     nav%aux%f=0._rk
@@ -565,13 +592,73 @@ contains
 !
     implicit none
     real(rk) :: sol,rey
-    integer(ik) ::i,n
-    PARAMETER(n=1)
+    integer(ik) ::i,n,j,k
+    PARAMETER(n=1)     !espace vitesse
+    PARAMETER(i=0)     !espace pression
+    PARAMETER(j=0)     !temps vitesse
+    PARAMETER(k=0)     !temps pression
     real(rk) :: x,y,z,t,pi,wx(n),wt(n),wy(n),wp(n),a(n),b(n)
     character(*) :: type
 
-    pi=4._rk*atan(1._rk)
+
     sol=0._rk
+
+!    if (type=="u") then
+!       if(n>0) sol= (n*(x**n)+n*n*x*y**(n-1))*t**j
+!    endif
+!    if (type=="v") then
+!       if(n>0) sol=-(n*(y**n)+n*n*y*x**(n-1))*t**j
+!    endif
+!    if (type=="w") then
+!       sol=0._rk
+!    endif
+!    if (type=="p") then
+!       if(i>0) sol=(i*(x**i+y**i+x*y))*cos(k*t)
+!    endif
+!    if (type=="dxp") then
+!       if(i>0) sol=i*cos(k*t)*(y+i*x**(i-1))
+!    endif
+!    if (type=="dyp") then
+!       if(i>0) sol=i*cos(k*t)*(i*y**(i-1)+x)
+!    endif
+!    if (type=="dzp") then
+!       sol=0._rk
+!    endif
+
+!    if (type=="rhsu") then
+!       if(n>0) then
+!         if(j>0) sol=sol+n*j*(n*x*(y**(n-1))+x**n)*(t**(j-1))    !temps
+!         if(n>2) sol=sol-(n-1)*(n**2)*(t**j)*(n-2)*x*(y**(n-3))/rey  !lap
+!         if(n>1) sol=sol-(n-1)*(n**2)*(t**j)*(x**(n-2))/rey  !lap
+!       endif
+!       if(i>0) sol=sol+i*cos(k*t)*(y+i*(x**(i-1)))                 !grad
+!       if(n>0) sol=sol+n**3*t**(2*j)*x*y**(2*n-2)&
+!               -n**5*t**(2*j)*x**n*y**(n-1)&
+!               +2*n**4*t**(2*j)*x**n*y**(n-1)&
+!               +n**3*t**(2*j)*x**n*y**(n-1)&
+!               +n**3*t**(2*j)*x**(2*n-1) !nonlinear
+!    endif
+!    if (type=="rhsv") then
+!       if(n>0) then
+!         if(j>0) sol=sol-n*j*((y**n)+n*(x**(n-1))*y)*(t**(j-1))    !temps
+!         if(n>2) sol=sol+(n-2)*(n-1)*(n**2)*(t**j)*y*(x**(n-3))/rey  !lap
+!         if(n>1) sol=sol+(n-1)*(n**2)*(t**j)*(y**(n-2))/rey  !lap
+!       endif
+!       if(i>0) sol=sol+i*cos(k*t)*(i*(y**(i-1))+x)                 !grad
+!       if(n>0) sol=sol+n**3*t**(2*j)*y**(2*n-1)&
+!               -n**5*t**(2*j)*x**(n-1)*y**n&
+!               +2*n**4*t**(2*j)*x**(n-1)*y**n&
+!               +n**3*t**(2*j)*x**(n-1)*y**n&
+!               +n**3*t**(2*j)*x**(2*n-2)*y !nonlinear
+!    endif
+!    if (type=="rhsw") then
+!       sol=0._rk
+!    endif
+!    if (type=="rhsp") then
+!       sol=0._rk
+!    endif
+
+    pi=4._rk*atan(1._rk)
     do i=1,n
       a(i)=1._rk*i ; b(i)=2._rk*i
       wx(i)=1._rk*pi*i ; wy(i)=2._rk*pi*i ; wt(i)=0._rk*i*pi ; wp(i)=1.5_rk*pi*i
@@ -616,7 +703,8 @@ contains
            *cos(wx(i)*x)**2*cos(wy(i)*y)**2)-2*b(i)*wp(i)**2*cos(t*wt(i))*sin(wp(i)*(x-y))
     endif
     end do
-!    sol=0._rk
+
+
   end function sol
 
   function f(nav,var)
@@ -697,101 +785,9 @@ contains
     endif
     f=f+navier_extrapol(nav,tmp,'v')
 
-!    do i=1,nav%nt
-!       call field_destroy(tmp(i))
-!    enddo
-
-
-!    if (nav%nlt==1) then
-!       if (nav%tou==2) then
-!          f=f+2._rk*(&
-!               nav%u(it(nt))*derx(nav%dcx,x(it(nt)))+&
-!               nav%v(it(nt))*dery(nav%dcy,x(it(nt)))+&
-!               nav%w(it(nt))*derz(nav%dcz,x(it(nt))))
-
-!          f=f-1._rk*(&
-!               nav%u(it(nt-1))*derx(nav%dcx,x(it(nt-1)))+&
-!               nav%v(it(nt-1))*dery(nav%dcy,x(it(nt-1)))+&
-!               nav%w(it(nt-1))*derz(nav%dcz,x(it(nt-1))))
-!       elseif(nav%tou==3) then
-!          f=f+3._rk*(&
-!               nav%u(it(nt))*derx(nav%dcx,x(it(nt)))+&
-!               nav%v(it(nt))*dery(nav%dcy,x(it(nt)))+&
-!               nav%w(it(nt))*derz(nav%dcz,x(it(nt))))
-
-!          f=f-3._rk*(&
-!               nav%u(it(nt-1))*derx(nav%dcx,x(it(nt-1)))+&
-!               nav%v(it(nt-1))*dery(nav%dcy,x(it(nt-1)))+&
-!               nav%w(it(nt-1))*derz(nav%dcz,x(it(nt-1))))
-
-!          f=f+1._rk*(&
-!               nav%u(it(nt-2))*derx(nav%dcx,x(it(nt-2)))+&
-!               nav%v(it(nt-2))*dery(nav%dcy,x(it(nt-2)))+&
-!               nav%w(it(nt-2))*derz(nav%dcz,x(it(nt-2))))
-!       endif
-!    elseif (nav%nlt==2) then
-!       if (nav%tou==2) then
-!          f=f+1._rk*(&
-!               nav%u(it(nt))*derx(nav%dcx,x(it(nt)))+&
-!               nav%v(it(nt))*dery(nav%dcy,x(it(nt)))+&
-!               nav%w(it(nt))*derz(nav%dcz,x(it(nt))))
-
-!          nav%aux=1._rk*x(it(nt))*nav%u(it(nt))
-!          f=f+derx(nav%dcx,nav%aux)
-!          nav%aux=1._rk*x(it(nt))*nav%v(it(nt))
-!          f=f+dery(nav%dcy,nav%aux)
-!          nav%aux=1._rk*x(it(nt))*nav%w(it(nt))
-!          f=f+derz(nav%dcz,nav%aux)
-!          
-!          f=f-0.5_rk*(&
-!               nav%u(it(nt-1))*derx(nav%dcx,x(it(nt-1)))+&
-!               nav%v(it(nt-1))*dery(nav%dcy,x(it(nt-1)))+&
-!               nav%w(it(nt-1))*derz(nav%dcz,x(it(nt-1))))
-!          
-!          nav%aux=(-0.5_rk)*x(it(nt-1))*nav%u(it(nt-1))
-!          f=f+derx(nav%dcx,nav%aux)
-!          nav%aux=(-0.5_rk)*x(it(nt-1))*nav%v(it(nt-1))
-!          f=f+dery(nav%dcy,nav%aux)
-!          nav%aux=(-0.5_rk)*x(it(nt-1))*nav%w(it(nt-1))
-!          f=f+derz(nav%dcz,nav%aux)
-!       elseif(nav%tou==3) then
-!          f=f+1.5_rk*(&
-!               nav%u(it(nt))*derx(nav%dcx,x(it(nt)))+&
-!               nav%v(it(nt))*dery(nav%dcy,x(it(nt)))+&
-!               nav%w(it(nt))*derz(nav%dcz,x(it(nt))))
-
-!          nav%aux=1.5_rk*x(it(nt))*nav%u(it(nt))
-!          f=f+derx(nav%dcx,nav%aux)
-!          nav%aux=1.5_rk*x(it(nt))*nav%v(it(nt))
-!          f=f+dery(nav%dcy,nav%aux)
-!          nav%aux=1.5_rk*x(it(nt))*nav%w(it(nt))
-!          f=f+derz(nav%dcz,nav%aux)
-
-!          f=f-1.5_rk*(&
-!               nav%u(it(nt-1))*derx(nav%dcx,x(it(nt-1)))+&
-!               nav%v(it(nt-1))*dery(nav%dcy,x(it(nt-1)))+&
-!               nav%w(it(nt-1))*derz(nav%dcz,x(it(nt-1))))
-!          
-!          nav%aux=(-1.5_rk)*x(it(nt-1))*nav%u(it(nt-1))
-!          f=f+derx(nav%dcx,nav%aux)
-!          nav%aux=(-1.5_rk)*x(it(nt-1))*nav%v(it(nt-1))
-!          f=f+dery(nav%dcy,nav%aux)
-!          nav%aux=(-1.5_rk)*x(it(nt-1))*nav%w(it(nt-1))
-!          f=f+derz(nav%dcz,nav%aux)
-
-!          f=f+0.5_rk*(&
-!               nav%u(it(nt-2))*derx(nav%dcx,x(it(nt-2)))+&
-!               nav%v(it(nt-2))*dery(nav%dcy,x(it(nt-2)))+&
-!               nav%w(it(nt-2))*derz(nav%dcz,x(it(nt-2))))
-
-!          nav%aux=(0.5_rk)*x(it(nt-2))*nav%u(it(nt-2))
-!          f=f+derx(nav%dcx,nav%aux)
-!          nav%aux=(0.5_rk)*x(it(nt-2))*nav%v(it(nt-2))
-!          f=f+dery(nav%dcy,nav%aux)
-!          nav%aux=(0.5_rk)*x(it(nt-2))*nav%w(it(nt-2))
-!          f=f+derz(nav%dcz,nav%aux)
-!       endif
-!    endif
+    do i=1,nav%nt
+       call field_destroy(tmp(i))
+    enddo
 
   end subroutine navier_nonlinear
 
@@ -1047,7 +1043,7 @@ contains
     implicit none
     type(navier3d) :: nav
     type(mpi_data) :: mpid
-    integer(ik) :: it(nav%nt),nt
+    integer(ik) :: it(nav%nt),nt,i,j,k
     real(rk) :: fac
     
     !-> put nav%nt in nt for ease of use
@@ -1064,7 +1060,7 @@ contains
     nav%fphi=nav%fphi+ derx(nav%dcx,nav%rhs_px)&
                      + dery(nav%dcy,nav%rhs_py)&
                      + derz(nav%dcz,nav%rhs_pz)
-    
+
     goto 101
     nav%fphi=(1.5_rk/nav%ts)*(&
          derx(nav%dcx,nav%u(it(1)))+&

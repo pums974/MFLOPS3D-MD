@@ -135,8 +135,8 @@ contains
        xa=-aux ; xb=aux
     endif
     if (choice=="z") then
-!       xa=-aux*0.5_rk ; xb=aux*0.5_rk
-       xa=-aux ; xb=aux
+       xa=-aux*0.5_rk ; xb=aux*0.5_rk
+!       xa=-aux ; xb=aux
     endif
 !    xa=-aux ; xb=aux
 !    ya=-aux ; yb=aux
@@ -171,10 +171,10 @@ contains
 !    ksi=0.5_rk*(xb-xa)
 
 
-    beta=2.7_rk
+!    beta=70.0_rk
 !    beta=2.77_rk ! ratio max = 2 ratio bord = 1.7
 !    beta=8.77_rk ! ratio max = 3 ratio bord = 2.2
-!    beta=10.7_rk ! ratio max = 4 ratio bord = 2.5
+    beta=10.7_rk ! ratio max = 4 ratio bord = 2.5
 !    beta=33.3_rk ! ratio max = 5 ratio bord = 2.6
     alpha=1._rk-beta/real((grid%n**2),rk)
 !    alpha=0.99_rk
@@ -192,9 +192,9 @@ contains
 
 !       if (choice=="x".or.choice=="y".or.choice=="z") grid%grid1d(i)=xi
 
-        grid%grid1d(i)=xi
+!        grid%grid1d(i)=xi
 !        if (choice=="x") 
-!grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._rk)*0.5_rk
+grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._rk)*0.5_rk
 !        grid%grid1d(i)=xa+2._rk*xi-(xb-xa)*(sinh((2._rk*(xi-xa)/(xb-xa)-1._rk)*(1._rk-alpha))&
 !            /sinh(1._rk-alpha)+1._rk)*0.5_rk
 !        grid%grid1d(i)=xa+(xb-xa)*(1._rk+tanh(alpha*(2*(xi-xa)/(xb-xa)-1._rk))/tanh(alpha))/2._rk
@@ -213,7 +213,7 @@ contains
 
     !-> piecewise geometric stretching (only work with even number of points)
 
-!    goto 100  
+    goto 100  
 
 !->alpha + delta -> k
 !    alpha=cmd%stretch_value2 ! ratio bord
@@ -259,12 +259,12 @@ contains
     enddo
     grid%grid1d(:)=xa+ grid%grid1d(:)*(xb-xa)  /grid%grid1d(grid%n)
 !    print*,grid%grid1d
-!100 continue
+100 continue
 
-     write(*,'(A)')"   k       rmax              rbord"
-     write(*,'(I4,2es17.8)') k, &
-         (grid%grid1d(grid%n/2+1)-grid%grid1d(grid%n/2-1))/(2._rk*(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))), &
-         (grid%grid1d(grid%n-1)-grid%grid1d(grid%n-2))/(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))
+!     write(*,'(A)')"   k       rmax              rbord"
+!     write(*,'(I4,2es17.8)') k, &
+!         (grid%grid1d(grid%n/2+1)-grid%grid1d(grid%n/2-1))/(2._rk*(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))), &
+!         (grid%grid1d(grid%n-1)-grid%grid1d(grid%n-2))/(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))
 
     !-> grid3d
 
