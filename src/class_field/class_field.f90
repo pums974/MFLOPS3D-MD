@@ -207,13 +207,15 @@ contains
     implicit none
     type(field),intent(in) :: x1
     real(rk),intent(in) :: x2
+    real(rk) :: x3
     type(field) :: field_div_scal
     character(len=512) :: name
     Character(len=15) :: num
     write(num,'(f0.2)')x2
     name=trim(x1%name) !//"/"//num
     call field_init(field_div_scal,name,x1%nx,x1%ny,x1%nz)
-    field_div_scal%f=x1%f/x2
+    x3=1._rk/x2
+    field_div_scal%f=x1%f*x3
   end function field_div_scal
 
   function field_mul(x1,x2)
@@ -482,6 +484,7 @@ contains
 ! Matthieu Marquillie
 ! 04/2011
 !
+    use class_io
     implicit none
     type(field),intent(inout) :: x 
     x%nx=-1 ; x%ny=-1 ; x%nz=-1

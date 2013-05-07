@@ -16,6 +16,7 @@ module class_io
   public :: write_var3d,read_var3d
   public :: get_dim_size
   public :: get_var3d_info
+  public :: error_stop
 
 contains
 
@@ -251,5 +252,17 @@ contains
        stop
     end if
   end subroutine io_check
+
+subroutine error_stop(error_mesg)
+!  use mpi_utils, only : code,rang
+  implicit none
+  character(*) :: error_mesg
+!  call MPI_FINALIZE(code)
+!  if (rang==0) then
+     print'(a)',error_mesg(1:len_trim(error_mesg))
+!  endif
+!  stop
+  
+end subroutine error_stop
 
 end module class_io
