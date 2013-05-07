@@ -146,18 +146,20 @@ contains
 !    za=0._rk ; zb=aux
 
     if (present(mpid)) then
-       call md_mpi_getcoord(mpid,dom_coord)
-       call md_mpi_getnumberdomains(mpid,nd)
-       if (choice=="x") num_dom_tot=nd(1)
-       if (choice=="y") num_dom_tot=nd(2)
-       if (choice=="z") num_dom_tot=nd(3)
-       if (choice=="x") num_dom=dom_coord(1)
-       if (choice=="y") num_dom=dom_coord(2)
-       if (choice=="z") num_dom=dom_coord(3)
-       size_dom=(xb-xa)/num_dom_tot
-       xa=xa+num_dom*size_dom
-       xb=xa+size_dom
-!       print*,choice,dom_coord,xa,xb
+       if (mpid%dims.ne.0) then
+         call md_mpi_getcoord(mpid,dom_coord)
+         call md_mpi_getnumberdomains(mpid,nd)
+         if (choice=="x") num_dom_tot=nd(1)
+         if (choice=="y") num_dom_tot=nd(2)
+         if (choice=="z") num_dom_tot=nd(3)
+         if (choice=="x") num_dom=dom_coord(1)
+         if (choice=="y") num_dom=dom_coord(2)
+         if (choice=="z") num_dom=dom_coord(3)
+         size_dom=(xb-xa)/num_dom_tot
+         xa=xa+num_dom*size_dom
+         xb=xa+size_dom
+  !       print*,choice,dom_coord,xa,xb
+      endif
     endif
 
     !-> gridx1d
