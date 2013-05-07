@@ -278,8 +278,9 @@ contains
          +dr(2,5)*f(5)+dr(2,6)*f(6)+dr(2,7)*f(7)
 
     do i=3,n1-2
-       rhs(i)=dr(i,1)*f(i-2)+dr(i,2)*f(i-1)+dr(i,3)*f(i)+dr(i,4)*f(i+1) &
-            +dr(i,5)*f(i+2)
+        rhs(i)=dot_product(dr(i,1:5),f(i-2:i+2))
+!       rhs(i)=dr(i,1)*f(i-2)+dr(i,2)*f(i-1)+dr(i,3)*f(i)+dr(i,4)*f(i+1) &
+!            +dr(i,5)*f(i+2)
     enddo
 
     rhs(n1-1)=dr(n1-1,1)*f(n1-6)+dr(n1-1,2)*f(n1-5)+dr(n1-1,3)*f(n1-4) &
