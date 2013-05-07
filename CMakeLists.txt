@@ -3,7 +3,7 @@
 # -------------------------------------------------------------------------------------------------------------------------
 
 # Top-Level CmakeLists.txt
-PROJECT( mflops3d-md Fortran)
+PROJECT( mflops3d-md Fortran) #C 
 
 #enable_language (Fortran)
 
@@ -20,6 +20,7 @@ cmake_minimum_required(VERSION 2.6)
 SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 SET(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_SOURCE_DIR}/includes)
+#SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake)
 
 # Type of build 
 message( STATUS "Build type: " ${CMAKE_BUILD_TYPE})
@@ -70,14 +71,26 @@ set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -Warray-bounds -fbounds-check -mcmodel=medium
 #set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -Warray-bounds -fbounds-check -std=legacy  -mcmodel=medium -Wall -Wno-unused -fopenmp -cpp")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ")
 set(DOUBLE "-fdefault-real-8")
+#set (NETCDF_F90 "YES")
+#set (NETCDF_DIR "/opt/netcdf/netcdf4/include/")
+#find_package (NetCDF REQUIRED)
+#set(NETCDFLIB "${NETCDF_LIBRARIES}")
+#set(BLA_VENDOR "ACML_MP")
+#find_package (LAPACK REQUIRED)
+#set(LAPACKLIB "${LAPACK_LIBRARIES}")
 #set(LAPACKLIB "-Wl,--start-group /usr/lib64/libblas.a /usr/lib64/liblapack.a  -Wl,--end-group")
 #set(LAPACKLIB "-Wl,--start-group /opt/acml/acml-5.0.0.gfortran/gfortran64/lib/libacml.a  -Wl,--end-group")
 set(LAPACKLIB "-Wl,--start-group /opt/acml/acml-5.0.0.gfortran/gfortran64_mp/lib/libacml_mp.a  -Wl,--end-group")
+#set(PETSC_DIR "/opt/petsc/petsc-3.3-p2.release")
+#set(PETSC_ARCH "")
+#find_package(PETSc REQUIRED)
+#set(PETSCLIB ${PETSC_LIBRARIES} )
 #set(PETSCLIB "-L/opt/petsc/petsc-3.3-p2.openmpi-1.4.5.gcc-4.7.0.debug/lib/ -lpetsc -lHYPRE  -lsuperlu_dist_3.0 -ldmumps -lmumps_common -lparmetis -lmetis -lpord -lscalapack -lblacs -lstdc++ -lml")
 set(PETSCLIB "-L/opt/petsc/petsc-3.3-p2.release/lib/ -lpetsc -lHYPRE -lsuperlu_dist_3.1 -ldmumps -lmumps_common -lparmetis -lmetis -lpord -lscalapack -lblacs -lstdc++ -lml")
 set(X11LIB "-lX11")
 #include_directories(/usr/lib64/gfortran/modules/)
 include_directories(/opt/netcdf/netcdf4/include/ /opt/petsc/petsc-3.3-p2.release/include)
+#include_directories(${NETCDF_INCLUDES} ${PETSC_INCLUDES})
 endif ()
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Release")
