@@ -127,11 +127,12 @@ contains
     call write_field(trim(dirname)//'/rhs_phi_'//stepn,nav%fphi,&
          mpid,dbl='y',inter='y')
 
-    call md_influence_guess_write(mpid,nav%infsolu,trim(dirname)//'/guess_u.dat')
-    call md_influence_guess_write(mpid,nav%infsolv,trim(dirname)//'/guess_v.dat')
-    call md_influence_guess_write(mpid,nav%infsolw,trim(dirname)//'/guess_w.dat')
-    call md_influence_guess_write(mpid,nav%infsolphi,trim(dirname)//'/guess_phi.dat')
-
+    if (mpid%dims.ne.0) then
+      call md_influence_guess_write(mpid,nav%infsolu,trim(dirname)//'/guess_u.dat')
+      call md_influence_guess_write(mpid,nav%infsolv,trim(dirname)//'/guess_v.dat')
+      call md_influence_guess_write(mpid,nav%infsolw,trim(dirname)//'/guess_w.dat')
+      call md_influence_guess_write(mpid,nav%infsolphi,trim(dirname)//'/guess_phi.dat')
+    endif
   end subroutine restart_write
 
   subroutine restart_read(mpid,nav)
@@ -152,8 +153,12 @@ contains
     integer(ik) :: l,m,c(3),inter(3,2)
 
     !-> get interface type
-    call md_mpi_getcoord(mpid,c)
-    call md_get_interfaces_number(nav%infu,c,inter)
+    if (mpid%dims.ne.0) then
+      call md_mpi_getcoord(mpid,c)
+      call md_get_interfaces_number(nav%infu,c,inter)
+    else
+      inter=0
+    endif
 
     !-> create dirname and test existence
     !write(timen,'(i8.8,f0.8)')floor(nav%time),nav%time-floor(nav%time)
@@ -204,12 +209,12 @@ contains
        call boundary_put_field(nav%p(it(i)),nav%bcp(it(i)),inter)
        call boundary_put_field(nav%phi(it(i)),nav%bcphi(it(i)),inter)
     enddo
-
-    call md_influence_guess_read(mpid,nav%infsolu,trim(dirname)//'/guess_u.dat')
-    call md_influence_guess_read(mpid,nav%infsolv,trim(dirname)//'/guess_v.dat')
-    call md_influence_guess_read(mpid,nav%infsolw,trim(dirname)//'/guess_w.dat')
-    call md_influence_guess_read(mpid,nav%infsolphi,trim(dirname)//'/guess_phi.dat')
-
+    if (mpid%dims.ne.0) then
+      call md_influence_guess_read(mpid,nav%infsolu,trim(dirname)//'/guess_u.dat')
+      call md_influence_guess_read(mpid,nav%infsolv,trim(dirname)//'/guess_v.dat')
+      call md_influence_guess_read(mpid,nav%infsolw,trim(dirname)//'/guess_w.dat')
+      call md_influence_guess_read(mpid,nav%infsolphi,trim(dirname)//'/guess_phi.dat')
+    endif
   end subroutine restart_read
 
   subroutine navier_bc_pressure(mpid,nav)
@@ -226,8 +231,12 @@ contains
     integer(ik) :: it(nav%nt),nt
     
     !-> get interface type
-    call md_mpi_getcoord(mpid,c)
-    call md_get_interfaces_number(nav%infp,c,inter)
+    if (mpid%dims.ne.0) then
+      call md_mpi_getcoord(mpid,c)
+      call md_get_interfaces_number(nav%infp,c,inter)
+    else
+      inter=0
+    endif
 
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
@@ -270,8 +279,12 @@ contains
     integer(ik) :: l,m,c(3),inter(3,2)
     
     !-> get interface type
-    call md_mpi_getcoord(mpid,c)
-    call md_get_interfaces_number(nav%infu,c,inter)
+    if (mpid%dims.ne.0) then
+      call md_mpi_getcoord(mpid,c)
+      call md_get_interfaces_number(nav%infu,c,inter)
+    else
+      inter=0
+    endif
 
     call navier_bc_velocity_utils(inter,nav%bcu(nav%it(1)),&
          nav%gridx,nav%gridy,nav%gridz,nav%time,'u',&
@@ -306,12 +319,9 @@ contains
     do m=1,2
        do l=1,3
           if (inter(l,m)>0) then
-             if (l==1.and.m==1) bc%bcx(:,:,1)=0._rk
-             if (l==1.and.m==2) bc%bcx(:,:,2)=0._rk
-             if (l==2.and.m==1) bc%bcy(:,:,1)=0._rk
-             if (l==2.and.m==2) bc%bcy(:,:,2)=0._rk
-             if (l==3.and.m==1) bc%bcz(:,:,1)=0._rk
-             if (l==3.and.m==2) bc%bcz(:,:,2)=0._rk
+             if (l==1) bc%bcx(:,:,m)=0._rk
+             if (l==2) bc%bcy(:,:,m)=0._rk
+             if (l==3) bc%bcz(:,:,m)=0._rk
           endif
        enddo
     enddo
@@ -333,8 +343,12 @@ contains
     integer(ik) :: l,m,c(3),inter(3,2)
     
     !-> get interface type
-    call md_mpi_getcoord(mpid,c)
-    call md_get_interfaces_number(nav%infu,c,inter)
+    if (mpid%dims.ne.0) then
+      call md_mpi_getcoord(mpid,c)
+      call md_get_interfaces_number(nav%infu,c,inter)
+    else
+      inter=0
+    endif
 
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
@@ -342,45 +356,66 @@ contains
     
 
     !-> bcx
+!    nav%aux%f=0._rk
+!    nav%aux=derx(nav%dcy,navier_extrapol(nav,nav%phi,type='p'))
+!    nav%bcu(it(1))%bcx(:,:,1)=nav%bcu(it(1))%bcx(:,:,1)&
+!                             +nav%aux%f(1,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
+!    nav%bcu(it(1))%bcx(:,:,2)=nav%bcu(it(1))%bcx(:,:,2)&
+!                             +nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
+
     nav%aux%f=0._rk
-    nav%aux=dery(nav%dcy,navier_extrapol(nav,nav%phi,'p'))
+    nav%aux=dery(nav%dcy,navier_extrapol(nav,nav%phi,type='p'))
     nav%bcv(it(1))%bcx(:,:,1)=nav%bcv(it(1))%bcx(:,:,1)&
                              +nav%aux%f(1,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
     nav%bcv(it(1))%bcx(:,:,2)=nav%bcv(it(1))%bcx(:,:,2)&
                              +nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
 
     nav%aux%f=0._rk
-    nav%aux=derz(nav%dcz,navier_extrapol(nav,nav%phi,'p'))
+    nav%aux=derz(nav%dcz,navier_extrapol(nav,nav%phi,type='p'))
     nav%bcw(it(1))%bcx(:,:,1)=nav%bcw(it(1))%bcx(:,:,1)&
                              +nav%aux%f(1,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
     nav%bcw(it(1))%bcx(:,:,2)=nav%bcw(it(1))%bcx(:,:,2)&
                              +nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
 
     !-> bcy
+!    nav%aux%f=0._rk
+!    nav%aux=dery(nav%dcx,navier_extrapol(nav,nav%phi,type='p'))
+!    nav%bcv(it(1))%bcy(:,:,1)=nav%bcv(it(1))%bcy(:,:,1)&
+!                             +nav%aux%f(2:nav%nx-1,1,2:nav%nz-1)/nav%fac(1)
+!    nav%bcv(it(1))%bcy(:,:,2)=nav%bcv(it(1))%bcy(:,:,2)&
+!                             +nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)/nav%fac(1)
+
     nav%aux%f=0._rk
-    nav%aux=derx(nav%dcx,navier_extrapol(nav,nav%phi,'p'))
+    nav%aux=derx(nav%dcx,navier_extrapol(nav,nav%phi,type='p'))
     nav%bcu(it(1))%bcy(:,:,1)=nav%bcu(it(1))%bcy(:,:,1)&
                              +nav%aux%f(2:nav%nx-1,1,2:nav%nz-1)/nav%fac(1)
     nav%bcu(it(1))%bcy(:,:,2)=nav%bcu(it(1))%bcy(:,:,2)&
                              +nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)/nav%fac(1)
 
     nav%aux%f=0._rk
-    nav%aux=derz(nav%dcz,navier_extrapol(nav,nav%phi,'p'))
+    nav%aux=derz(nav%dcz,navier_extrapol(nav,nav%phi,type='p'))
     nav%bcw(it(1))%bcy(:,:,1)=nav%bcw(it(1))%bcy(:,:,1)&
                              +nav%aux%f(2:nav%nx-1,1,2:nav%nz-1)/nav%fac(1)
     nav%bcw(it(1))%bcy(:,:,2)=nav%bcw(it(1))%bcy(:,:,2)&
                              +nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)/nav%fac(1)
 
     !-> bcz
+!    nav%aux%f=0._rk
+!    nav%aux=derz(nav%dcx,navier_extrapol(nav,nav%phi,type='p'))
+!    nav%bcw(it(1))%bcz(:,:,1)=nav%bcw(it(1))%bcz(:,:,1)&
+!                             +nav%aux%f(2:nav%nx-1,2:nav%ny-1,1)/nav%fac(1)
+!    nav%bcw(it(1))%bcz(:,:,2)=nav%bcw(it(1))%bcz(:,:,2)&
+!                             +nav%aux%f(2:nav%nx-1,2:nav%ny-1,nav%nz)/nav%fac(1)
+
     nav%aux%f=0._rk
-    nav%aux=derx(nav%dcx,navier_extrapol(nav,nav%phi,'p'))
+    nav%aux=derx(nav%dcx,navier_extrapol(nav,nav%phi,type='p'))
     nav%bcu(it(1))%bcz(:,:,1)=nav%bcu(it(1))%bcz(:,:,1)&
                              +nav%aux%f(2:nav%nx-1,2:nav%ny-1,1)/nav%fac(1)
     nav%bcu(it(1))%bcz(:,:,2)=nav%bcu(it(1))%bcz(:,:,2)&
                              +nav%aux%f(2:nav%nx-1,2:nav%ny-1,nav%nz)/nav%fac(1)
 
     nav%aux%f=0._rk
-    nav%aux=dery(nav%dcy,navier_extrapol(nav,nav%phi,'p'))
+    nav%aux=dery(nav%dcy,navier_extrapol(nav,nav%phi,type='p'))
     nav%bcv(it(1))%bcz(:,:,1)=nav%bcv(it(1))%bcz(:,:,1)&
                              +nav%aux%f(2:nav%nx-1,2:nav%ny-1,1)/nav%fac(1)
     nav%bcv(it(1))%bcz(:,:,2)=nav%bcv(it(1))%bcz(:,:,2)&
@@ -409,42 +444,42 @@ contains
     integer(ik) :: l,m,c(3),inter(3,2)
 
     !-> get interface type
-    call md_mpi_getcoord(mpid,c)
-    call md_get_interfaces_number(nav%infu,c,inter)
-
+    if (mpid%dims.ne.0) then
+      call md_mpi_getcoord(mpid,c)
+      call md_get_interfaces_number(nav%infu,c,inter)
+    else
+      inter=0
+    endif
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
     it(:)=nav%it(:)
 
     !-> bcx
     nav%aux%f=0._rk
-    nav%aux=dery(nav%dcy,navier_extrapol(nav,nav%v,'p'))&
-           +derz(nav%dcz,navier_extrapol(nav,nav%w,'p'))
-    nav%aux=derx(nav%dcx,nav%aux)-ddery(nav%dcy,navier_extrapol(nav,nav%u,'p'))&
-                                 -dderz(nav%dcz,navier_extrapol(nav,nav%u,'p'))
+    nav%aux=dery(nav%dcy,navier_extrapol(nav,nav%v,type='p'))&
+           +derz(nav%dcz,navier_extrapol(nav,nav%w,type='p'))
+    nav%aux=derx(nav%dcx,nav%aux)-ddery(nav%dcy,navier_extrapol(nav,nav%u,type='p'))&
+                                 -dderz(nav%dcz,navier_extrapol(nav,nav%u,type='p'))
     nav%bcphi(it(1))%bcx(:,:,1)=nav%bcphi(it(1))%bcx(:,:,1)-nav%aux%f(1     ,2:nav%ny-1,2:nav%nz-1)/nav%rey
     nav%bcphi(it(1))%bcx(:,:,2)=nav%bcphi(it(1))%bcx(:,:,2)-nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%rey
 
     !-> bcy
     nav%aux%f=0._rk
-    nav%aux=derx(nav%dcx,navier_extrapol(nav,nav%u,'p'))&
-           +derz(nav%dcz,navier_extrapol(nav,nav%w,'p'))
-    nav%aux=dery(nav%dcy,nav%aux)-dderx(nav%dcx,navier_extrapol(nav,nav%v,'p'))&
-                                 -dderz(nav%dcz,navier_extrapol(nav,nav%v,'p'))
+    nav%aux=derx(nav%dcx,navier_extrapol(nav,nav%u,type='p'))&
+           +derz(nav%dcz,navier_extrapol(nav,nav%w,type='p'))
+    nav%aux=dery(nav%dcy,nav%aux)-dderx(nav%dcx,navier_extrapol(nav,nav%v,type='p'))&
+                                 -dderz(nav%dcz,navier_extrapol(nav,nav%v,type='p'))
     nav%bcphi(it(1))%bcy(:,:,1)=nav%bcphi(it(1))%bcy(:,:,1)-nav%aux%f(2:nav%nx-1,1     ,2:nav%nz-1)/nav%rey
     nav%bcphi(it(1))%bcy(:,:,2)=nav%bcphi(it(1))%bcy(:,:,2)-nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)/nav%rey
 
     !-> bcz
     nav%aux%f=0._rk
-    nav%aux=derx(nav%dcx,navier_extrapol(nav,nav%u,'p'))&
-           +dery(nav%dcy,navier_extrapol(nav,nav%v,'p'))
-    nav%aux=derz(nav%dcz,nav%aux)-dderx(nav%dcx,navier_extrapol(nav,nav%w,'p'))&
-                                 -ddery(nav%dcy,navier_extrapol(nav,nav%w,'p'))
+    nav%aux=derx(nav%dcx,navier_extrapol(nav,nav%u,type='p'))&
+           +dery(nav%dcy,navier_extrapol(nav,nav%v,type='p'))
+    nav%aux=derz(nav%dcz,nav%aux)-dderx(nav%dcx,navier_extrapol(nav,nav%w,type='p'))&
+                                 -ddery(nav%dcy,navier_extrapol(nav,nav%w,type='p'))
     nav%bcphi(it(1))%bcz(:,:,1)=nav%bcphi(it(1))%bcz(:,:,1)-nav%aux%f(2:nav%nx-1,2:nav%ny-1,1     )/nav%rey
     nav%bcphi(it(1))%bcz(:,:,2)=nav%bcphi(it(1))%bcz(:,:,2)-nav%aux%f(2:nav%nx-1,2:nav%ny-1,nav%nz)/nav%rey
-
-    call erase_boundary_inter(inter,nav%bcphi(nav%it(1)))
-
 
   end subroutine add_boundary_rotrot
   
@@ -466,6 +501,9 @@ contains
 
     !-> boundary condition
     !-> x-direction
+!$OMP PARALLEL DO &
+!$OMP DEFAULT(SHARED) PRIVATE(i,j,k,x,y,z) &
+!$OMP SCHEDULE(RUNTIME)
     do k=2,nz-1
        do j=2,ny-1
           y=gridy%grid1d(j)
@@ -479,8 +517,12 @@ contains
 !          bc%bcx(j-1,k-1,2)=0._rk
        enddo
     enddo
+!$OMP END PARALLEL DO
     !print*,x,y,z,t
     !-> y-direction
+!$OMP PARALLEL DO &
+!$OMP DEFAULT(SHARED) PRIVATE(i,j,k,x,y,z) &
+!$OMP SCHEDULE(RUNTIME)
     do k=2,nz-1
        do i=2,nx-1
           x=gridx%grid1d(i)
@@ -498,7 +540,11 @@ contains
 !          endif
        enddo
     enddo
+!$OMP END PARALLEL DO
     !-> z-direction
+!$OMP PARALLEL DO &
+!$OMP DEFAULT(SHARED) PRIVATE(i,j,k,x,y,z) &
+!$OMP SCHEDULE(RUNTIME)
     do j=2,ny-1
        do i=2,nx-1
           x=gridx%grid1d(i)
@@ -512,6 +558,7 @@ contains
 !          bc%bcz(i-1,j-1,2)=0._rk
        enddo
     enddo
+!$OMP END PARALLEL DO
 
   end subroutine navier_bc_velocity_utils
 
@@ -589,6 +636,7 @@ contains
 ! Matthieu Marquillie
 ! 10/2012
 !
+!$ use OMP_LIB
     implicit none
     type(field) :: f
     type(navier3d),intent(in) :: nav
@@ -598,6 +646,9 @@ contains
     call field_init(f,"F",nav%nx,nav%ny,nav%nz)
 
     t=nav%time
+!$OMP PARALLEL DO &
+!$OMP DEFAULT(SHARED) PRIVATE(i,j,k,x,y,z) &
+!$OMP SCHEDULE(RUNTIME)
     do k=1,nav%nz
        do j=1,nav%ny
           do i=1,nav%nx
@@ -608,6 +659,7 @@ contains
           enddo
        enddo
     enddo
+!$OMP END PARALLEL DO
 
   end function f
  subroutine navier_nonlinear(mpid,nav,x,f)
@@ -656,8 +708,12 @@ contains
           tmp(i)=tmp(i)+derz(nav%dcz,nav%aux)*0.5_rk
 
       enddo
+    else
+      do i=1,nav%nt
+        tmp(i)%f=0._rk
+      enddo
     endif
-    f=f+navier_extrapol(nav,tmp,'v')
+    f=f+navier_extrapol(nav,tmp,type='v')
 
 !    do i=1,nav%nt
 !       call field_destroy(tmp(i))
@@ -855,7 +911,7 @@ contains
     !-> pressure 
     if (nav%pt>=2) then
        if (nav%pt==2) then
-          nav%fu(it(nt))=nav%fu(it(nt))+derx(nav%dcx,navier_extrapol(nav,nav%p,'p'))
+          nav%fu(it(nt))=nav%fu(it(nt))+derx(nav%dcx,navier_extrapol(nav,nav%p,type='p'))
        else
           nav%fu(it(nt))=nav%fu(it(nt))+derx(nav%dcx,nav%p(it(1)))
        endif
@@ -871,9 +927,14 @@ contains
     !--------------------------------------------------------------------
     !-> solve
 !    call md_set_guess(mpid,nav%infu,nt,it,nav%bcu,nav%u)
-    call multidomain_solve(mpid,nav%infu,nav%scu,nav%bcu(it(1)),nav%u(it(1)),&
+    if (mpid%dims.ne.0) then
+      call multidomain_solve(mpid,nav%infu,nav%scu,nav%bcu(it(1)),nav%u(it(1)),&
           nav%fu(it(nt)),nav%aux,nav%sigmau,nav%dcx,nav%dcy,nav%dcz,&
           inf_sol=nav%infsolu)
+    else
+      call solver_3d(nav%scu,nav%fu(it(nt)),nav%u(it(1)),nav%bcu(it(1)),nav%sigmau)
+    endif
+
 
   end subroutine navier_solve_u
 
@@ -905,7 +966,7 @@ contains
     !-> pressure 
     if (nav%pt>=2) then
        if (nav%pt==2) then
-          nav%fv(it(nt))=nav%fv(it(nt))+dery(nav%dcy,navier_extrapol(nav,nav%p,'p'))
+          nav%fv(it(nt))=nav%fv(it(nt))+dery(nav%dcy,navier_extrapol(nav,nav%p,type='p'))
        else
           nav%fv(it(nt))=nav%fv(it(nt))+dery(nav%dcy,nav%p(it(1)))
        endif
@@ -920,9 +981,13 @@ contains
     !--------------------------------------------------------------------
     !-> solve
 !    call md_set_guess(mpid,nav%infv,nt,it,nav%bcv,nav%v)
-    call multidomain_solve(mpid,nav%infv,nav%scv,nav%bcv(it(1)),nav%v(it(1)),&
+    if (mpid%dims.ne.0) then
+      call multidomain_solve(mpid,nav%infv,nav%scv,nav%bcv(it(1)),nav%v(it(1)),&
           nav%fv(it(nt)),nav%aux,nav%sigmau,nav%dcx,nav%dcy,nav%dcz,&
           inf_sol=nav%infsolv)
+    else
+      call solver_3d(nav%scv,nav%fv(it(nt)),nav%v(it(1)),nav%bcv(it(1)),nav%sigmau)
+    endif
 
   end subroutine navier_solve_v
 
@@ -954,7 +1019,7 @@ contains
     !-> pressure 
     if (nav%pt>=2) then
        if (nav%pt==2) then
-          nav%fw(it(nt))=nav%fw(it(nt))+derz(nav%dcz,navier_extrapol(nav,nav%p,'p'))
+          nav%fw(it(nt))=nav%fw(it(nt))+derz(nav%dcz,navier_extrapol(nav,nav%p,type='p'))
        else
           nav%fw(it(nt))=nav%fw(it(nt))+derz(nav%dcz,nav%p(it(1)))
        endif
@@ -969,9 +1034,13 @@ contains
     !--------------------------------------------------------------------
     !-> solve
 !    call md_set_guess(mpid,nav%infw,nt,it,nav%bcw,nav%w)
-    call multidomain_solve(mpid,nav%infw,nav%scw,nav%bcw(it(1)),nav%w(it(1)),&
+    if (mpid%dims.ne.0) then
+      call multidomain_solve(mpid,nav%infw,nav%scw,nav%bcw(it(1)),nav%w(it(1)),&
           nav%fw(it(nt)),nav%aux,nav%sigmau,nav%dcx,nav%dcy,nav%dcz,&
           inf_sol=nav%infsolw)
+    else
+      call solver_3d(nav%scw,nav%fw(it(nt)),nav%w(it(1)),nav%bcw(it(1)),nav%sigmau)
+    endif
 
   end subroutine navier_solve_w
 
@@ -1018,7 +1087,7 @@ contains
 
     !--------------------------------------------------------------------
     !-> compute rhs
-    nav%fphi=nav%sigmap*navier_extrapol(nav,nav%phi,'p')
+    nav%fphi=nav%sigmap*navier_extrapol(nav,nav%phi,type='p')
 !    nav%phi(it(1))%f=0._rk
 
 
@@ -1050,9 +1119,13 @@ contains
     !--------------------------------------------------------------------
     !-> solve
 !    call md_set_guess(mpid,nav%infp,nt,it,nav%bcphi,nav%phi)
-    call multidomain_solve(mpid,nav%infp,nav%scp,nav%bcphi(it(1)),nav%phi(it(1)),&
+    if (mpid%dims.ne.0) then
+     call multidomain_solve(mpid,nav%infp,nav%scp,nav%bcphi(it(1)),nav%phi(it(1)),&
           nav%fphi,nav%aux,nav%sigmap,nav%dcx,nav%dcy,nav%dcz,null=nullv,&
           inf_sol=nav%infsolphi,var='p')
+    else
+      call solver_3d(nav%scp,nav%fphi,nav%phi(it(1)),nav%bcphi(it(1)),nav%sigmap)
+    endif
 
   end subroutine navier_solve_phi
 
@@ -1072,8 +1145,12 @@ contains
     integer(ik) :: l,m,c(3),inter(3,2)
     
     !-> get interface type
-    call md_mpi_getcoord(mpid,c)
-    call md_get_interfaces_number(nav%infu,c,inter)
+    if (mpid%dims.ne.0) then
+      call md_mpi_getcoord(mpid,c)
+      call md_get_interfaces_number(nav%infu,c,inter)
+    else
+      inter=0
+    endif
 
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
@@ -1085,7 +1162,7 @@ contains
 
     call field_zero_edges(nav%phi(it(1)))
     !-> pressure
-    if(nav%pt==2.or.nav%pt==4) nav%aux=navier_extrapol(nav,nav%p,'p')
+    if(nav%pt==2.or.nav%pt==4) nav%aux=navier_extrapol(nav,nav%p,type='p')
     nav%p(it(1))=nav%phi(it(1))
     if(nav%pt==2.or.nav%pt==4) nav%p(it(1))=nav%p(it(1)) + nav%aux
 
@@ -1098,9 +1175,9 @@ contains
                derz(nav%dcz,nav%w(it(1))))/nav%rey
       nav%p(it(1))=nav%p(it(1))-nav%aux
     elseif(nav%pt==4) then
-      nav%aux=(derx(nav%dcx,navier_extrapol(nav,nav%u,'p'))+&
-               dery(nav%dcy,navier_extrapol(nav,nav%v,'p'))+&
-               derz(nav%dcz,navier_extrapol(nav,nav%w,'p')))/nav%rey
+      nav%aux=(derx(nav%dcx,navier_extrapol(nav,nav%u,type='p'))+&
+               dery(nav%dcy,navier_extrapol(nav,nav%v,type='p'))+&
+               derz(nav%dcz,navier_extrapol(nav,nav%w,type='p')))/nav%rey
       nav%p(it(1))=nav%p(it(1))-nav%aux
     endif
 !    nav%p(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
@@ -1119,21 +1196,40 @@ contains
 
     call field_zero_edges(nav%p(it(1)))
    
-
+    !-> velocity
 !    goto 102
-    do m=1,2
-       do l=1,3
-          if (inter(l,m)>0) then
-             if (l==1.and.m==1) ex(l,m)=1
-             if (l==1.and.m==2) ex(l,m)=nav%nx
-             if (l==2.and.m==1) ex(l,m)=1
-             if (l==2.and.m==2) ex(l,m)=nav%ny
-             if (l==3.and.m==1) ex(l,m)=1
-             if (l==3.and.m==2) ex(l,m)=nav%nz
-          endif
-       enddo
-    enddo
+!    do m=1,2
+!       do l=1,3
+!          if (inter(l,m)>0) then
+!             if (l==1.and.m==1) ex(l,m)=1
+!             if (l==1.and.m==2) ex(l,m)=nav%nx
+!             if (l==2.and.m==1) ex(l,m)=1
+!             if (l==2.and.m==2) ex(l,m)=nav%ny
+!             if (l==3.and.m==1) ex(l,m)=1
+!             if (l==3.and.m==2) ex(l,m)=nav%nz
+!          endif
+!       enddo
+!    enddo
+
+!    nav%aux=derx(nav%dcx,nav%phi(it(1)))
+!    nav%u(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
+!         nav%u(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
+!         -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
+
+!    nav%aux=dery(nav%dcy,nav%phi(it(1)))
+!    nav%v(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
+!         nav%v(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
+!         -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
+
+!    nav%aux=derz(nav%dcz,nav%phi(it(1)))
+!    nav%w(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
+!         nav%w(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
+!         -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
 !102 continue
+
+    nav%u(it(1))=(nav%rhs_px-derx(nav%dcx,nav%phi(it(1))))/nav%fac(1)
+    nav%v(it(1))=(nav%rhs_py-dery(nav%dcy,nav%phi(it(1))))/nav%fac(1)
+    nav%w(it(1))=(nav%rhs_pz-derz(nav%dcz,nav%phi(it(1))))/nav%fac(1)
 
 
 !    call navier_bc_velocity(mpid,nav)
@@ -1141,27 +1237,24 @@ contains
 !    call field_put_boundary(nav%v(it(1)),nav%bcv(it(1)),inter)
 !    call field_put_boundary(nav%w(it(1)),nav%bcw(it(1)),inter)
 
-    !-> velocity
-    goto 101
-    nav%aux=derx(nav%dcx,nav%phi(it(1)))
-    nav%u(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
-         nav%u(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
-         -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
+!    do m=1,2
+!      do l=1,3
+!        if (inter(l,m)<=0) then
+!          select case (l)
+!            case (1)
+!              nav%u(it(1))%f((m-1)*(nav%nx-1)+1,2:nav%ny-1,2:nav%nz-1)&
+!                                         =nav%bcu(it(1))%bcx(:,:,m)
+!            case (2)
+!              nav%v(it(1))%f(2:nav%nx-1,(m-1)*(nav%ny-1)+1,2:nav%nz-1)&
+!                                         =nav%bcv(it(1))%bcy(:,:,m)
+!            case (3)
+!              nav%w(it(1))%f(2:nav%nx-1,2:nav%ny-1,(m-1)*(nav%nz-1)+1)&
+!                                         =nav%bcw(it(1))%bcz(:,:,m)
+!          end select
+!        endif
+!      enddo
+!    enddo
 
-    nav%aux=dery(nav%dcy,nav%phi(it(1)))
-    nav%v(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
-         nav%v(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
-         -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
-
-    nav%aux=derz(nav%dcz,nav%phi(it(1)))
-    nav%w(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
-         nav%w(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
-         -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
-101 continue
-
-    nav%u(it(1))=(nav%rhs_px-derx(nav%dcx,nav%phi(it(1))))/nav%fac(1)
-    nav%v(it(1))=(nav%rhs_py-dery(nav%dcy,nav%phi(it(1))))/nav%fac(1)
-    nav%w(it(1))=(nav%rhs_pz-derz(nav%dcz,nav%phi(it(1))))/nav%fac(1)
 
     call field_zero_edges(nav%u(it(1)))
     call field_zero_edges(nav%v(it(1)))
@@ -1219,34 +1312,39 @@ contains
   end function navier_phi_rhs
 
 
-  function navier_extrapol(nav,var,type)
+  function navier_extrapol(nav,var,type,ordre)
     implicit none
     type(navier3d),intent(in) :: nav
-    type(field),intent(in) :: var(nav%nt)
-    type(field)           ::navier_extrapol
-    character(*)          :: type
+    type(field),intent(in)    :: var(nav%nt)
+    type(field)               :: navier_extrapol
+    character(*),optional     :: type
+    integer,optional          :: ordre
+    integer                   :: ordre1
 
     call field_init(navier_extrapol,"extrapol",nav%nx,nav%ny,nav%nz)
 
+    ordre1=0
+    if(present(ordre)) then
+      ordre1=ordre
+    elseif(present(type)) then
+      if(type=='v') ordre1=nav%tou
+      if(type=='p') ordre1=nav%top-1
+    endif
+       
     navier_extrapol%f=0._rk
     if(nav%subite==1) then
-      if(type=='p')then
-				if (nav%top==2) then
-				   navier_extrapol=1._rk*var(nav%it(nav%nt))
-				elseif (nav%top==3) then
-				   navier_extrapol=2._rk*var(nav%it(nav%nt))&
-                          -1._rk*var(nav%it(nav%nt-1))
-				endif
-      elseif(type=='v')then
-				if (nav%tou==2) then
-				   navier_extrapol=2._rk*var(nav%it(nav%nt))&
-                          -1._rk*var(nav%it(nav%nt-1))
-        elseif(nav%tou==3) then
-				   navier_extrapol=3._rk*var(nav%it(nav%nt))&
-				                  -3._rk*var(nav%it(nav%nt-1))&
-                          +1._rk*var(nav%it(nav%nt-2))
-				endif
-      endif
+      if (ordre1==-1) then
+         navier_extrapol=1._rk*var(nav%it(1))
+			elseif (ordre1==1) then
+			   navier_extrapol=1._rk*var(nav%it(nav%nt))
+			elseif (ordre1==2) then
+			   navier_extrapol=2._rk*var(nav%it(nav%nt))&
+                        -1._rk*var(nav%it(nav%nt-1))
+      elseif(ordre1==3) then
+			   navier_extrapol=3._rk*var(nav%it(nav%nt))&
+			                  -3._rk*var(nav%it(nav%nt-1))&
+                        +1._rk*var(nav%it(nav%nt-2))
+			endif
     else
   	    navier_extrapol%f=var(nav%it(1))%f
     endif
@@ -1286,12 +1384,16 @@ contains
     integer(ik) :: nx,ny,nz,i
     integer(ik) :: bctu(6),bctv(6),bctw(6),bctp(6)
 
+    if(cmd%ndx*cmd%ndy*cmd%ndz.ne.1) then
     !--------------------------------------------------------------------
     !-> initialize mpi
-    call md_mpi_init(mpid,cmd)
+      call md_mpi_init(mpid,cmd)
     !-> initialize petsc
-    call md_petsc_initialize()
-
+      call md_petsc_initialize()
+    else
+      mpid%rank=0
+      mpid%dims=0
+    endif
     if (mpid%rank==0) then
        call color(ired);print'(a)','Precomputation : ';call color(color_off)
     endif
@@ -1319,18 +1421,12 @@ contains
     !-> reynolds number 
     nav%rey=cmd%reynolds
 
-    !--------------------------------------------------------------------
-    !-> initialize mesh
-    call mesh_init(nav%gridx,'gridx','x',nx,1,1)
-    call mesh_init(nav%gridy,'gridy','y',1,ny,1)
-    call mesh_init(nav%gridz,'gridz','z',1,1,nz)
-
-    !-> initialize grid
-    call mesh_grid_init(nav%gridx,'x',nx,1,1,mpid)
-    call mesh_grid_init(nav%gridy,'y',nx,ny,1,mpid)
-    call mesh_grid_init(nav%gridz,'z',1,1,nz,mpid)
-
-    if (nav%tou==2) then
+    if (nav%tou==1) then
+       nav%fac(1)= 1.0_rk/nav%ts
+       nav%fac(2)=-1.0_rk/nav%ts
+       nav%fac(3)= 0.0_rk
+       nav%fac(4)= 0.0_rk
+    elseif (nav%tou==2) then
        nav%fac(1)= 1.5_rk/nav%ts
        nav%fac(2)=-2.0_rk/nav%ts
        nav%fac(3)= 0.5_rk/nav%ts
@@ -1346,47 +1442,60 @@ contains
     nav%sigmau=-nav%rey*nav%fac(1)
     nav%sigmap=0.0_rk
 
-!    allocate(nav%infu,nav%infv,nav%infw,nav%infp)
-    allocate(nav%infu,nav%infp)
-    nav%infv=>nav%infu
-    nav%infw=>nav%infu
-
-    !--------------------------------------------------------------------
-    !-> start initialization of u influence matrix
-    call influence_matrix_init_start(mpid,nav%infu,nav%scu,nav%bcu(1),&
-         nav%u(1),nav%fu(1),nav%sigmau,nav%dcx,nav%dcy,nav%dcz,'u')
-
-    !-> start initialization of v influence matrix
-!    call influence_matrix_init_start(mpid,nav%infv,nav%scv,nav%bcv(1),&
-!         nav%v(1),nav%fv(1),nav%sigmau,nav%dcx,nav%dcy,nav%dcz,'v')
-
-    !-> start initialization of w influence matrix
-!    call influence_matrix_init_start(mpid,nav%infw,nav%scw,nav%bcw(1),&
-!         nav%w(1),nav%fw(1),nav%sigmau,nav%dcx,nav%dcy,nav%dcz,'w')
-
-    !-> start initialization of pressure influence matrix
-    call influence_matrix_init_start(mpid,nav%infp,nav%scp,nav%bcp(1),&
-         nav%p(1),nav%fp(1),nav%sigmap,nav%dcx,nav%dcy,nav%dcz,'p')
-
-    !--------------------------------------------------------------------
-    !-> initialize poisson solver coefficient for u
     bctu=(/1,1,1,1,1,1/)
-    call md_boundary_condition_init(mpid,nav%infu,bctu)
-    call solver_init_3d(nav%gridx,nav%gridy,nav%gridz,nav%scu,bctu)
-
-    !-> initialize poisson solver coefficient for v
     bctv=(/1,1,1,1,1,1/)
-    call md_boundary_condition_init(mpid,nav%infv,bctv)
-    call solver_init_3d(nav%gridx,nav%gridy,nav%gridz,nav%scv,bctv)
-
-    !-> initialize poisson solver coefficient for w
     bctw=(/1,1,1,1,1,1/)
-    call md_boundary_condition_init(mpid,nav%infw,bctw)
-    call solver_init_3d(nav%gridx,nav%gridy,nav%gridz,nav%scw,bctw)
-
-    !-> initialize poisson solver coefficient for pressure
     bctp=(/2,2,2,2,2,2/)
-    call md_boundary_condition_init(mpid,nav%infp,bctp)
+
+    !--------------------------------------------------------------------
+    !-> initialize mesh
+    call mesh_init(nav%gridx,'gridx','x',nx,1,1)
+    call mesh_init(nav%gridy,'gridy','y',1,ny,1)
+    call mesh_init(nav%gridz,'gridz','z',1,1,nz)
+
+    !-> initialize grid
+    call mesh_grid_init(nav%gridx,'x',nx,1,1,mpid)
+    call mesh_grid_init(nav%gridy,'y',1,ny,1,mpid)
+    call mesh_grid_init(nav%gridz,'z',1,1,nz,mpid)
+
+    if (mpid%dims.ne.0) then
+    !    allocate(nav%infu,nav%infv,nav%infw,nav%infp)
+        allocate(nav%infu,nav%infp)
+        nav%infv=>nav%infu
+        nav%infw=>nav%infu
+
+        !--------------------------------------------------------------------
+        !-> start initialization of u influence matrix
+        call influence_matrix_init_start(mpid,nav%infu,nav%scu,nav%bcu(1),&
+             nav%u(1),nav%fu(1),nav%sigmau,nav%dcx,nav%dcy,nav%dcz,'u')
+
+        !-> start initialization of v influence matrix
+    !    call influence_matrix_init_start(mpid,nav%infv,nav%scv,nav%bcv(1),&
+    !         nav%v(1),nav%fv(1),nav%sigmau,nav%dcx,nav%dcy,nav%dcz,'v')
+
+        !-> start initialization of w influence matrix
+    !    call influence_matrix_init_start(mpid,nav%infw,nav%scw,nav%bcw(1),&
+    !         nav%w(1),nav%fw(1),nav%sigmau,nav%dcx,nav%dcy,nav%dcz,'w')
+
+        !-> start initialization of pressure influence matrix
+        call influence_matrix_init_start(mpid,nav%infp,nav%scp,nav%bcp(1),&
+             nav%p(1),nav%fp(1),nav%sigmap,nav%dcx,nav%dcy,nav%dcz,'p')
+    endif
+
+    !--------------------------------------------------------------------
+    !-> initialize md poisson solvers coefficients
+    if (mpid%dims.ne.0) then
+      call md_boundary_condition_init(mpid,nav%infu,bctu)
+      call md_boundary_condition_init(mpid,nav%infv,bctv)
+      call md_boundary_condition_init(mpid,nav%infw,bctw)
+      call md_boundary_condition_init(mpid,nav%infp,bctp)
+    endif
+
+    !--------------------------------------------------------------------
+    !-> initialize poisson solvers coefficients
+    call solver_init_3d(nav%gridx,nav%gridy,nav%gridz,nav%scu,bctu)
+    call solver_init_3d(nav%gridx,nav%gridy,nav%gridz,nav%scv,bctv)
+    call solver_init_3d(nav%gridx,nav%gridy,nav%gridz,nav%scw,bctw)
     call solver_init_3d(nav%gridx,nav%gridy,nav%gridz,nav%scp,bctp)
 
     !--------------------------------------------------------------------
@@ -1419,17 +1528,13 @@ contains
     call field_init(nav%sub_p,"SUB_P",nx,ny,nz)
 
     !--------------------------------------------------------------------
-    !-> initialize type boundary_condition for velocity
+    !-> initialize type boundary_conditions
     do i=1,nav%nt
        call boundary_condition_init(nav%bcu(i),nx,ny,nz)
        call boundary_condition_init(nav%bcv(i),nx,ny,nz)
        call boundary_condition_init(nav%bcw(i),nx,ny,nz)
-    enddo
-
-    !-> initialize type boundary_condition for pressure
-    do i=1,nav%nt
        call boundary_condition_init(nav%bcp(i),nx,ny,nz)
-    call boundary_condition_init(nav%bcphi(i),nx,ny,nz)
+       call boundary_condition_init(nav%bcphi(i),nx,ny,nz)
     enddo
 
     !--------------------------------------------------------------------
@@ -1438,38 +1543,47 @@ contains
     call derivatives_coefficients_init(nav%gridy,nav%dcy,ny,solver='yes')
     call derivatives_coefficients_init(nav%gridz,nav%dcz,nz,solver='yes')
 
-    !--------------------------------------------------------------------
-    !-> end initialize u influence matrix
-    call influence_matrix_init_end(mpid,nav%infu,nav%scu,nav%bcu(1),&
-         nav%u(1),nav%fu(1),nav%sigmau,nav%dcx,nav%dcy,nav%dcz,'u')
+    if (mpid%dims.ne.0) then
+        !--------------------------------------------------------------------
+        !-> end initialize u influence matrix
+        call influence_matrix_init_end(mpid,nav%infu,nav%scu,nav%bcu(1),&
+             nav%u(1),nav%fu(1),nav%sigmau,nav%dcx,nav%dcy,nav%dcz,'u')
 
-    !-> end initialize v influence matrix
-!    call influence_matrix_init_end(mpid,nav%infv,nav%scv,nav%bcv(1),&
-!         nav%v(1),nav%fv(1),nav%sigmau,nav%dcx,nav%dcy,nav%dcz,'v')
+        !-> end initialize v influence matrix
+    !    call influence_matrix_init_end(mpid,nav%infv,nav%scv,nav%bcv(1),&
+    !         nav%v(1),nav%fv(1),nav%sigmau,nav%dcx,nav%dcy,nav%dcz,'v')
 
-    !-> end initialize w influence matrix
-!    call influence_matrix_init_end(mpid,nav%infw,nav%scw,nav%bcw(1),&
-!         nav%w(1),nav%fw(1),nav%sigmau,nav%dcx,nav%dcy,nav%dcz,'w')
+        !-> end initialize w influence matrix
+    !    call influence_matrix_init_end(mpid,nav%infw,nav%scw,nav%bcw(1),&
+    !         nav%w(1),nav%fw(1),nav%sigmau,nav%dcx,nav%dcy,nav%dcz,'w')
 
-    !-> end initialize velocity influence matrix
-    call influence_matrix_init_end(mpid,nav%infp,nav%scp,nav%bcp(1),&
-         nav%p(1),nav%fp(1),nav%sigmap,nav%dcx,nav%dcy,nav%dcz,'p',&
-         null=nullv)
+        !-> end initialize velocity influence matrix
+        call influence_matrix_init_end(mpid,nav%infp,nav%scp,nav%bcp(1),&
+             nav%p(1),nav%fp(1),nav%sigmap,nav%dcx,nav%dcy,nav%dcz,'p',&
+             null=nullv)
 
-    !--------------------------------------------------------------------
-    !-> initialize u multidomain solver
-!    call md_solve_init(mpid,nav%infu)
-    call md_solve_init(mpid,nav%infu,kspn='u_')
+        !--------------------------------------------------------------------
+        !-> initialize u multidomain solver
+    !    call md_solve_init(mpid,nav%infu)
+        call md_solve_init(mpid,nav%infu,kspn='u_')
 
-    !-> initialize v multidomain solver
-!    call md_solve_init(mpid,nav%infv)
- 
-    !-> initialize w multidomain solver
-!    call md_solve_init(mpid,nav%infw)
- 
-    !-> initialize pressuremultidomain solver
-!    call md_solve_init(mpid,nav%infp,null=nullv)
-    call md_solve_init(mpid,nav%infp,null=nullv,kspn='p_')
+        !-> initialize v multidomain solver
+    !    call md_solve_init(mpid,nav%infv)
+     
+        !-> initialize w multidomain solver
+    !    call md_solve_init(mpid,nav%infw)
+     
+        !-> initialize pressuremultidomain solver
+    !    call md_solve_init(mpid,nav%infp,null=nullv)
+        call md_solve_init(mpid,nav%infp,null=nullv,kspn='p_')
+
+        !--------------------------------------------------------------------
+        !-> initialize guess sol
+        call md_guess_init(mpid,nav%infu,nav%infsolu)
+        call md_guess_init(mpid,nav%infv,nav%infsolv)
+        call md_guess_init(mpid,nav%infw,nav%infsolw)
+        call md_guess_init(mpid,nav%infp,nav%infsolphi)
+    endif
 
     !--------------------------------------------------------------------
     !-> initialize fields
@@ -1489,13 +1603,6 @@ contains
     enddo
     nav%fphi%f=0._rk
 
-    !--------------------------------------------------------------------
-    !-> initialize guess sol
-    call md_guess_init(mpid,nav%infu,nav%infsolu)
-    call md_guess_init(mpid,nav%infv,nav%infsolv)
-    call md_guess_init(mpid,nav%infw,nav%infsolw)
-    call md_guess_init(mpid,nav%infp,nav%infsolphi)
-
   end subroutine navier_initialization
 
   subroutine navier_finalization(cmd,mpid,nav)
@@ -1511,20 +1618,20 @@ contains
     type(navier3d) :: nav
     type(mpi_data) :: mpid
     integer(ik) :: i
+    if (mpid%dims.ne.0) then
+        !--------------------------------------------------------------------
+        !-> deallocate velocity influence matrix
+        call md_influence_matrix_destroy(mpid,nav%infu)
 
-    !--------------------------------------------------------------------
-    !-> deallocate velocity influence matrix
-    call md_influence_matrix_destroy(mpid,nav%infu)
+        !-> deallocate velocity influence matrix
+        call md_influence_matrix_destroy(mpid,nav%infv)
 
-    !-> deallocate velocity influence matrix
-    call md_influence_matrix_destroy(mpid,nav%infv)
+        !-> deallocate velocity influence matrix
+        call md_influence_matrix_destroy(mpid,nav%infw)
 
-    !-> deallocate velocity influence matrix
-    call md_influence_matrix_destroy(mpid,nav%infw)
-
-    !-> deallocate pressure influence matrix
-    call md_influence_matrix_destroy(mpid,nav%infp)
-
+        !-> deallocate pressure influence matrix
+        call md_influence_matrix_destroy(mpid,nav%infp)
+    endif
     !--------------------------------------------------------------------
     !-> destroy type field
     do i=1,nav%nt
@@ -1552,13 +1659,13 @@ contains
     call field_destroy(nav%sub_v)
     call field_destroy(nav%sub_w)
     call field_destroy(nav%sub_p)
-
-    !--------------------------------------------------------------------
-    !-> finalize petsc
-    call md_petsc_finalize()
-    !-> finalize mpi
-    call md_mpi_finalize(mpid)
-
+    if (mpid%dims.ne.0) then
+        !--------------------------------------------------------------------
+        !-> finalize petsc
+        call md_petsc_finalize()
+        !-> finalize mpi
+        call md_mpi_finalize(mpid)
+    endif
   end subroutine navier_finalization
 
 end module class_navier_3D

@@ -1,6 +1,7 @@
 program testnavier3d
   use command_line
   use class_navier_3D
+!$ use OMP_LIB
   implicit none
   type(cmd_line) :: cmd
   type(navier3d) :: nav
@@ -37,16 +38,46 @@ program testnavier3d
   !-> time loop
   !------------------------------------------------------------------------ 
 
-  call system_clock(t1,irate)
+call system_clock(t1,irate)
 temps:  do ite=1,nav%ntime
      !print*,mpid%coord
 
      
-     if (ite==20) call system_clock(t1,irate)
+     if (ite==20)  call system_clock(t1,irate)
 
      !-> time update
      call navier_time(nav)
+
+!initialisation
+     if(ite==1) then
+     do iaux=0,nav%nt-1
+     t=nav%time-(iaux+1)*nav%ts
+!$OMP PARALLEL DO &
+!$OMP DEFAULT(SHARED) PRIVATE(i,j,k,x,y,z) &
+!$OMP SCHEDULE(RUNTIME)
+     do k=1,nav%nz
+        z=nav%gridz%grid1d(k)
+        do j=1,nav%ny
+           y=nav%gridy%grid1d(j)
+           do i=1,nav%nx
+             x=nav%gridx%grid1d(i)
+             nav%u(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'u',nav%rey)
+             nav%v(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'v',nav%rey)
+             nav%w(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'w',nav%rey)
+             nav%p(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'p',nav%rey)
+!             if(nav%pt==1)
+!             if(nav%pt==2)
+             if(nav%pt==3) nav%phi(nav%it(nav%nt-iaux))%f(i,j,k)=nav%p(nav%it(nav%nt-iaux))%f(i,j,k)
+!             if(nav%pt==4)
+           enddo
+        enddo
+     enddo
+!$OMP END PARALLEL DO
+     enddo
+     endif
+
      if (mpid%rank==0) print*,'Time : ',nav%time
+
 subit:  do subite=1,nav%nsubite
      nav%subite=subite
      if (mpid%rank==0) print*,'Sub-iteration : ',subite
@@ -76,6 +107,7 @@ subit:  do subite=1,nav%nsubite
 
      call navier_presolve_phi(mpid,nav)
      call navier_bc_pressure(mpid,nav)
+
      !---------------------------------------------------------------------
      !-> solve pressure increment phi
 
@@ -95,14 +127,14 @@ subit:  do subite=1,nav%nsubite
      endif
 
      test=.false.
-     if (subite>1) call testconv(mpid,nav%u(nav%it(1)),&
-          nav%v(nav%it(1)),&
-          nav%w(nav%it(1)),&
-          nav%p(nav%it(1)),&
-          nav%sub_u,&
-          nav%sub_v,&
-          nav%sub_w,&
-          nav%sub_p,nav%aux,test,1.d-9)
+     if (subite>1) call testconv(mpid,nav,nav%u(nav%it(1)),&
+                                          nav%v(nav%it(1)),&
+                                          nav%w(nav%it(1)),&
+                                          nav%p(nav%it(1)),&
+                                          nav%sub_u,&
+                                          nav%sub_v,&
+                                          nav%sub_w,&
+                                          nav%sub_p,nav%aux,test,1.d-9)
      if (test)     exit subit
 
 
@@ -124,6 +156,9 @@ subit:  do subite=1,nav%nsubite
      !-> check solution
 
      t=nav%time
+!$OMP PARALLEL DO &
+!$OMP DEFAULT(SHARED) PRIVATE(i,j,k,x,y,z) &
+!$OMP SCHEDULE(RUNTIME)
      do k=1,nav%nz
         do j=1,nav%ny
            do i=1,nav%nx
@@ -137,12 +172,13 @@ subit:  do subite=1,nav%nsubite
            enddo
         enddo
      enddo
-     
+!$OMP END PARALLEL DO
  
      nav%aux%f=0._rk
      nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
           dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
           derz(nav%dcz,nav%w(nav%it(nav%nt)))
+
     call field_zero_edges(nav%aux)
     if (mpid%rank==0) then
        print*,mpid%rank,'DIV',&
@@ -195,7 +231,7 @@ subit:  do subite=1,nav%nsubite
   close(10+mpid%rank)
 100 continue
 
-!  goto 100
+  goto 100
   k=nav%nz-1
   do j=1,nav%ny
      do i=1,nav%nx
@@ -214,7 +250,6 @@ subit:  do subite=1,nav%nsubite
   close(10+mpid%rank)
 !100 continue
 
-
   call write_field('vel_u',nav%u(nav%it(nav%nt)),mpid)
   call write_field('vel_v',nav%v(nav%it(nav%nt)),mpid)
   call write_field('vel_w',nav%w(nav%it(nav%nt)),mpid)
@@ -231,47 +266,58 @@ subit:  do subite=1,nav%nsubite
 
 contains
 
-subroutine testconv(mpid,u,v,w,p,sub_u,sub_v,sub_w,sub_p,aux,test,eps)
+subroutine testconv(mpid,nav,u,v,w,p,sub_u,sub_v,sub_w,sub_p,aux,test,eps)
   use class_md
+  use class_field
+  use class_navier_3D
   use precision
   implicit none
   type(mpi_data) :: mpid
+  type(navier3d) :: nav
   type(field) :: aux,u,    v,    w,    p
   type(field) :: sub_u,sub_v,sub_w,sub_p
   logical  :: test
   real(rk) :: ref,error1,error2,eps
 
     aux%f=sqrt(u%f**2 + v%f**2 + w%f**2)
-    ref=norme2(mpid,aux)
+    ref=norme2(mpid,nav,aux)
 
     aux%f=sqrt((sub_u%f-u%f)**2 + (sub_v%f-v%f)**2 + (sub_w%f-w%f)**2)
-    error1=norme2(mpid,aux)/ref
+    error1=norme2(mpid,nav,aux)/ref
 
     if (mpid%rank==0) print*,'conv tot V       : ',error1
 
-    aux%f=1._rk         ;    ref=integrale(mpid,aux)
-    aux%f=p%f - sub_p%f ; error2=integrale(mpid,aux)
+    aux%f=1._rk         ;    ref=integrale(mpid,nav,aux)
+    aux%f=p%f - sub_p%f ; error2=integrale(mpid,nav,aux)
 
     sub_p%f=sub_p%f + error2/ref
-    aux%f=sub_p%f       ;    ref=norme2(mpid,aux)
-    aux%f=p%f - sub_p%f ; error2=norme2(mpid,aux)/ref
+    aux%f=sub_p%f       ;    ref=norme2(mpid,nav,aux)
+    aux%f=p%f - sub_p%f ; error2=norme2(mpid,nav,aux)/ref
     if (mpid%rank==0) print*,'conv tot P       : ',error2
 
     if (error1<eps.and.error2<eps)  test=.true.
 
 end subroutine testconv
 
-function integrale(mpid,x)
+function integrale(mpid,nav,x)
   use class_field
+  use class_navier_3D
   use class_md
   use precision
+!$ use OMP_LIB
   implicit none
   type(field),intent(in) ::x
+  type(navier3d),intent(in) :: nav
   type(mpi_data) :: mpid
-  real(rk) :: integrale1,integrale
+  real(rk) :: integrale1,integrale,dx,dy,dz
   integer(ik) :: i,j,k
 
   integrale1=0._rk
+
+!$OMP  PARALLEL DO &
+!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
+!$OMP  SCHEDULE(RUNTIME) &
+!$OMP  REDUCTION(+:integrale1)
   do k=2,x%nz-1
      do j=2,x%ny-1
         do i=2,x%nx-1
@@ -279,64 +325,168 @@ function integrale(mpid,x)
         enddo
      enddo
   enddo
+!$OMP  END PARALLEL DO
 
   !-> x boundary
-  integrale1=integrale1+sum(x%f(1,2:x%ny-1,2:x%nz-1))
-  integrale1=integrale1+sum(x%f(x%nx,2:x%ny-1,2:x%nz-1))
+!$OMP  PARALLEL DO &
+!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
+!$OMP  SCHEDULE(RUNTIME) &
+!$OMP  REDUCTION(+:integrale1)
+   do j=2,x%ny-1
+      do k=2,x%nz-1
+         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+         dx=(nav%gridx%grid1d(2)-nav%gridx%grid1d(1))*0.5_rk
+         integrale1=integrale1+x%f(1,j,k)*dx*dy*dz
+         dx=(nav%gridx%grid1d(x%nx)-nav%gridx%grid1d(x%nx-1))*0.5_rk
+         integrale1=integrale1+x%f(x%nx,j,k)*dx*dy*dz
+      enddo
+  enddo
+!$OMP  END PARALLEL DO
 
   !-> y boundary
-  integrale1=integrale1+sum(x%f(2:x%nx-1,1,2:x%nz-1))
-  integrale1=integrale1+sum(x%f(2:x%nx-1,x%ny,2:x%nz-1))
+!$OMP  PARALLEL DO &
+!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
+!$OMP  SCHEDULE(RUNTIME) &
+!$OMP  REDUCTION(+:integrale1)
+   do i=2,x%nx-1
+      do k=2,x%nz-1
+         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+         dy=(nav%gridy%grid1d(2)-nav%gridy%grid1d(1))*0.5_rk
+         integrale1=integrale1+x%f(i,1,k)*dx*dy*dz
+         dy=(nav%gridy%grid1d(x%ny)-nav%gridy%grid1d(x%ny-1))*0.5_rk
+         integrale1=integrale1+x%f(i,x%ny,k)*dx*dy*dz
+      enddo
+  enddo
+!$OMP  END PARALLEL DO
 
   !-> z boundary
-  integrale1=integrale1+sum(x%f(2:x%nx-1,2:x%ny-1,1))
-  integrale1=integrale1+sum(x%f(2:x%nx-1,2:x%ny-1,x%nz))
+!$OMP  PARALLEL DO &
+!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
+!$OMP  SCHEDULE(RUNTIME) &
+!$OMP  REDUCTION(+:integrale1)
+   do i=2,x%nx-1
+      do j=2,x%ny-1
+         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+         dz=(nav%gridz%grid1d(2)-nav%gridz%grid1d(1))*0.5_rk
+         integrale1=integrale1+x%f(i,j,1)*dx*dy*dz
+         dz=(nav%gridz%grid1d(x%nz)-nav%gridz%grid1d(x%nz-1))*0.5_rk
+         integrale1=integrale1+x%f(i,j,x%nz)*dx*dy*dz
+      enddo
+  enddo
+!$OMP  END PARALLEL DO
 
-  call md_mpi_reduce_double(mpid,integrale1,integrale)
-call md_mpi_bcast_double(mpid,integrale,0)
+  if (mpid%dims.ne.0) then
+    call md_mpi_reduce_double(mpid,integrale1,integrale)
+    call md_mpi_bcast_double(mpid,integrale,0)
+  else
+    integrale=integrale1
+  endif
+
 end function integrale
 
 
-function norme2(mpid,x)
+function norme2(mpid,nav,x)
   use class_field
+  use class_navier_3D
   use class_md
   use precision
+!$ use OMP_LIB
   implicit none
   type(field),intent(in) ::x
   type(mpi_data) :: mpid
-  real(rk) :: norme2,som1
+  type(navier3d),intent(in) :: nav
+  real(rk) :: norme2,som1,dx,dy,dz
   integer(ik) :: i,j,k
 
+!dx=maxval(abs(x%f(2:x%nx-1,2:x%ny-1,:)))
+!dy=maxval(abs(x%f(2:x%nx-1,:,2:x%nz-1)))
+!dz=maxval(abs(x%f(:,2:x%ny-1,2:x%nz-1)))
+!norme2=max(dx,dy,dz)
+norme2=maxval(abs(x%f(2:x%nx-1,2:x%ny-1,2:x%nz-1)))
+return
+
   som1=0._rk
+
+!$OMP  PARALLEL DO &
+!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
+!$OMP  SCHEDULE(RUNTIME) &
+!$OMP  REDUCTION(+:som1)
   do k=2,x%nz-1
      do j=2,x%ny-1
         do i=2,x%nx-1
-           som1=som1+(x%f(i,j,k))**2
+           dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+           dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+           dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+           som1=som1+x%f(i,j,k)**2*dx*dy*dz
         enddo
      enddo
   enddo
+!$OMP  END PARALLEL DO
 
   !-> x boundary
-  som1=som1+sum((x%f(1,2:x%ny-1,2:x%nz-1))**2)
-  som1=som1+sum((x%f(x%nx,2:x%ny-1,2:x%nz-1))**2)
+!$OMP  PARALLEL DO &
+!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
+!$OMP  SCHEDULE(RUNTIME) &
+!$OMP  REDUCTION(+:som1)
+   do j=2,x%ny-1
+      do k=2,x%nz-1
+         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+         dx=(nav%gridx%grid1d(2)-nav%gridx%grid1d(1))*0.5_rk
+         som1=som1+x%f(1,j,k)**2*dx*dy*dz
+         dx=(nav%gridx%grid1d(x%nx)-nav%gridx%grid1d(x%nx-1))*0.5_rk
+         som1=som1+x%f(x%nx,j,k)**2*dx*dy*dz
+      enddo
+  enddo
+!$OMP  END PARALLEL DO
 
   !-> y boundary
-  som1=som1+sum((x%f(2:x%nx-1,1,2:x%nz-1))**2)
-  som1=som1+sum((x%f(2:x%nx-1,x%ny,2:x%nz-1))**2)
+!$OMP  PARALLEL DO &
+!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
+!$OMP  SCHEDULE(RUNTIME) &
+!$OMP  REDUCTION(+:som1)
+   do i=2,x%nx-1
+      do k=2,x%nz-1
+         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
+         dy=(nav%gridy%grid1d(2)-nav%gridy%grid1d(1))*0.5_rk
+         som1=som1+x%f(i,1,k)**2*dx*dy*dz
+         dy=(nav%gridy%grid1d(x%ny)-nav%gridy%grid1d(x%ny-1))*0.5_rk
+         som1=som1+x%f(i,x%ny,k)**2*dx*dy*dz
+      enddo
+  enddo
+!$OMP  END PARALLEL DO
 
   !-> z boundary
-  som1=som1+sum((x%f(2:x%nx-1,2:x%ny-1,1))**2)
-  som1=som1+sum((x%f(2:x%nx-1,2:x%ny-1,x%nz))**2)
+!$OMP  PARALLEL DO &
+!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
+!$OMP  SCHEDULE(RUNTIME) &
+!$OMP  REDUCTION(+:som1)
+   do i=2,x%nx-1
+      do j=2,x%ny-1
+         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
+         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
+         dz=(nav%gridz%grid1d(2)-nav%gridz%grid1d(1))*0.5_rk
+         som1=som1+x%f(i,j,1)**2*dx*dy*dz
+         dz=(nav%gridz%grid1d(x%nz)-nav%gridz%grid1d(x%nz-1))*0.5_rk
+         som1=som1+x%f(i,j,x%nz)**2*dx*dy*dz
+      enddo
+  enddo
+!$OMP  END PARALLEL DO
 
-
-  call md_mpi_reduce_double(mpid,som1,norme2)
-  call md_mpi_bcast_double(mpid,norme2,0)
+  if (mpid%dims.ne.0) then
+    call md_mpi_reduce_double(mpid,som1,norme2)
+    call md_mpi_bcast_double(mpid,norme2,0)
+  else
+    norme2=som1
+  endif
 
   norme2=sqrt(norme2)
 
 end function norme2
-
-end program testnavier3d
 
 subroutine err(u,uex,nx,ny,nz,error)
   use precision
@@ -402,3 +552,6 @@ subroutine error_stop(error_mesg)
 !  stop
   
 end subroutine error_stop
+
+end program testnavier3d
+
