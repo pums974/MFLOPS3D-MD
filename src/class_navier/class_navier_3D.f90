@@ -268,8 +268,6 @@ contains
 !nav%bcphi(it(1))%bcz(:,:,:)=0._rk
 
   call erase_boundary_inter(inter,nav%bcphi(nav%it(1)))
-  call extrapol_boundary_inter(inter,nav%bcphi(nav%it(1)),nav,nav%phi)
-
 
   end subroutine navier_bc_pressure
 
@@ -308,9 +306,6 @@ contains
     call erase_boundary_inter(inter,nav%bcu(nav%it(1)))
     call erase_boundary_inter(inter,nav%bcv(nav%it(1)))
     call erase_boundary_inter(inter,nav%bcw(nav%it(1)))
-    call extrapol_boundary_inter(inter,nav%bcu(nav%it(1)),nav,nav%u)
-    call extrapol_boundary_inter(inter,nav%bcv(nav%it(1)),nav,nav%v)
-    call extrapol_boundary_inter(inter,nav%bcw(nav%it(1)),nav,nav%w)
 
   end subroutine navier_bc_velocity
 
@@ -337,35 +332,6 @@ contains
     enddo
 
   end subroutine erase_boundary_inter
-
-
-  subroutine extrapol_boundary_inter(inter,bc,nav,var)
-! -----------------------------------------------------------------------
-! navier : 
-! -----------------------------------------------------------------------
-! Matthieu Marquillie
-! 11/2012
-!
-    implicit none
-    integer(ik) :: l,m,inter(3,2)
-    type(boundary_condition) :: bc
-    type(navier3d) :: nav
-    type(field) :: var(nav%nt)
-    
-    nav%aux=navier_extrapol(nav,var,ordre=0)
-
-    !-> m : left-right ; l : directions (x,y,z)
-    do m=1,2
-       do l=1,3
-          if (inter(l,m)>0) then
-             if (l==1) bc%bcx(:,:,m)=nav%aux%f((m-1)*(nav%nx-1)+1,2:nav%ny-1,2:nav%nz-1)
-             if (l==2) bc%bcy(:,:,m)=nav%aux%f(2:nav%nx-1,(m-1)*(nav%ny-1)+1,2:nav%nz-1)
-             if (l==3) bc%bcz(:,:,m)=nav%aux%f(2:nav%nx-1,2:nav%ny-1,(m-1)*(nav%nz-1)+1)
-          endif
-       enddo
-    enddo
-
-  end subroutine extrapol_boundary_inter
 
   subroutine navier_nullify_boundary(mpid,nav,x,i)
 ! -----------------------------------------------------------------------
@@ -508,10 +474,6 @@ contains
     call erase_boundary_inter(inter,nav%bcu(nav%it(1)))
     call erase_boundary_inter(inter,nav%bcv(nav%it(1)))
     call erase_boundary_inter(inter,nav%bcw(nav%it(1)))
-    call extrapol_boundary_inter(inter,nav%bcu(nav%it(1)),nav,nav%u)
-    call extrapol_boundary_inter(inter,nav%bcv(nav%it(1)),nav,nav%v)
-    call extrapol_boundary_inter(inter,nav%bcw(nav%it(1)),nav,nav%w)
-
 
   end subroutine add_boundary_gradient
 

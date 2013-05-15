@@ -114,7 +114,7 @@ module class_md
   public :: md_influence_matrix_write,md_influence_matrix_read
   public :: md_influence_matrix_filename
   public :: md_mpi_reduce_double,md_mpi_bcast_double
-  public :: md_vector_setvalues,md_vector_getvalues,md_vector_testvalues
+  public :: md_vector_setvalues,md_vector_getvalues
   public :: md_rhs_view,md_sol_view,md_solve,md_solve_init
   public :: md_bc_init,md_solve_guess_nonzero,md_rhs_nullspace
   public :: md_mpi_global_coord,md_vector_sol_setvalues
@@ -393,9 +393,9 @@ contains
        !call VecAXPBY(inf_mat%sol,fac(1),fac(2),inf_sol%sol_old(2),inf_mat%err)
 
        !-> third order
-       fac(1)=1._rk ; fac(2)=-3._rk ; fac(3)=3._rk
-       call VecAXPBYPCZ(inf_mat%sol,fac(1),fac(2),fac(3),&
-            inf_sol%sol_old(1),inf_sol%sol_old(2),inf_mat%err)
+!       fac(1)=1._rk ; fac(2)=-3._rk ; fac(3)=3._rk
+!       call VecAXPBYPCZ(inf_mat%sol,fac(1),fac(2),fac(3),&
+!            inf_sol%sol_old(1),inf_sol%sol_old(2),inf_mat%err)
     endif
 
     !--------------------------------------------------------------------
@@ -478,9 +478,9 @@ contains
           sum=sum+nrows
 
           !-> get local boundary conditions
-          if (l==1) bcx(:,2)=bcx(:,2)+vec_point(c1:c2)
-          if (l==2) bcy(:,2)=bcy(:,2)+vec_point(c1:c2)
-          if (l==3) bcz(:,2)=bcz(:,2)+vec_point(c1:c2)
+          if (l==1) bcx(:,2)=vec_point(c1:c2)
+          if (l==2) bcy(:,2)=vec_point(c1:c2)
+          if (l==3) bcz(:,2)=vec_point(c1:c2)
           
        endif
     enddo
@@ -498,11 +498,11 @@ contains
              if (l==2) nrows=inf_mat%nx*inf_mat%nz
              if (l==3) nrows=inf_mat%nx*inf_mat%ny
 
-             if (l==1.and.m==1) call mpi_irecv(bcx(1,1),nrows,mpi_double_precision, &
+             if (l==1.and.m==1) call mpi_irecv(bcxt,nrows,mpi_double_precision, &
                   mpid%neighbours(l,1),1,mpi_comm_world,req(1),error)
-             if (l==2.and.m==1) call mpi_irecv(bcy(1,1),nrows,mpi_double_precision, &
+             if (l==2.and.m==1) call mpi_irecv(bcyt,nrows,mpi_double_precision, &
                   mpid%neighbours(l,1),2,mpi_comm_world,req(2),error)
-             if (l==3.and.m==1) call mpi_irecv(bcz(1,1),nrows,mpi_double_precision, &
+             if (l==3.and.m==1) call mpi_irecv(bczt,nrows,mpi_double_precision, &
                   mpid%neighbours(l,1),3,mpi_comm_world,req(3),error)
 
              if (l==1.and.m==2) call mpi_issend(bcx(1,2),nrows,mpi_double_precision, &
@@ -520,7 +520,6 @@ contains
     do m=1,2
        do l=1,3
           if (inter(l,m)>0) then
-
              if (l==1.and.m==2) call mpi_wait(req(4),status,error)
              if (l==2.and.m==2) call mpi_wait(req(5),status,error)
              if (l==3.and.m==2) call mpi_wait(req(6),status,error)
@@ -528,10 +527,10 @@ contains
              if (l==1.and.m==1) call mpi_wait(req(1),status,error)
              if (l==2.and.m==1) call mpi_wait(req(2),status,error)
              if (l==3.and.m==1) call mpi_wait(req(3),status,error)
-
-             !if (l==1.and.m==1) bcx(:,1)=bcxt(:)
-             !if (l==2.and.m==1) bcy(:,1)=bcyt(:)
-             !if (l==3.and.m==1) bcz(:,1)=bczt(:)
+             
+             if (l==1.and.m==1) bcx(:,1)=bcxt(:)
+             if (l==2.and.m==1) bcy(:,1)=bcyt(:)
+             if (l==3.and.m==1) bcz(:,1)=bczt(:)
           endif
        enddo
     enddo
@@ -545,149 +544,6 @@ contains
 !    call VecSet(inf_mat%sol,zero,inf_mat%err)
 
   end subroutine md_vector_getvalues
-
-
-
-
-!------------------------------------------------------------------------
-! md : get values in rhs vector
-!------------------------------------------------------------------------
-! Matthieu Marquillie
-! 09/2012
-!
-  subroutine md_vector_testvalues(mpid,inf_mat,bcx,bcy,bcz,nx,ny,nz)
-    implicit none
-    type(mpi_data) :: mpid
-    type(mpi_inf_mat) :: inf_mat
-    integer(ik) :: i,l,m,inter(3,2),nrows,c(3)
-    integer(ik) :: nx,ny,nz,c1,c2,sum
-    !real(rk),intent(in) :: bcx(ny,nz,2),bcy(nx,nz,2),bcz(nx,ny,2)
-    real(rk),intent(inout) :: bcx(ny*nz,2),bcy(nx*nz,2),bcz(nx*ny,2)
-    real(rk) :: bcxt(ny*nz,2),bcyt(nx*nz,2),bczt(nx*ny,2)
-    integer(ik) :: idrx(ny*nz),idry(nx*nz),idrz(nx*ny)
-    integer(ik) :: tag,req(6),error,it
-    PetscScalar, pointer :: vec_point(:)
-    integer :: status(MPI_STATUS_SIZE)
-    real(rk) :: zero
-    
-    !bcx=0._rk ; bcy=0._rk ; bcz=0._rk
-
-    !-> compute indexes of where to put values
-    call md_mpi_getcoord(mpid,c)
-    call md_get_interfaces_number(inf_mat,c,inter)
-
-bcxt=bcx
-bcyt=bcy
-bczt=bcz
-    !-> begin tranfer boundary condition to neighbours
-    req=(/1,2,3,4,5,6/)
-    it=0
-    do m=1,2
-       do l=1,3
-          if (inter(l,m)>0) then
-             it=it+1
-             
-             !-> compute local rows locations
-             if (l==1) nrows=inf_mat%ny*inf_mat%nz
-             if (l==2) nrows=inf_mat%nx*inf_mat%nz
-             if (l==3) nrows=inf_mat%nx*inf_mat%ny
-
-             if (l==1.and.m==1) call mpi_irecv(bcxt(1,1),nrows,mpi_double_precision, &
-                  mpid%neighbours(l,1),1,mpi_comm_world,req(1),error)
-             if (l==2.and.m==1) call mpi_irecv(bcyt(1,1),nrows,mpi_double_precision, &
-                  mpid%neighbours(l,1),2,mpi_comm_world,req(2),error)
-             if (l==3.and.m==1) call mpi_irecv(bczt(1,1),nrows,mpi_double_precision, &
-                  mpid%neighbours(l,1),3,mpi_comm_world,req(3),error)
-
-             if (l==1.and.m==2) call mpi_issend(bcxt(1,2),nrows,mpi_double_precision, &
-                  mpid%neighbours(l,2),1,mpi_comm_world,req(4),error)
-             if (l==2.and.m==2) call mpi_issend(bcyt(1,2),nrows,mpi_double_precision, &
-                  mpid%neighbours(l,2),2,mpi_comm_world,req(5),error)
-             if (l==3.and.m==2) call mpi_issend(bczt(1,2),nrows,mpi_double_precision, &
-                  mpid%neighbours(l,2),3,mpi_comm_world,req(6),error)
-
-          endif
-       enddo
-    enddo
-
-    !-> end tranfer boundary condition to neighbours
-    do m=1,2
-       do l=1,3
-          if (inter(l,m)>0) then
-
-             if (l==1.and.m==2) call mpi_wait(req(4),status,error)
-             if (l==2.and.m==2) call mpi_wait(req(5),status,error)
-             if (l==3.and.m==2) call mpi_wait(req(6),status,error)
-
-             if (l==1.and.m==1) call mpi_wait(req(1),status,error)
-             if (l==2.and.m==1) call mpi_wait(req(2),status,error)
-             if (l==3.and.m==1) call mpi_wait(req(3),status,error)
-
-             !if (l==1.and.m==1) bcx(:,1)=bcxt(:)
-             !if (l==2.and.m==1) bcy(:,1)=bcyt(:)
-             !if (l==3.and.m==1) bcz(:,1)=bczt(:)
-          endif
-       enddo
-    enddo
-
-bcx=bcxt !(bcxt+bcx)*0.5_rk
-bcy=bcyt !(bcyt+bcy)*0.5_rk
-bcz=bczt !(bczt+bcz)*0.5_rk
-
-
-    !-> begin tranfer boundary condition to neighbours
-    req=(/1,2,3,4,5,6/)
-    it=0
-    do m=1,2
-       do l=1,3
-          if (inter(l,m)>0) then
-             it=it+1
-             
-             !-> compute local rows locations
-             if (l==1) nrows=inf_mat%ny*inf_mat%nz
-             if (l==2) nrows=inf_mat%nx*inf_mat%nz
-             if (l==3) nrows=inf_mat%nx*inf_mat%ny
-
-             if (l==1.and.m==1) call mpi_issend(bcx(1,1),nrows,mpi_double_precision, &
-                  mpid%neighbours(l,1),1,mpi_comm_world,req(1),error)
-             if (l==2.and.m==1) call mpi_issend(bcy(1,1),nrows,mpi_double_precision, &
-                  mpid%neighbours(l,1),2,mpi_comm_world,req(2),error)
-             if (l==3.and.m==1) call mpi_issend(bcz(1,1),nrows,mpi_double_precision, &
-                  mpid%neighbours(l,1),3,mpi_comm_world,req(3),error)
-
-             if (l==1.and.m==2) call mpi_irecv(bcx(1,2),nrows,mpi_double_precision, &
-                  mpid%neighbours(l,2),1,mpi_comm_world,req(4),error)
-             if (l==2.and.m==2) call mpi_irecv(bcy(1,2),nrows,mpi_double_precision, &
-                  mpid%neighbours(l,2),2,mpi_comm_world,req(5),error)
-             if (l==3.and.m==2) call mpi_irecv(bcz(1,2),nrows,mpi_double_precision, &
-                  mpid%neighbours(l,2),3,mpi_comm_world,req(6),error)
-
-          endif
-       enddo
-    enddo
-
-    !-> end tranfer boundary condition to neighbours
-    do m=1,2
-       do l=1,3
-          if (inter(l,m)>0) then
-
-             if (l==1.and.m==2) call mpi_wait(req(4),status,error)
-             if (l==2.and.m==2) call mpi_wait(req(5),status,error)
-             if (l==3.and.m==2) call mpi_wait(req(6),status,error)
-
-             if (l==1.and.m==1) call mpi_wait(req(1),status,error)
-             if (l==2.and.m==1) call mpi_wait(req(2),status,error)
-             if (l==3.and.m==1) call mpi_wait(req(3),status,error)
-          endif
-       enddo
-    enddo
-
-
-
-
-
-  end subroutine md_vector_testvalues
-
 !------------------------------------------------------------------------
 ! md : set values in rhs vector
 !------------------------------------------------------------------------

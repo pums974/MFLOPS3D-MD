@@ -103,21 +103,6 @@ subit:  do subite=1,nav%nsubite
 
      if(nav%pt<=2) then
        if(nav%pt==1) call add_boundary_gradient(mpid,nav)
-      call md_vector_testvalues(mpid,nav%infu,nav%bcu(nav%it(1))%bcx, &
-                                              nav%bcu(nav%it(1))%bcy, &
-                                              nav%bcu(nav%it(1))%bcz,nav%bcu(nav%it(1))%nx, &
-                                                                     nav%bcu(nav%it(1))%ny, &
-                                                                     nav%bcu(nav%it(1))%nz)
-      call md_vector_testvalues(mpid,nav%infv,nav%bcv(nav%it(1))%bcx, &
-                                              nav%bcv(nav%it(1))%bcy, &
-                                              nav%bcv(nav%it(1))%bcz,nav%bcv(nav%it(1))%nx, &
-                                                                     nav%bcv(nav%it(1))%ny, &
-                                                                     nav%bcv(nav%it(1))%nz)
-      call md_vector_testvalues(mpid,nav%infw,nav%bcw(nav%it(1))%bcx, &
-                                              nav%bcw(nav%it(1))%bcy, &
-                                              nav%bcw(nav%it(1))%bcz,nav%bcw(nav%it(1))%nx, &
-                                                                     nav%bcw(nav%it(1))%ny, &
-                                                                     nav%bcw(nav%it(1))%nz)
        call navier_solve_u(mpid,nav)
        call navier_solve_v(mpid,nav)
        call navier_solve_w(mpid,nav)
@@ -125,11 +110,7 @@ subit:  do subite=1,nav%nsubite
 
      call navier_presolve_phi(mpid,nav)
      call navier_bc_pressure(mpid,nav)
-      call md_vector_testvalues(mpid,nav%infp,nav%bcphi(nav%it(1))%bcx, &
-                                              nav%bcphi(nav%it(1))%bcy, &
-                                              nav%bcphi(nav%it(1))%bcz,nav%bcphi(nav%it(1))%nx, &
-                                                                       nav%bcphi(nav%it(1))%ny, &
-                                                                       nav%bcphi(nav%it(1))%nz)
+
      !---------------------------------------------------------------------
      !-> solve pressure increment phi
 
