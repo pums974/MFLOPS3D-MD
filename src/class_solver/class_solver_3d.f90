@@ -93,7 +93,7 @@ contains
     real(rk),intent(inout) :: solf(0:n1+1,0:n2+1,0:n3+1)
     real(rk),intent(in) :: bcx(n2,n3,2),bcy(n1,n3,2),bcz(n1,n2,2)
     real(rk),intent(in) :: sigma
-    real(rk) :: sol(n1,n2,n3),fac
+    real(rk) :: sol(n1,n2,n3)
     real(rk) :: aux1(n1,n2,n3),aux2(n1,n2,n3),aux3i(n2,n3),aux3f(n2,n3)
     real(rk) :: clx(n1),cly(n2),clz(n3)
     integer(ik) :: i,j,k
@@ -147,7 +147,7 @@ contains
     enddo
 !$OMP END DO
 !$OMP END PARALLEL
-
+    
     !-> z-direction
     clz=0._rk
 !$OMP PARALLEL PRIVATE(j,clz)
@@ -194,6 +194,7 @@ contains
     call cpu_time(t2)
 !    print*,'dgemm 3',t2-t1,(2._rk*real(n1)*real(n2)*real(n3)**2/(1000.d0*1000.d0))/(t2-t1)
 !    print*,'rhs matmul',t2-t1
+    
     !-> compute solution with eigenvalues -------------------------
     call cpu_time(t1)
 !$OMP PARALLEL PRIVATE(k)
@@ -203,11 +204,9 @@ contains
           do i=1,n1
              if(max(abs(sigma),abs(sc%cx%eigen(i)),&
                abs(sc%cy%eigen(j)),abs(sc%cz%eigen(k))).lt.1e-11) then
-               sol(i,j,k)=0._rk           !! ALEX, PAS SUR
+               sol(i,j,k)=0._rk
              else
-               fac=sigma + sc%cx%eigen(i) + sc%cy%eigen(j) + sc%cz%eigen(k)
-!               print*,fac
-               sol(i,j,k)=aux1(i,j,k)/fac
+               sol(i,j,k)=aux1(i,j,k)/(sc%cx%eigen(i)+sc%cy%eigen(j)+sc%cz%eigen(k)+sigma)
              endif
              !-> For 1D problems
 !             sol(i,j,k)=aux1(i,j,k)/(sc%cx%eigen(i))
@@ -232,7 +231,7 @@ contains
     call dgx(n1,n2,n3,sc%cx%vect,sol,aux1)
     call cpu_time(t2)
 !    print*,'dgemm 1',t2-t1,(2._rk*real(n1)**2*real(n2)*real(n3)/(1000.d0*1000.d0))/(t2-t1)
-
+    
     !-> y-direction
     call cpu_time(t1)
     call dgy(n1,n2,n3,sc%cy%vect,aux1,aux2)
@@ -245,6 +244,7 @@ contains
     call cpu_time(t2)
 !    print*,'dgemm 3',t2-t1,(2._rk*real(n1)*real(n2)*real(n3)**2/(1000.d0*1000.d0))/(t2-t1)
 !    print*,'U matmul',t2-t1
+
     call cpu_time(t1)
 !$OMP PARALLEL PRIVATE(k)
 !$OMP DO SCHEDULE(RUNTIME)
@@ -293,6 +293,7 @@ contains
     elseif (sc%cz%bc(2)==2.or.sc%cz%bc(2)==3) then
        call extrapolation_neum_z(sc%cz%neum,solf,bcz,n1,n2,n3,2)
     endif
+
   end subroutine solve_3d
 
 ! -----------------------------------------------------------------------
@@ -390,8 +391,6 @@ contains
     
 !    print'(a)','Solver : x-direction -------------------------------------------'
     call solver_coeffs_init(grid1,sc%cx,n1,bct(1),out_name)
-!    sc%cx%inv_vect=transpose(sc%cx%inv_vect)   ! ???
-!    sc%cx%vect=transpose(sc%cx%vect)
 
 !    print'(a)','Solver : y-direction -------------------------------------------'
     call solver_coeffs_init(grid2,sc%cy,n2,bct(3),out_name)
@@ -402,7 +401,7 @@ contains
     call solver_coeffs_init(grid3,sc%cz,n3,bct(5),out_name)
     sc%cz%inv_vect=transpose(sc%cz%inv_vect)
     sc%cz%vect=transpose(sc%cz%vect)
-
+    
   end subroutine solver_coeffs_init_3d
 
   subroutine solver_coeffs_init(grid,dc,n,bct,out_name)

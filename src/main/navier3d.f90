@@ -26,30 +26,30 @@ program testnavier3d
   call navier_initialization(cmd,mpid,nav)
 
   !-> write mesh
-  call write_mesh('grid_x',nav%gridx,mpid)
-  call write_mesh('grid_y',nav%gridy,mpid)
-  call write_mesh('grid_z',nav%gridz,mpid)
+!  call write_mesh('grid_x',nav%gridx,mpid)
+!  call write_mesh('grid_y',nav%gridy,mpid)
+!  call write_mesh('grid_z',nav%gridz,mpid)
 
   
   !-> read restart files if they exists
-  call restart_read(mpid,nav)
+!  call restart_read(mpid,nav)
 
   !------------------------------------------------------------------------ 
   !-> time loop
   !------------------------------------------------------------------------ 
 
-call system_clock(t1,irate)
+  call system_clock(t1,irate)
 temps:  do ite=1,nav%ntime
      !print*,mpid%coord
 
      
-     if (ite==20)  call system_clock(t1,irate)
+     if (ite==20) call system_clock(t1,irate)
 
      !-> time update
      call navier_time(nav)
 
 !initialisation
-     if(ite==1) then
+     if(ite==-1) then
      do iaux=0,nav%nt-1
      t=nav%time-(iaux+1)*nav%ts
 !$OMP PARALLEL DO &
@@ -77,7 +77,6 @@ temps:  do ite=1,nav%ntime
      endif
 
      if (mpid%rank==0) print*,'Time : ',nav%time
-
 subit:  do subite=1,nav%nsubite
      nav%subite=subite
      if (mpid%rank==0) print*,'Sub-iteration : ',subite
@@ -107,7 +106,6 @@ subit:  do subite=1,nav%nsubite
 
      call navier_presolve_phi(mpid,nav)
      call navier_bc_pressure(mpid,nav)
-
      !---------------------------------------------------------------------
      !-> solve pressure increment phi
 
@@ -173,12 +171,12 @@ subit:  do subite=1,nav%nsubite
         enddo
      enddo
 !$OMP END PARALLEL DO
+     
  
      nav%aux%f=0._rk
      nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
           dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
           derz(nav%dcz,nav%w(nav%it(nav%nt)))
-
     call field_zero_edges(nav%aux)
     if (mpid%rank==0) then
        print*,mpid%rank,'DIV',&
@@ -203,7 +201,7 @@ subit:  do subite=1,nav%nsubite
   time=real(t2-t1)/real(irate)
   print*,'rank : ',mpid%rank,', time : ',time
 
-  call restart_write(mpid,nav)
+!  call restart_write(mpid,nav)
   !------------------------------------------------------------------------ 
   !-> time loop end
   !------------------------------------------------------------------------ 
@@ -212,7 +210,7 @@ subit:  do subite=1,nav%nsubite
      aux=nav%p(nav%it(nav%nt))%f(nav%nx/2,nav%ny/2,nav%nz/2)-&
           pex(nav%nx/2,nav%ny/2,nav%nz/2)
   endif
-  call md_mpi_bcast_double(mpid,aux,0)
+  if (mpid%dims.ne.0) call md_mpi_bcast_double(mpid,aux,0)
   pex=pex+aux
 
   call err(nav%p(nav%it(nav%nt))%f,pex,nav%nx,nav%ny,nav%nz,error) 
@@ -231,7 +229,7 @@ subit:  do subite=1,nav%nsubite
   close(10+mpid%rank)
 100 continue
 
-  goto 100
+!  goto 100
   k=nav%nz-1
   do j=1,nav%ny
      do i=1,nav%nx
@@ -250,11 +248,12 @@ subit:  do subite=1,nav%nsubite
   close(10+mpid%rank)
 !100 continue
 
-  call write_field('vel_u',nav%u(nav%it(nav%nt)),mpid)
-  call write_field('vel_v',nav%v(nav%it(nav%nt)),mpid)
-  call write_field('vel_w',nav%w(nav%it(nav%nt)),mpid)
-  call write_field('vel_p',nav%p(nav%it(nav%nt)),mpid)
-  call write_field('vel_phi',nav%phi(nav%it(nav%nt)),mpid)
+
+!  call write_field('vel_u',nav%u(nav%it(nav%nt)),mpid)
+!  call write_field('vel_v',nav%v(nav%it(nav%nt)),mpid)
+!  call write_field('vel_w',nav%w(nav%it(nav%nt)),mpid)
+!  call write_field('vel_p',nav%p(nav%it(nav%nt)),mpid)
+!  call write_field('vel_phi',nav%phi(nav%it(nav%nt)),mpid)
 
 
   !------------------------------------------------------------------------ 
@@ -488,6 +487,8 @@ return
 
 end function norme2
 
+end program testnavier3d
+
 subroutine err(u,uex,nx,ny,nz,error)
   use precision
   implicit none
@@ -541,7 +542,7 @@ subroutine err(u,uex,nx,ny,nz,error)
 
 end subroutine err
 
-subroutine error_stop(error_mesg)
+subroutine error_stop2(error_mesg)
 !  use mpi_utils, only : code,rang
   implicit none
   character(*) :: error_mesg
@@ -551,7 +552,4 @@ subroutine error_stop(error_mesg)
 !  endif
 !  stop
   
-end subroutine error_stop
-
-end program testnavier3d
-
+end subroutine error_stop2

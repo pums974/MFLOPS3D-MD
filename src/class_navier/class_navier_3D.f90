@@ -356,13 +356,6 @@ contains
     
 
     !-> bcx
-!    nav%aux%f=0._rk
-!    nav%aux=derx(nav%dcy,navier_extrapol(nav,nav%phi,type='p'))
-!    nav%bcu(it(1))%bcx(:,:,1)=nav%bcu(it(1))%bcx(:,:,1)&
-!                             +nav%aux%f(1,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
-!    nav%bcu(it(1))%bcx(:,:,2)=nav%bcu(it(1))%bcx(:,:,2)&
-!                             +nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
-
     nav%aux%f=0._rk
     nav%aux=dery(nav%dcy,navier_extrapol(nav,nav%phi,type='p'))
     nav%bcv(it(1))%bcx(:,:,1)=nav%bcv(it(1))%bcx(:,:,1)&
@@ -378,13 +371,6 @@ contains
                              +nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
 
     !-> bcy
-!    nav%aux%f=0._rk
-!    nav%aux=dery(nav%dcx,navier_extrapol(nav,nav%phi,type='p'))
-!    nav%bcv(it(1))%bcy(:,:,1)=nav%bcv(it(1))%bcy(:,:,1)&
-!                             +nav%aux%f(2:nav%nx-1,1,2:nav%nz-1)/nav%fac(1)
-!    nav%bcv(it(1))%bcy(:,:,2)=nav%bcv(it(1))%bcy(:,:,2)&
-!                             +nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)/nav%fac(1)
-
     nav%aux%f=0._rk
     nav%aux=derx(nav%dcx,navier_extrapol(nav,nav%phi,type='p'))
     nav%bcu(it(1))%bcy(:,:,1)=nav%bcu(it(1))%bcy(:,:,1)&
@@ -400,13 +386,6 @@ contains
                              +nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)/nav%fac(1)
 
     !-> bcz
-!    nav%aux%f=0._rk
-!    nav%aux=derz(nav%dcx,navier_extrapol(nav,nav%phi,type='p'))
-!    nav%bcw(it(1))%bcz(:,:,1)=nav%bcw(it(1))%bcz(:,:,1)&
-!                             +nav%aux%f(2:nav%nx-1,2:nav%ny-1,1)/nav%fac(1)
-!    nav%bcw(it(1))%bcz(:,:,2)=nav%bcw(it(1))%bcz(:,:,2)&
-!                             +nav%aux%f(2:nav%nx-1,2:nav%ny-1,nav%nz)/nav%fac(1)
-
     nav%aux%f=0._rk
     nav%aux=derx(nav%dcx,navier_extrapol(nav,nav%phi,type='p'))
     nav%bcu(it(1))%bcz(:,:,1)=nav%bcu(it(1))%bcz(:,:,1)&
@@ -1196,40 +1175,21 @@ contains
 
     call field_zero_edges(nav%p(it(1)))
    
-    !-> velocity
+
 !    goto 102
-!    do m=1,2
-!       do l=1,3
-!          if (inter(l,m)>0) then
-!             if (l==1.and.m==1) ex(l,m)=1
-!             if (l==1.and.m==2) ex(l,m)=nav%nx
-!             if (l==2.and.m==1) ex(l,m)=1
-!             if (l==2.and.m==2) ex(l,m)=nav%ny
-!             if (l==3.and.m==1) ex(l,m)=1
-!             if (l==3.and.m==2) ex(l,m)=nav%nz
-!          endif
-!       enddo
-!    enddo
-
-!    nav%aux=derx(nav%dcx,nav%phi(it(1)))
-!    nav%u(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
-!         nav%u(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
-!         -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
-
-!    nav%aux=dery(nav%dcy,nav%phi(it(1)))
-!    nav%v(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
-!         nav%v(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
-!         -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
-
-!    nav%aux=derz(nav%dcz,nav%phi(it(1)))
-!    nav%w(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
-!         nav%w(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
-!         -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
+    do m=1,2
+       do l=1,3
+          if (inter(l,m)>0) then
+             if (l==1.and.m==1) ex(l,m)=1
+             if (l==1.and.m==2) ex(l,m)=nav%nx
+             if (l==2.and.m==1) ex(l,m)=1
+             if (l==2.and.m==2) ex(l,m)=nav%ny
+             if (l==3.and.m==1) ex(l,m)=1
+             if (l==3.and.m==2) ex(l,m)=nav%nz
+          endif
+       enddo
+    enddo
 !102 continue
-
-    nav%u(it(1))=(nav%rhs_px-derx(nav%dcx,nav%phi(it(1))))/nav%fac(1)
-    nav%v(it(1))=(nav%rhs_py-dery(nav%dcy,nav%phi(it(1))))/nav%fac(1)
-    nav%w(it(1))=(nav%rhs_pz-derz(nav%dcz,nav%phi(it(1))))/nav%fac(1)
 
 
 !    call navier_bc_velocity(mpid,nav)
@@ -1237,24 +1197,27 @@ contains
 !    call field_put_boundary(nav%v(it(1)),nav%bcv(it(1)),inter)
 !    call field_put_boundary(nav%w(it(1)),nav%bcw(it(1)),inter)
 
-!    do m=1,2
-!      do l=1,3
-!        if (inter(l,m)<=0) then
-!          select case (l)
-!            case (1)
-!              nav%u(it(1))%f((m-1)*(nav%nx-1)+1,2:nav%ny-1,2:nav%nz-1)&
-!                                         =nav%bcu(it(1))%bcx(:,:,m)
-!            case (2)
-!              nav%v(it(1))%f(2:nav%nx-1,(m-1)*(nav%ny-1)+1,2:nav%nz-1)&
-!                                         =nav%bcv(it(1))%bcy(:,:,m)
-!            case (3)
-!              nav%w(it(1))%f(2:nav%nx-1,2:nav%ny-1,(m-1)*(nav%nz-1)+1)&
-!                                         =nav%bcw(it(1))%bcz(:,:,m)
-!          end select
-!        endif
-!      enddo
-!    enddo
+    !-> velocity
+    goto 101
+    nav%aux=derx(nav%dcx,nav%phi(it(1)))
+    nav%u(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
+         nav%u(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
+         -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
 
+    nav%aux=dery(nav%dcy,nav%phi(it(1)))
+    nav%v(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
+         nav%v(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
+         -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
+
+    nav%aux=derz(nav%dcz,nav%phi(it(1)))
+    nav%w(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
+         nav%w(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))&
+         -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
+101 continue
+
+    nav%u(it(1))=(nav%rhs_px-derx(nav%dcx,nav%phi(it(1))))/nav%fac(1)
+    nav%v(it(1))=(nav%rhs_py-dery(nav%dcy,nav%phi(it(1))))/nav%fac(1)
+    nav%w(it(1))=(nav%rhs_pz-derz(nav%dcz,nav%phi(it(1))))/nav%fac(1)
 
     call field_zero_edges(nav%u(it(1)))
     call field_zero_edges(nav%v(it(1)))

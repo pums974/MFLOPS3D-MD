@@ -164,12 +164,15 @@ contains
     !-> gridx1d
     grid%pas=(xb-xa)/(real(grid%n,rk)-1._rk)
 
-    beta=0.1_rk
-    alpha=0.99_rk
-    !alpha=1._rk
-    delta=1.1
-    gam=3._rk
-    ksi=0.5_rk*(xb-xa)
+ 
+
+!    beta=70.0_rk
+!    beta=2.77_rk ! ratio max = 2 ratio bord = 1.7
+!    beta=8.77_rk ! ratio max = 3 ratio bord = 2.2
+    beta=10.7_rk ! ratio max = 4 ratio bord = 2.5
+!    beta=33.3_rk ! ratio max = 5 ratio bord = 2.6
+    alpha=1._rk-beta/real((grid%n**2),rk)
+!    alpha=0.99_rk
     do i=1,grid%n
        xi=xa+real(i-1,rk)*grid%pas
 
@@ -182,16 +185,23 @@ contains
 !            (sinh((2._rk*(xi-xa)/(xb-xa)-1._rk)*(1._rk-beta))&
 !            /sinh(1._rk-beta)+1._rk)*0.5_rk
 
-       if (choice=="x".or.choice=="y".or.choice=="z") grid%grid1d(i)=xi
+!       if (choice=="x".or.choice=="y".or.choice=="z") grid%grid1d(i)=xi
 
-       if (choice=="x".or.choice=="y".or.choice=="z") &
-            grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa))) &
-            /asin(alpha)+1._rk)/2._rk 
+!        grid%grid1d(i)=xi
+!        if (choice=="x") 
+grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._rk)*0.5_rk
+!        grid%grid1d(i)=xa+2._rk*xi-(xb-xa)*(sinh((2._rk*(xi-xa)/(xb-xa)-1._rk)*(1._rk-alpha))&
+!            /sinh(1._rk-alpha)+1._rk)*0.5_rk
+!        grid%grid1d(i)=xa+(xb-xa)*(1._rk+tanh(alpha*(2*(xi-xa)/(xb-xa)-1._rk))/tanh(alpha))/2._rk
+        
+!       if (choice=="x".or.choice=="y".or.choice=="z") &
+!            grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa))) &
+!            /asin(alpha)+1._rk)/2._rk 
 
 !       if (choice=="x".or.choice=="y".or.choice=="z") &
 !            grid%grid1d(i)=xa+(xb-xa)*(1._rk+tanh(delta*(2*(xi-xa)/(xb-xa)-1._rk)) &
 !       /tanh(delta))/2._rk
-     
+      
 !       if (choice=="x".or.choice=="y".or.choice=="z") &
 !            grid%grid1d(i)=xa+ksi*(1._rk-tanh(gam*(ksi-(xi-xa)))/tanh(gam*ksi))
     enddo
