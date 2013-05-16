@@ -165,12 +165,6 @@ contains
     !-> gridx1d
     grid%pas=(xb-xa)/real(grid%n-1,rk)
 
-!    beta=0.1_rk
-!    alpha=0.99_rk
-    !alpha=1._rk
-!    delta=1.1
-!    gam=3._rk
-!    ksi=0.5_rk*(xb-xa)
 
 
 !    beta=70.0_rk

@@ -39,13 +39,12 @@ program testnavier3d
   !-> time loop
   !------------------------------------------------------------------------ 
 
-err_vts_t=0._rk
-err_pre_t=0._rk
-call system_clock(t1,irate)
+  err_vts_t=0._rk
+  err_pre_t=0._rk
+  call system_clock(t1,irate)
 temps:  do ite=1,nav%ntime
      !print*,mpid%coord
 
-     
      if (ite==20) then
        call system_clock(t1,irate)
        err_vts_t=0._rk
@@ -55,7 +54,8 @@ temps:  do ite=1,nav%ntime
      !-> time update
      call navier_time(nav)
 
-     if(ite==1) then
+!initialisation
+     if(ite==-1) then
      do iaux=0,nav%nt-1
      t=nav%time-(iaux+1)*nav%ts
 !$OMP PARALLEL DO &
@@ -110,7 +110,6 @@ subit:  do subite=1,nav%nsubite
 
      call navier_presolve_phi(mpid,nav)
      call navier_bc_pressure(mpid,nav)
-
      !---------------------------------------------------------------------
      !-> solve pressure increment phi
 
@@ -184,6 +183,7 @@ subit:  do subite=1,nav%nsubite
      nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
           dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
           derz(nav%dcz,nav%w(nav%it(nav%nt)))
+
     error=norme2(mpid,nav,nav%aux)/ref
     if (mpid%rank==0) print*,'error Div V       : ',error
 
@@ -629,8 +629,6 @@ return
   endif
 
   norme2=sqrt(norme2)
-
-
 
 end function norme2
 
