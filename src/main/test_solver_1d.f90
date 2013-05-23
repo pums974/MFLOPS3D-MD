@@ -27,7 +27,7 @@ program test_solver
   call color(ired) ; print'(a)','Initialization : ' ; call color(color_off)
 
   !-> initialize mesh
-  call mesh_init(gridx,'gridx','x',nx,1,1)
+  call mesh_init(gridx,'gridx','x',nx,ny,nz)
   call mesh_grid_init(gridx,'x',nx,1,1)
 
   !-> initialize poisson solver coefficient

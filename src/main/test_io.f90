@@ -22,9 +22,9 @@ program test_io
   call field_init(w(1),"W",2*nx,2*ny,2*nz,n1n='dimx',n2n='dimy',n3n='dimz')
   
   !-> initialize grids
-  call mesh_init(gridx,'gridx','x',nx,1,1)
-  call mesh_init(gridy,'gridy','y',nx,ny,1)
-  call mesh_init(gridz,'gridz','z',1,1,nz)
+  call mesh_init(gridx,'gridx','x',nx,ny,nz)
+  call mesh_init(gridy,'gridy','y',nx,ny,nz)
+  call mesh_init(gridz,'gridz','z',nx,ny,nz)
   !-> define grid
   call mesh_grid_init(gridx,'x',nx,1,1)
   call mesh_grid_init(gridy,'y',nx,ny,1)

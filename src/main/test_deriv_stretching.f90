@@ -37,11 +37,11 @@ program statistics
   call md_mpi_getnumberdomains(mpi3,nd)
 !------------------- read mesh --------------------------------
 !  call color(bired) ; print'(a)','Read grid in netcdf file' ; call color(color_off)
-  call read_mesh('gridx_i','x',gridx_i,'gridx')
+!  call read_mesh('gridx_i','x',gridx_i,'gridx')
 
-!  pi=4._rk*atan(1._rk)
-!  call mesh_init(gridx_i,'gridx','x',nxi,1,1)
-!  call mesh_grid_init(gridx_i,'x',nxi,1,1,.false.,2._rk*pi)
+  pi=4._rk*atan(1._rk)
+  call mesh_init(gridx_i,'gridx','x',nxi,1,1)
+  call mesh_grid_init(gridx_i,'x',nxi,1,1,mpi3,.false.,2._rk*pi)
 
   fin=gridx_i%grid1d(nxi)
 !------------------- read field --------------------------------
@@ -84,10 +84,12 @@ program statistics
 
 !--------------------------------------------------------------
 !  call color(bired) ; print'(a)','Create other grids ans fields' ; call color(color_off)
-  call mesh_init(gridx_r,'gridx','x',nxr,1,1)
   call mesh_init(gridx_s,'gridx','x',nxs,1,1)
-  call mesh_grid_init(gridx_r,'x',nxr,1,1,.false.,fin,mpi3)
-  call mesh_grid_init(gridx_s,'x',nxs,1,1,.true.,fin,mpi3)
+  call mesh_grid_init(gridx_s,'x',nxs,1,1,mpi3,.true.,fin)
+!  nxr=nint(1._rk+2._rk*(gridx_s%grid1d(nxs)-gridx_s%grid1d(1))/(gridx_s%grid1d(nxs/2+1)-gridx_s%grid1d(nxs/2-1)),ik)
+
+  call mesh_init(gridx_r,'gridx','x',nxr,1,1)
+  call mesh_grid_init(gridx_r,'x',nxr,1,1,mpi3,.false.,fin)
 
   call field_init(ur,"ur",nxr,nyi,nzi)
   call field_init(us,"us",nxs,nyi,nzi)
@@ -119,8 +121,8 @@ program statistics
 !------------------ derivative by Finite Difference ------------
 
 !  call color(bired) ; print'(a)','Derivation' ; call color(color_off)
-  call derivatives_coefficients_init(gridx_r,dcxr,nxr)
-  call derivatives_coefficients_init(gridx_s,dcxs,nxs)
+  call derivatives_coefficients_init(gridx_r,dcxr,nxr,cmd%so(2))
+  call derivatives_coefficients_init(gridx_s,dcxs,nxs,cmd%so(2))
   fur = derx(dcxr,ur)
   fus = derx(dcxs,us)
 
@@ -250,41 +252,45 @@ program statistics
 ! close(30+mpi3%rank)
 
 if(mpi3%rank==0) then 
-  i=(nxs+1)/2
-  !print*,i,(gridx_s%grid3d(i+1,1,1)-gridx_s%grid3d(i-1,1,1))*0.5_rk,err_s%f(i,1,1)
+  i=(nxr+1)/2
   aux    = err_r%f(i,1,1)
-  alpha1 = err_s%f(i,1,1)
-
   alpha =(gridx_r%grid3d(i+1,1,1)-gridx_r%grid3d(i-1,1,1))*0.5_rk
-  fin=err_s%f(i,1,1) / err_r%f(i,1,1)
+  fin=err_r%f(i,1,1)
 
-  i=nxs
+  i=(nxs+1)/2
+  alpha1 = err_s%f(i,1,1)
+  fin=err_s%f(i,1,1) / fin
+
+
+  i=nxr
   !print*,i, gridx_s%grid3d(i,1,1)-gridx_s%grid3d(i-1,1,1)          ,err_s%f(i,1,1)
   aux    = err_r%f(i,1,1) / aux
-  alpha1 = err_s%f(i,1,1) / alpha1
-
   alpha  = alpha / (gridx_r%grid3d(i,1,1)-gridx_r%grid3d(i-1,1,1))
 
-
+  i=nxs
+  alpha1 = err_s%f(i,1,1) / alpha1
 
   alpha=(gridx_s%grid3d(nxs/2+1,1,1)-gridx_s%grid3d(nxs/2-1,1,1))/(2._rk*(gridx_s%grid3d(nxs,1,1)-gridx_s%grid3d(nxs-1,1,1)))
+
   tmp=(gridx_s%grid3d(nxs-1,1,1)-gridx_s%grid3d(nxs-2,1,1))/(gridx_s%grid3d(nxs,1,1)-gridx_s%grid3d(nxs-1,1,1))
+
 !do i=nxs,nxs/2,-1
 !  alpha1=alpha/ (gridx_s%grid3d(i,1,1)-gridx_s%grid3d(i-1,1,1))
 !  if(alpha1.lt.1.01_rk) exit
 !enddo
-!  write(*,'(5e17.8)',advance='no') tmp,alpha
-  if(fin>2._rk)   call color(bired)
-  write(*,'(5e17.8)',advance='no')  fin
-  if(fin>2._rk)   call color(color_off)
-  write(*,'(5e17.8)',advance='no') aux
-  if(alpha1<0.1_rk)   call color(bired)
-  if(alpha1>10._rk)   call color(bired)
-  write(*,'(5e17.8)',advance='no') alpha1
-  if(alpha1>10._rk)    call color(color_off)
-  if(alpha1<0.1_rk)    call color(color_off)
 
-!  write(*,'(5e17.8)',advance='no')  abs(fin-1._rk)+abs(alpha1-1._rk)
+!!  write(*,'(5e17.8)',advance='no') tmp,alpha
+!  if(fin>2._rk)   call color(bired)
+!  write(*,'(5e17.8)',advance='no')  fin
+!  if(fin>2._rk)   call color(color_off)
+!!  write(*,'(5e17.8)',advance='no') aux
+!  if(alpha1<0.1_rk)   call color(bired)
+!  if(alpha1>10._rk)   call color(bired)
+!  write(*,'(5e17.8)',advance='no') alpha1
+!  if(alpha1>10._rk)    call color(color_off)
+!  if(alpha1<0.1_rk)    call color(color_off)
+
+  write(*,'(5e17.8)',advance='no') (fin-1._rk) ,(alpha1-1._rk)
 endif
 
 !--------------------------------------------------------------

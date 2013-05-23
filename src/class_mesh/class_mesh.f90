@@ -109,7 +109,7 @@ contains
 
   end subroutine mesh_init
 
-  subroutine mesh_grid_init(grid,choice,nx,ny,nz,mpid)
+  subroutine mesh_grid_init(grid,choice,nx,ny,nz,mpid,stretch1,taille1)
 ! -----------------------------------------------------------------------
 ! mesh : initialize type mesh
 ! -----------------------------------------------------------------------
@@ -124,31 +124,50 @@ contains
     type(mpi_data),optional :: mpid
     character(len=*),intent(in) :: choice
     integer(ik) :: dom_coord(3),nd(3)
-    real(rk) :: xa,xb,ya,yb,za,zb,x1,x2
-    real(rk) :: xi,yi,zi,alpha,beta,delta,pi,gam,ksi
-    integer(ik) :: i,j,k
-    real(rk) :: size_dom,num_dom,num_dom_tot,xat,xbt
+    real(rk) :: xa,xb,ya,yb,za,zb,x1,x2,dx1,dx2,xc,xd,dx0,xm,x0
+    real(rk) :: xi,yi,zi,alpha,alpha1,alpha2,beta,delta,pi,gam,ksi
+    integer(ik) :: i,j,k,n_deb,n_tot,num_dom,num_dom_tot
+    real(rk) :: size_dom,xat,xbt
     real(rk) :: r(grid%n),aux 
+    real(rk),dimension(:),allocatable :: x_tot
+    real(rk),optional :: taille1
+    logical,optional :: stretch1
+
     
     !-> parameters
     pi=4._rk*atan(1._rk)
-    aux=0.5_rk
     if (choice=="x") then
-       xa=-aux ; xb=aux
+!       xa=0._rk ; xb=5._rk*pi
+!       xa=0._rk ; xb=4._rk*pi
+       xa=0._rk ; xb=3._rk*pi
+!       xa=0._rk ; xb=2._rk*pi
     endif
     if (choice=="y") then
-       xa=-aux ; xb=aux
+!       xa=-1._rk ; xb=1._rk
+       xa=0._rk ; xb=2._rk
     endif
     if (choice=="z") then
-       xa=-aux*0.5_rk ; xb=aux*0.5_rk
-!       xa=-aux ; xb=aux
+!       xa=0._rk ; xb=3._rk*pi/2._rk
+       xa=0._rk ; xb=1._rk*pi
     endif
-!    xa=-aux ; xb=aux
-!    ya=-aux ; yb=aux
-!    za=-aux ; zb=aux
-!    xa=0._rk ; xb=aux
-!    ya=0._rk ; yb=aux
-!    za=0._rk ; zb=aux
+
+    xc=xa ; xd=xb ! dimensions globales (pour stretch global)
+    n_tot=grid%n
+    n_deb=1
+
+    if (choice=="y") then
+!    beta=2.77_rk ! ratio max = 2 ratio bord = 1.7
+!    beta=8.77_rk ! ratio max = 3 ratio bord = 2.2
+!    beta=10.7_rk ! ratio max = 4 ratio bord = 2.5
+    beta=33.3_rk ! ratio max = 5 ratio bord = 2.6
+    else
+!    beta=2.77_rk ! ratio max = 2 ratio bord = 1.7
+!    beta=8.77_rk ! ratio max = 3 ratio bord = 2.2
+!    beta=10.7_rk ! ratio max = 4 ratio bord = 2.5
+    beta=33.3_rk ! ratio max = 5 ratio bord = 2.6
+    endif
+    alpha1=1._rk-beta/real((grid%n**2),rk)
+    alpha2=4.0_rk
 
     if (present(mpid)) then
        if (mpid%dims.ne.0) then
@@ -163,39 +182,81 @@ contains
          size_dom=(xb-xa)/num_dom_tot
          xa=xa+num_dom*size_dom
          xb=xa+size_dom
-  !       print*,choice,dom_coord,xa,xb
+         n_tot=num_dom_tot*grid%n-num_dom_tot+1
+         n_deb=1+num_dom*(grid%n-1)
       endif
     endif
 
+    if (choice=="y") then
+      allocate(x_tot(n_tot))
+      !-> gridx1d
+      grid%pas=(xd-xc)/real(n_tot-1,rk)
+
+      do i=1,n_tot
+         xi=xc+real(i-1,rk)*grid%pas ! grille [xc,xd] stretch global
+       if(.true.) then
+         x_tot(i)=(1._rk+tanh(alpha2*((xi-xc)/(xd-xc)-0.5_rk))/tanh(alpha2))*0.5_rk
+       elseif(.false.) then
+         x_tot(i)=sign(1._rk-sinh(3.25_rk*(1._rk-abs(xi)))/ sinh(3.25_rk),xi)
+       elseif(.false.) then
+
+       if(i==1) then
+          x_tot(i)=0._rk
+       elseif(i.le.9.or.i.ge.n_tot-8) then 
+          x_tot(i)=x_tot(i-1)+5e-3
+       elseif(i.le.18) then
+          x_tot(i)=x_tot(i-1)+5e-3+1.75e-2*(i-9)/8
+       elseif(i.ge.n_tot-17) then
+          x_tot(i)=x_tot(i-1)+5e-3+1.75e-2*(n_tot-9-i)/8
+       else
+          x_tot(i)=x_tot(i-1)+3e-2
+       endif
+       endif
+      enddo
+      x_tot=xc + (xd-xc)* (x_tot-x_tot(1))/(x_tot(n_tot)-x_tot(1))
+
+      xa=x_tot(n_deb) 
+      xb=x_tot(n_deb+grid%n-1) 
+    endif
     !-> gridx1d
     grid%pas=(xb-xa)/real(grid%n-1,rk)
 
+    grid%grid1d(1)=0._rk
+    xi=xa
+    do i=2,grid%n
+       xm=xi 
+       xi=xa+real(i-1,rk)*grid%pas ! grille [xa,xb] avant stretching
+       if (choice=="y")  xi=x_tot(n_deb+i-1)
+
+       x0=(xi-xa)/(xb-xa)
+       dx0=(xi-xm)/(xb-xa)
+
+!grille [0,1] stretche par bloc
+       x1=(asin(-alpha1*cos(pi*x0))/asin(alpha1)+1._rk)*0.5_rk
+
+!grille [0,1] stretche dans domaine
+       x2=(1._rk+tanh(alpha2*(x0-0.5_rk))/tanh(alpha2))*0.5_rk
 
 
-!    beta=70.0_rk
-!    beta=2.77_rk ! ratio max = 2 ratio bord = 1.7
-!    beta=8.77_rk ! ratio max = 3 ratio bord = 2.2
-    beta=10.7_rk ! ratio max = 4 ratio bord = 2.5
-!    beta=33.3_rk ! ratio max = 5 ratio bord = 2.6
-    alpha=1._rk-beta/real((grid%n**2),rk)
-!    alpha=0.99_rk
-    do i=1,grid%n
-       xi=xa+real(i-1,rk)*grid%pas
+       xm=(xm+xi)*0.5_rk
+!pour cummuler les stretch, derive les stretch precedent
+       dx1=alpha1*pi*sin(pi*(xm-xa)/(xb-xa))/&
+           (asin(alpha1)*(xb-xa)*sqrt(1._rk-alpha1**2*cos(pi*(xm-xa)/(xb-xa))**2))*0.5_rk
+         dx2=alpha2*sech(alpha2*((xm-xc)/(xd-xc)-0.5_rk))**2/(tanh(alpha2)*(xd-xc))
 
-!       if (choice=="x") grid%grid1d(i)=xi   
-!       if (choice=="y") grid%grid1d(i)=xi
-!       if (choice=="z") grid%grid1d(i)=xi
 
-!       if (choice=="x".or.choice=="y".or.choice=="z") &
-!            grid%grid1d(i)=xa+(xb-xa)*&
-!            (sinh((2._rk*(xi-xa)/(xb-xa)-1._rk)*(1._rk-beta))&
-!            /sinh(1._rk-beta)+1._rk)*0.5_rk
+!choix de la grille [0,1]
+       if (choice=="x".or.choice=="z") then
+         grid%grid1d(i)=x1
+       else
+!les ajoute pour faire une grille [0,?] doublement stretche
+!         grid%grid1d(i)=grid%grid1d(i-1)+ dx0 * (dx1/dx0)*(dx2/dx0)
+!           grid%grid1d(i)=x_tot(n_deb+i-2)-xa + dx1 -2*dx0
+           grid%grid1d(i)=grid%grid1d(i-1)+(x_tot(n_deb+i-1)-x_tot(n_deb+i-2))*dx1/dx0
 
-!       if (choice=="x".or.choice=="y".or.choice=="z") grid%grid1d(i)=xi
+!         grid%grid1d(i)=x0
+       endif
 
-!        grid%grid1d(i)=xi
-!        if (choice=="x") 
-grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._rk)*0.5_rk
 !        grid%grid1d(i)=xa+2._rk*xi-(xb-xa)*(sinh((2._rk*(xi-xa)/(xb-xa)-1._rk)*(1._rk-alpha))&
 !            /sinh(1._rk-alpha)+1._rk)*0.5_rk
 !        grid%grid1d(i)=xa+(xb-xa)*(1._rk+tanh(alpha*(2*(xi-xa)/(xb-xa)-1._rk))/tanh(alpha))/2._rk
@@ -211,6 +272,8 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
 !       if (choice=="x".or.choice=="y".or.choice=="z") &
 !            grid%grid1d(i)=xa+ksi*(1._rk-tanh(gam*(ksi-(xi-xa)))/tanh(gam*ksi))
     enddo
+!transforme grille [0,?] en grille [xa,xb]
+    grid%grid1d=xa + (xb-xa)*(grid%grid1d-grid%grid1d(1))/(grid%grid1d(grid%n)-grid%grid1d(1))
 
     !-> piecewise geometric stretching (only work with even number of points)
 
@@ -301,7 +364,7 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
        enddo
     endif
 
-xi=maxval(grid%grid1d(2:grid%n)-grid%grid1d(1:grid%n-1))
+xi=maxval(grid%dgrid1d(1:grid%n))
 x1=xi
     if (present(mpid)) then
     if (mpid%dims.ne.0) then
@@ -310,7 +373,7 @@ x1=xi
     endif
     endif
 
-xi=minval(grid%grid1d(2:grid%n)-grid%grid1d(1:grid%n-1))
+xi=minval(grid%dgrid1d(1:grid%n))
 x2=xi
     if (present(mpid)) then
     if (mpid%dims.ne.0)  then
@@ -319,13 +382,15 @@ x2=xi
    endif
    endif
 
-    if (mpid%rank==0) then
+    if (present(mpid)) then
+if (mpid%rank==0) then
 !     write(*,'(2A)') trim(grid%gridn),"    rmax              rbord"
 !     write(*,'(2es17.8)') &
-!         (grid%grid1d(grid%n/2+1)-grid%grid1d(grid%n/2-1))/(2._rk*(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))), &
-!         (grid%grid1d(grid%n-1)-grid%grid1d(grid%n-2))/(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))
+!         grid%dgrid1d(grid%n/2)/grid%dgrid1d(grid%n), &
+!         grid%dgrid1d(grid%n-1)/grid%dgrid1d(grid%n)
      write(*,'(2A)') trim(grid%gridn),"    dxmax              dxmin"
      write(*,'(2es17.8)') x1, x2 
+endif
    endif
 
   end subroutine mesh_grid_init
@@ -449,6 +514,7 @@ x2=xi
 
     !-> write grid 
     if (present(mpid)) then
+      if(mpid%dims.ne.0) then
        call write_var3d(trim(file_name)//".nc",&
             [character(len=512) :: grid%nxn,grid%nyn,grid%nzn],&
             get_dim_size(grid%grid3d),grid%gridn,grid%grid3d,mpid=mpid)
@@ -462,6 +528,7 @@ x2=xi
        call write_var3d(trim(file_name)//".nc",&
             [character(len=512) :: grid%nxn,grid%nyn,grid%nzn],&
             get_dim_size(grid%grid3d),'d'//grid%gridn,grid%dgrid3d)
+    endif
     endif
 
   end subroutine write_mesh
@@ -517,4 +584,8 @@ x2=xi
 
   end subroutine read_mesh
 
+function sech(x)
+real(rk)::x,sech
+sech=2._rk*exp(-x)/(1._rk+exp(-2._rk*x))
+end function sech
 end module class_mesh

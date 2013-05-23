@@ -1,5 +1,6 @@
 program test_derivatives
   !  use parameters
+  use command_line
   use class_field
   use class_mesh
   use class_derivatives
@@ -7,6 +8,7 @@ program test_derivatives
   implicit none
 
   integer(ik),parameter :: nt=1
+  type(cmd_line) :: cmd
   integer(ik) :: nx,ny,nz
   type(derivatives_coefficients) :: dcx,dcy,dcz
   type(mesh_grid) :: gridx,gridy,gridz
@@ -22,6 +24,9 @@ program test_derivatives
   real(rk) :: sumderr,sumdderr,derror1,dderror1,errcoef=2._rk
   character(5) :: out 
   integer(ik) :: mindim=11,maxdim=4050,nerr
+
+  !-> get command line informations
+  call commandline(cmd)
 
   ! define level of output files : LOW or FULL
   out='FULL'
@@ -52,9 +57,9 @@ program test_derivatives
         call field_init(ddzu,"DDZU",nx,ny,nz)
 
         !-> initialize grid
-        call mesh_init(gridx,'gridx','x',nx,1,1)
-        call mesh_init(gridy,'gridy','y',1,ny,1)
-        call mesh_init(gridz,'gridz','z',1,1,nz)
+        call mesh_init(gridx,'gridx','x',nx,ny,nz)
+        call mesh_init(gridy,'gridy','y',nx,ny,nz)
+        call mesh_init(gridz,'gridz','z',nx,ny,nz)
         !-> define grid
         call mesh_grid_init(gridx,'x',nx,1,1)
         call mesh_grid_init(gridy,'y',1,ny,1)
@@ -93,9 +98,9 @@ program test_derivatives
         enddo
 
         !-> initialisation of derivatives coefficients
-        call derivatives_coefficients_init(gridx,dcx,nx,8)
-        call derivatives_coefficients_init(gridy,dcy,ny,8)
-        call derivatives_coefficients_init(gridz,dcz,nz,8)
+        call derivatives_coefficients_init(gridx,dcx,nx,cmd%so(2))
+        call derivatives_coefficients_init(gridy,dcy,ny,cmd%so(2))
+        call derivatives_coefficients_init(gridz,dcz,nz,cmd%so(2))
 
         !-> computation of derivatives 
         dxu=derx(dcx,u(1)) ; ddxu=dderx(dcx,u(1))
@@ -185,17 +190,17 @@ program test_derivatives
 
         !-> define dimensions
         if (m==1.and.nx<maxdim) then 
-           nx=nx*errcoef-1 ; ny=mindim ; nz=mindim 
+           nx=nx*int(errcoef)-1 ; ny=mindim ; nz=mindim 
         elseif (m==1.and.nx>maxdim) then
            nx=mindim ; print'(a,f5.2)','Approximate scheme order : ',sumderr/real(nerr,rk) ; exit
         endif
         if (m==2.and.ny<maxdim) then 
-           ny=ny*errcoef-1 ; nx=mindim ; nz=mindim
+           ny=ny*int(errcoef)-1 ; nx=mindim ; nz=mindim
         elseif (m==2.and.ny>maxdim) then
            ny=mindim ; print'(a,f5.2)','Approximate scheme order : ',sumderr/real(nerr,rk) ; exit
         endif
         if (m==3.and.nz<maxdim) then  
-           nz=nz*errcoef-1 ; nx=mindim ; ny=mindim 
+           nz=nz*int(errcoef)-1 ; nx=mindim ; ny=mindim 
         elseif (m==3.and.nz>maxdim) then
            nz=mindim ; print'(a,f5.2)','Approximate scheme order : ',sumderr/real(nerr,rk) ; exit
         endif

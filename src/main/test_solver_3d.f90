@@ -39,9 +39,9 @@ program test_solver
   call color(ired) ; print'(a)','Initialization : ' ; call color(color_off)
 
   !-> initialize mesh
-  call mesh_init(gridx,'gridx','x',nx,1,1)
-  call mesh_init(gridy,'gridy','y',1,ny,1)
-  call mesh_init(gridz,'gridz','z',1,1,nz)
+  call mesh_init(gridx,'gridx','x',nx,ny,nz)
+  call mesh_init(gridy,'gridy','y',nx,ny,nz)
+  call mesh_init(gridz,'gridz','z',nx,ny,nz)
 
   !-> initialize grid
   call mesh_grid_init(gridx,'x',nx,1,1)
@@ -49,9 +49,9 @@ program test_solver
   call mesh_grid_init(gridz,'z',1,1,nz)
 
   !-> initialize poisson solver coefficient
-  bctype=(/1,1,1,1,1,1/)
-!  bctype=(/1,2,2,2,2,2/)
-  call solver_init_3d(gridx,gridy,gridz,scx,bctype,8)
+!  bctype=(/1,1,1,1,1,1/)
+  bctype=(/1,2,2,2,2,2/)
+  call solver_init_3d(gridx,gridy,gridz,scx,bctype,cmd%so(1))
 
   !-> initialize type field
   call field_init(u,"U",nx,ny,nz)

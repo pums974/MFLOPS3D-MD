@@ -16,26 +16,31 @@ program post_prod
   real(rk),dimension(:),allocatable ::  moyu,moyv,moyw,rmsu,rmsv,rmsw,rmsuv,rmsuw,rmsvw,moyp,rmsp
 
   integer(ik) :: i,j,k,nd(3),coord(3),t
-  integer(ik),parameter :: nt=5
+  integer(ik) :: nt
   type(cmd_line) :: cmd
 !  type(mpi_data) :: mpi3
   type(mesh_grid) :: gridx, gridy, gridz
-  type(field) :: u(nt),v(nt),w(nt),p(nt)
-  real(rk) :: dx,dy,dz,lx,lz,utau,aux1,n,s
+  type(field),allocatable :: u(:),v(:),w(:),p(:)
+  real(rk) :: dx,dy,dz,lx,lz,utau,aux1,n,s,ref_re,ref_utau
   type(field) :: aux,deru
   type(derivatives_coefficients) :: dc
   character(20) ::t1
 !  character(100) :: fich(nt)
 
+  ref_re=3250
+  ref_utau=0.57231059E-01
+!  ref_re=20580
+!  ref_utau=0.45390026E-01
 
   call commandline(cmd)
+  nt=cmd%ntime
+  allocate(u(nt),v(nt),w(nt),p(nt))
   !-> initialize mpi
 !  call md_mpi_init(mpi3,cmd)
 !  call md_mpi_getcoord(mpi3,coord)
 !  call md_mpi_getnumberdomains(mpi3,nd)
-!------------------- read mesh --------------------------------
-!  call color(bired) ; print'(a)','Read grid in netcdf file' ; call color(color_off)
 
+!------------------- read mesh --------------------------------
   call read_mesh('results/grid_x','x',gridx,'gridx')
   call read_mesh('results/grid_y','y',gridy,'gridy')
   call read_mesh('results/grid_z','z',gridz,'gridz')
@@ -54,20 +59,8 @@ program post_prod
   allocate(rmsvw(ny))
 
 !------------------- read field --------------------------------
-!  call color(bired) ; print'(a)','Read field in netcdf file' ; call color(color_off)
 do t=1,nt
-       write(t1,'(i20)') t
-
-!  call read_field("results/vel_u",u(t),'U')  
-!  call read_field("results/vel_v",v(t),'V')  
-!  call read_field("results/vel_w",w(t),'W')  
-!  call read_field("results/vel_p",p(t),'P')  
-
-!  call read_field("results/t"//t1//"/vel_u",u(t),'U')  
-!  call read_field("results/t"//t1//"/vel_v",v(t),'V')  
-!  call read_field("results/t"//t1//"/vel_w",w(t),'W')  
-!  call read_field("results/t"//t1//"/vel_p",p(t),'P')  
-
+  write(t1,'(i20)') t
   call read_field("results/vel_u_"//trim(adjustl(t1)),u(t),'U')  
   call read_field("results/vel_v_"//trim(adjustl(t1)),v(t),'V')  
   call read_field("results/vel_w_"//trim(adjustl(t1)),w(t),'W')  
@@ -106,26 +99,28 @@ enddo
     moyw(j)=moyw(j)/n
     moyp(j)=moyp(j)/n
   enddo
-!do j=1,ny/2 ! compte tenu de la symmetricité
-!moyu(j)=(moyu(j)+moyu(ny-j+1))*0.5_rk
-!moyv(j)=(moyv(j)-moyv(ny-j+1))*0.5_rk
-!moyw(j)=(moyw(j)+moyw(ny-j+1))*0.5_rk
-!moyu(ny-j+1)=moyu(j)
-!moyv(ny-j+1)=-moyv(j)
-!moyw(ny-j+1)=moyw(j)
-!enddo
+do j=1,ny/2 ! compte tenu de la symmetricité
+ moyu(j)=(moyu(j)+moyu(ny-j+1))*0.5_rk
+ moyv(j)=(moyv(j)-moyv(ny-j+1))*0.5_rk
+ moyw(j)=(moyw(j)+moyw(ny-j+1))*0.5_rk
+ moyp(j)=(moyp(j)+moyp(ny-j+1))*0.5_rk
+ moyu(ny-j+1)=moyu(j)
+ moyv(ny-j+1)=-moyv(j)
+ moyw(ny-j+1)=moyw(j)
+ moyp(ny-j+1)=moyp(j)
+enddo
   print*,'moy     : ',maxval(abs(moyv)),maxval(abs(moyw)),maxval(abs(moyp))
 
   ! calcul de utau=sqrt(dxu/nu)
-  call derivatives_coefficients_init(gridy,dc,ny,8)
+  call derivatives_coefficients_init(gridy,dc,ny,cmd%so(2))
   call field_init(aux,"aux",ny,1,1)
   call field_init(deru,"deru",ny,1,1)
   aux%f(:,1,1)=moyu
   deru = derx(dc,aux)
-  utau=sqrt((deru%f(1,1,1)-deru%f(ny,1,1))*0.5_rk/3250)
-  print*,'utau    : ',sqrt(deru%f(1,1,1)/3250),sqrt(-deru%f(ny,1,1)/3250) ,0.57231059E-01
-  print*,'REYNOLDS: ',sqrt(deru%f(1,1,1)*3250),sqrt(-deru%f(ny,1,1)*3250) ,0.57231059E-01*3250
-!  utau=0.57231059E-01
+  utau=sqrt((deru%f(1,1,1)-deru%f(ny,1,1))*0.5_rk/ref_re)
+  print*,'utau    : ',sqrt(deru%f(1,1,1)/ref_re),sqrt(-deru%f(ny,1,1)/ref_re) ,ref_utau
+  print*,'REYNOLDS: ',sqrt(deru%f(1,1,1)*ref_re),sqrt(-deru%f(ny,1,1)*ref_re) ,ref_utau*ref_re
+!  utau=ref_utau
 
 do t=1,nt
  u(t)%f = u(t)%f/utau !Normalisation
@@ -141,8 +136,10 @@ moyp=moyp/(utau**2)
 rmsu=0._rk ! calcul des rms
 rmsv=0._rk
 rmsw=0._rk
-rmsuv=0._rk
 rmsp=0._rk
+rmsuv=0._rk
+rmsuw=0._rk
+rmsvw=0._rk
   do j=1,ny
     n=0
     do k=2,gridz%nz-1
@@ -178,36 +175,46 @@ enddo
     rmsp(j)=sqrt(rmsp(j)/n)
     rmsuv(j)=rmsuv(j)/n
     rmsuw(j)=rmsuw(j)/n
-!    rmsuw(j)=sign(sqrt(abs(rmsuw(j))/n),rmsuw(j))
-!    rmsvw(j)=sign(sqrt(abs(rmsvw(j))/n),rmsvw(j))
+    rmsvw(j)=rmsvw(j)/n
   enddo
-!  print*,'rms  u  : ',maxval(rmsu),2.6590903E+00,2.6590903E+00/maxval(rmsu)
-!  print*,'rms  v  : ',maxval(rmsv),8.4956920E-01,8.4956920E-01/maxval(rmsv)
-!  print*,'rms  w  : ',maxval(rmsw),1.0907968E+00,1.0907968E+00/maxval(rmsw)
 
-!do j=1,ny/2 ! compte tenu de la symmetricité
-!rmsu(j)=sqrt((rmsu(j)**2+rmsu(ny-j+1)**2)*0.5_rk)
-!rmsv(j)=sqrt((rmsv(j)**2+rmsv(ny-j+1)**2)*0.5_rk)
-!rmsw(j)=sqrt((rmsw(j)**2+rmsw(ny-j+1)**2)*0.5_rk)
-!rmsuv(j)=(rmsuv(j)-rmsuv(ny-j+1))*0.5_rk
-!rmsu(ny-j+1)=rmsu(j)
-!rmsv(ny-j+1)=rmsv(j)
-!rmsw(ny-j+1)=rmsw(j)
-!rmsuv(ny-j+1)=-rmsuv(j)
-!enddo
+do j=1,ny/2 ! compte tenu de la symmetricité
+ rmsu(j)=sqrt((rmsu(j)**2+rmsu(ny-j+1)**2)*0.5_rk)
+ rmsv(j)=sqrt((rmsv(j)**2+rmsv(ny-j+1)**2)*0.5_rk)
+ rmsw(j)=sqrt((rmsw(j)**2+rmsw(ny-j+1)**2)*0.5_rk)
+ rmsp(j)=sqrt((rmsp(j)**2+rmsp(ny-j+1)**2)*0.5_rk)
+ rmsuv(j)=(rmsuv(j)-rmsuv(ny-j+1))*0.5_rk
+ rmsuw(j)=sqrt((rmsuw(j)**2+rmsuw(ny-j+1)**2)*0.5_rk)
+ rmsvw(j)=(rmsvw(j)-rmsvw(ny-j+1))*0.5_rk
+ rmsu(ny-j+1)=rmsu(j)
+ rmsv(ny-j+1)=rmsv(j)
+ rmsw(ny-j+1)=rmsw(j)
+ rmsp(ny-j+1)=rmsp(j)
+ rmsuv(ny-j+1)=-rmsuv(j)
+ rmsuw(ny-j+1)=rmsuw(j)
+ rmsvw(ny-j+1)=-rmsvw(j)
+enddo
 
-print*,'rmss u  : ',maxval(rmsu),2.6590903E+00,2.6590903E+00/maxval(rmsu)
-print*,'rmss v  : ',maxval(rmsv),8.4956920E-01,8.4956920E-01/maxval(rmsv)
-print*,'rmss w  : ',maxval(rmsw),1.0907968E+00,1.0907968E+00/maxval(rmsw)
-print*,'rmss p  : ',maxval(rmsp)
-print*,'rms  uv : ',maxval(rmsuv),7.3362684e-01,7.3362684e-01/maxval(rmsuv)
-!print*,'rms  uw : ',maxval(rmsuw),7.3362684e-01,7.3362684e-01/maxval(rmsuw)
-!print*,'rms  vw : ',maxval(rmsvw),7.3362684e-01,7.3362684e-01/maxval(rmsvw)
+if(.false.) then
+ print*,'rmss u  : ',maxval(abs(rmsu)),2.6590903E+00,2.6590903E+00/maxval(abs(rmsu))
+ print*,'rmss v  : ',maxval(abs(rmsv)),8.4956920E-01,8.4956920E-01/maxval(abs(rmsv))
+ print*,'rmss w  : ',maxval(abs(rmsw)),1.0907968E+00,1.0907968E+00/maxval(abs(rmsw))
+ print*,'rmss p  : ',maxval(abs(rmsp))
+ print*,'rms  uv :',maxval(abs(rmsuv)),7.3362684e-01,7.3362684e-01/maxval(abs(rmsuv))
+ print*,'rms  uw :',maxval(abs(rmsuw)),7.3362684e-01,7.3362684e-01/maxval(abs(rmsuw))
+ print*,'rms  vw :',maxval(abs(rmsvw)),7.3362684e-01,7.3362684e-01/maxval(abs(rmsvw))
+else
+ print*,'moy  u  : ',maxval(abs(moyu)) ,22.444668,22.444668/maxval(abs(moyu))
+ print*,'rms  u  : ',maxval(abs(rmsu)) ,2.8271015,2.8271015/maxval(abs(rmsu))
+ print*,'rms  v  : ',maxval(abs(rmsv)) ,1.0758162,1.0758162/maxval(abs(rmsv))
+ print*,'rms  w  : ',maxval(abs(rmsw)) ,1.4507672,1.4507672/maxval(abs(rmsw))
+ print*,'rms  p  : ',maxval(abs(rmsp)) ,2.9623945,2.9623945/maxval(abs(rmsp))
+ print*,'rms  uv : ',maxval(abs(rmsuv)),0.89940619,0.89940619/maxval(abs(rmsuv))
+ print*,'rms  uw : ',maxval(abs(rmsuw)),0.0086819138,0.0086819138/maxval(abs(rmsuw))
+ print*,'rms  vw : ',maxval(abs(rmsvw)),0.0011614194,0.0011614194/maxval(abs(rmsvw))
+endif
 
   do j=1,ny
-!    write(10,'(3e17.8)')  gridy%grid1d(j),(moyu(j)+moyu(ny+1-j))*0.5_rk,(rmsu(j)+rmsu(ny+1-j))*0.5_rk
-!    write(11,'(3e17.8)')  gridy%grid1d(j),(moyv(j)+moyv(ny+1-j))*0.5_rk,(rmsv(j)+rmsv(ny+1-j))*0.5_rk
-!    write(12,'(3e17.8)')  gridy%grid1d(j),(moyw(j)+moyw(ny+1-j))*0.5_rk,(rmsw(j)+rmsw(ny+1-j))*0.5_rk
     write(10,'(3e17.8)')  gridy%grid1d(j),moyu(j),rmsu(j)
     write(11,'(3e17.8)')  gridy%grid1d(j),moyv(j),rmsv(j)
     write(12,'(3e17.8)')  gridy%grid1d(j),moyw(j),rmsw(j)
@@ -224,4 +231,8 @@ do t=1,nt
   call field_destroy(w(t))
   call field_destroy(p(t))
 enddo
+  deallocate(moyu,moyv,moyw,moyp)
+  deallocate(rmsp,rmsu,rmsv,rmsw)
+  deallocate(rmsuv,rmsuw,rmsvw)
+
 end program  post_prod

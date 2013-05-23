@@ -205,7 +205,7 @@ contains
        do j=1,n2
           do i=1,n1
              if(max(abs(sigma),abs(sc%cx%eigen(i)),&
-               abs(sc%cy%eigen(j)),abs(sc%cz%eigen(k))).lt.1e-11) then
+               abs(sc%cy%eigen(j)),abs(sc%cz%eigen(k))).lt.1e-10) then
                sol(i,j,k)=0._rk
              else
                sol(i,j,k)=aux1(i,j,k)/(sc%cx%eigen(i)+sc%cy%eigen(j)+sc%cz%eigen(k)+sigma)
@@ -534,7 +534,7 @@ contains
     !-> compute eigenvalue and eigenvector
     call dgeev('N','V',n,temp,n,wr,wi,vl,1,vr,n,work,n*n,info)
 
-if (maxval(abs(wi)).gt.1e-13) then
+if (maxval(abs(wi)).gt.1e-12) then
 print*, 'vp imaginaire -> revois ton maillage', maxval(abs(wi))
 stop
 endif

@@ -16,7 +16,7 @@ module class_io
   public :: write_var3d,read_var3d
   public :: get_dim_size
   public :: get_var3d_info
-  public :: error_stop
+  public :: error_stop,io_check
 
 contains
 
@@ -52,8 +52,8 @@ contains
     if (file_exist) then
        if (present(mpid)) then
           call io_check(nf90_open(path=file_name,&
-!               mode=IOR(NF90_WRITE,NF90_MPIPOSIX),ncid=ncid,&
-               mode=IOR(NF90_WRITE,NF90_MPIIO),ncid=ncid,&
+               mode=IOR(NF90_WRITE,NF90_MPIPOSIX),ncid=ncid,&
+!               mode=IOR(NF90_WRITE,NF90_MPIIO),ncid=ncid,&
                comm=mpid%comm,info=MPI_INFO_NULL))
        else
           call io_check(nf90_open(path=file_name,mode=nf90_write,ncid=ncid))
@@ -62,8 +62,8 @@ contains
     else
        if (present(mpid)) then
           call io_check(nf90_create(path=file_name,&
-!               cmode=IOR(NF90_NETCDF4,NF90_MPIPOSIX),ncid=ncid,&
-               cmode=IOR(NF90_NETCDF4,NF90_MPIIO),ncid=ncid,&
+               cmode=IOR(NF90_NETCDF4,NF90_MPIPOSIX),ncid=ncid,&
+!               cmode=IOR(NF90_NETCDF4,NF90_MPIIO),ncid=ncid,&
                comm=mpid%comm,info=MPI_INFO_NULL))
        else
           call io_check(nf90_create(path=file_name,cmode=nf90_clobber,ncid=ncid))
@@ -148,11 +148,11 @@ contains
     !-> open file
     if (present(mpid)) then
        call io_check(nf90_open(path=file_name,&
-!               mode=IOR(NF90_WRITE,NF90_MPIPOSIX),ncid=ncid,&
-            mode=IOR(NF90_WRITE,NF90_MPIIO),ncid=ncid,&
+            mode=IOR(NF90_NOWRITE,NF90_MPIPOSIX),ncid=ncid,&
+!            mode=IOR(NF90_NOWRITE,NF90_MPIIO),ncid=ncid,&
             comm=mpid%comm,info=MPI_INFO_NULL))
     else
-       call io_check(nf90_open(path=file_name,mode=nf90_write,ncid=ncid))
+       call io_check(nf90_open(path=file_name,mode=nf90_nowrite,ncid=ncid))
     endif
     
     !-> get variable id
@@ -198,21 +198,22 @@ contains
     character(len=*),intent(in) :: file_name,var_name
     integer(ik),parameter :: ndim=3
     character(len=*),intent(inout) :: dim_name(ndim)
-
-    integer(ik) :: varid(1)
+    integer(ik) :: varid(1),ndim1
     integer(ik) :: i,ncid,dim_len(ndim),dimid(ndim)
     
+    dim_name=""
+    dim_len=0
     !-> open file
-    call io_check(nf90_open(path=file_name,mode=nf90_write,ncid=ncid))
-    
+    call io_check(nf90_open(path=file_name,mode=nf90_nowrite,ncid=ncid))
+
     !-> get variable id
     call io_check(nf90_inq_varid(ncid,var_name,varid(1)))
 
     !-> get variable dimensions id
-    call io_check(nf90_inquire_variable(ncid,varid(1),dimids=dimid))
+    call io_check(nf90_inquire_variable(ncid,varid(1),ndims=nDim1,dimids=dimid))
 
     !-> get dimensions length
-    do i=1,ndim
+    do i=1,nDim1
        call io_check(nf90_inquire_dimension(ncid,dimid(i),name=dim_name(i),len=dim_len(i)))
     enddo
 
