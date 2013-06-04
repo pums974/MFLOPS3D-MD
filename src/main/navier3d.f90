@@ -5,17 +5,26 @@ program testnavier3d
   use netcdf
   use mpi
   implicit none
-  type(cmd_line) :: cmd
-  type(navier3d) :: nav
-  type(mpi_data) :: mpid
+  type(cmd_line)  :: cmd
+  type(navier3d)  :: nav
+  type(field)     :: uo,ui,us,vo,wo,po
+  type(mesh_grid) :: gridxi,gridyi,gridzi,grids
+  type(mpi_data)  :: mpid
   integer(ik) :: nx,ny,nz
   integer(ik) :: ite
-  integer(ik) :: i,j,k,iaux
+  integer(ik) :: i,j,k,iaux,i0,j0,k0,i1,j1,k1,i2,j2,k2
   real(rk),allocatable :: uex(:,:,:,:), pex(:,:,:),vectorerror(:,:,:,:)
-  real(rk) ::x,y,z,t,error,aux,time,errort,ref,reft,err_vts_t,err_pre_t
-  integer(8) :: t1,t2,irate,subite
+  real(rk) ::x,y,z,t,x1,x2,y1,y2,z1,z2
+  real(rk) :: dx,dy,dz
+  real(rk) ::error,aux,time,errort,ref,reft,err_vts_t,err_pre_t,init(2,49)
+  integer(8) :: t1,t2,irate,subite,t3
   logical :: test
 
+    integer(ik) :: dim_len(3)
+    character(len=512) :: dim_name(3)
+    integer(ik) :: ncid
+    integer(ik) :: startv(3),countv(3)
+    integer(ik) :: varid(1)
 
   !-> get command line informations
   call commandline(cmd)
@@ -47,6 +56,7 @@ endif
   call system_clock(t1,irate)
 temps:  do ite=1,nav%ntime
 
+  call system_clock(t3,irate)
      if (ite==20) then
        call system_clock(t1,irate)
        err_vts_t=0._rk
@@ -56,9 +66,13 @@ temps:  do ite=1,nav%ntime
      !-> time update
      call navier_time(nav)
 
+     if (int((ite-1)/10)*10.eq.(ite-1).and.mpid%rank==0) write(*,'(17a)', advance= 'yes') &
+     "   it","    time","  subit","  it  u   res","    it  v   res","   it   w   res",&
+     "   it   p   res","    div","       max","      CFLx","       CFLy","       CFLz","     T_moy","    T_inst"
+
 subit:  do subite=1,nav%nsubite
      nav%subite=int(subite,ik)
-     if (mpid%rank==0) print*,'Time : ',ite,subite
+     if (mpid%rank==0) write(*,'(i5,X,es9.2,X,i2)', advance= 'no') ite,nav%time,subite
      !---------------------------------------------------------------------
 !     if (mpid%rank==0) then
 !        call color(ired);print'(a)','Time : ';call color(color_off)
@@ -112,252 +126,164 @@ subit:  do subite=1,nav%nsubite
                                           nav%sub_v,&
                                           nav%sub_w,&
                                           nav%sub_p,nav%aux,test,1.d-9)
-     if (test)     exit subit
-
 
      nav%sub_u=nav%u(nav%it(1))
      nav%sub_v=nav%v(nav%it(1))
      nav%sub_w=nav%w(nav%it(1))
      nav%sub_p=nav%p(nav%it(1))
+ 
+     nav%aux%f=1._rk
+     ref=norme(mpid,nav,nav%aux)
 
+     reft=0.5_rk*(norme(mpid,nav,derx(nav%dcx,nav%u(nav%it(1))))**2 &
+                 +norme(mpid,nav,dery(nav%dcy,nav%v(nav%it(1))))**2 &
+                 +norme(mpid,nav,derz(nav%dcz,nav%w(nav%it(1)))))
+
+     nav%aux%f=0._rk
+     nav%aux=derx(nav%dcx,nav%u(nav%it(1)))+&
+             dery(nav%dcy,nav%v(nav%it(1)))+&
+             derz(nav%dcz,nav%w(nav%it(1)))
+
+    error=norme(mpid,nav,nav%aux)
+    if (mpid%rank==0) write(*,'(X,es9.2)', advance= 'no') error/ref
+    if(error>1d10) exit temps
+
+!    nav%aux%f=1._rk ;     reft=integrale(mpid,nav,nav%aux)
+!    errort=integrale(mpid,nav,nav%u(nav%it(1)))
+!    if (mpid%rank==0) write(*,'(X,es9.2)', advance= 'no') errort/reft
+!    if(errort/reft>1d10) exit temps
+
+    nav%aux=nav%u(nav%it(1))
+    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+    error= maxval(nav%aux%f)
+    call mpi_reduce(error,errort,1,mpi_double_precision,mpi_max,0,&
+         mpi_comm_world,mpid%code)
+    if (mpid%rank==0) write(*,'(X,es9.2)', advance= 'no') errort
+    if(errort>1d10) exit temps
+
+!    errort=0.5_rk*(norme(mpid,nav,nav%u(nav%it(1)))**2 &
+!                  +norme(mpid,nav,nav%v(nav%it(1)))**2 &
+!                  +norme(mpid,nav,nav%w(nav%it(1))))
+!    if (mpid%rank==0) write(*,'(X,es9.2)', advance= 'no') errort/reft
+!    if(errort/reft>1d10) exit temps
+!
+!    nav%aux=nav%p(nav%it(1))
+!    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+!    error=integrale(mpid,nav,nav%aux)
+!    nav%aux=nav%aux-error/ref
+!    nav%p(nav%it(1))=nav%aux
+!
+!    nav%aux=nav%p(nav%it(1)) - nav%p(nav%it(nav%nt))
+!    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+!    error=integrale(mpid,nav,nav%aux)
+!    nav%aux=nav%aux- error/reft
+!    error=norme(mpid,nav,nav%aux)
+!    if (mpid%rank==0) write(*,'(X,es9.2)', advance= 'no') error
+!    if(error>1d10) exit temps
+!
+!    errort=norme(mpid,nav,nav%u(nav%it(1))-nav%u(nav%it(nav%nt)))**2 &
+!          +norme(mpid,nav,nav%v(nav%it(1))-nav%v(nav%it(nav%nt)))**2 &
+!          +norme(mpid,nav,nav%w(nav%it(1))-nav%w(nav%it(nav%nt)))
+!    if (mpid%rank==0) write(*,'(X,es9.2)', advance= 'no') sqrt(errort)
+!    if(sqrt(errort)>1d10) exit temps
+
+
+!$OMP PARALLEL DO &
+!$OMP DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
+!$OMP SCHEDULE(RUNTIME)
+    do k=1,nav%nz
+       if(k.eq.1) then
+         dz= nav%gridz%grid1d(k+1)- nav%gridz%grid1d(k)
+       elseif(k.eq.nav%nz) then
+         dz= nav%gridz%grid1d(k  )- nav%gridz%grid1d(k-1)
+       else
+         dz=(nav%gridz%grid1d(k+1)- nav%gridz%grid1d(k-1))*0.5_rk
+       endif
+       do j=1,nav%ny
+          if(j.eq.1) then
+            dy= nav%gridy%grid1d(j+1)- nav%gridy%grid1d(j)
+          elseif(j.eq.nav%ny) then
+            dy= nav%gridy%grid1d(j  )- nav%gridy%grid1d(j-1)
+          else
+            dy=(nav%gridy%grid1d(j+1)- nav%gridy%grid1d(j-1))*0.5_rk
+          endif
+          do i=1,nav%nx
+            if(i.eq.1) then
+              dx= nav%gridx%grid1d(i+1)- nav%gridx%grid1d(i)
+            elseif(i.eq.nav%nx) then
+              dx= nav%gridx%grid1d(i  )- nav%gridx%grid1d(i-1)
+            else
+              dx=(nav%gridx%grid1d(i+1)- nav%gridx%grid1d(i-1))*0.5_rk
+            endif
+            nav%aux%f(i,j,k) =nav%ts*nav%u(1)%f(i,j,k)/dx
+            nav%aux1%f(i,j,k)=nav%ts*nav%v(1)%f(i,j,k)/dy
+            nav%aux2%f(i,j,k)=nav%ts*nav%w(1)%f(i,j,k)/dz
+          enddo
+       enddo
+    enddo
+!$OMP END PARALLEL DO
+
+    call navier_nullify_boundary(mpid,nav,nav%aux,0)
+    error= maxval(nav%aux%f)
+    call mpi_reduce(error,errort,1,mpi_double_precision,mpi_max,0,&
+         mpi_comm_world,mpid%code)
+    if (mpid%rank==0) write(*,'(X,es9.2)', advance= 'no') errort
+
+    call navier_nullify_boundary(mpid,nav,nav%aux1,0)
+    error= maxval(nav%aux1%f)
+    call mpi_reduce(error,errort,1,mpi_double_precision,mpi_max,0,&
+         mpi_comm_world,mpid%code)
+    if (mpid%rank==0) write(*,'(X,es9.2)', advance= 'no') errort
+
+    call navier_nullify_boundary(mpid,nav,nav%aux2,0)
+    error= maxval(nav%aux2%f)
+    call mpi_reduce(error,errort,1,mpi_double_precision,mpi_max,0,&
+         mpi_comm_world,mpid%code)
+    if (mpid%rank==0) write(*,'(X,es9.2)', advance= 'no') errort
+
+  call system_clock(t2,irate)
+  time=real(t2-t1)/real(irate)
+  if (mpid%rank==0) write(*,'(2(X,es9.2))', advance= 'yes') time/(ite-19),real(t2-t3)/real(irate)
+
+     if (test)     exit subit 
      enddo subit
 
      !-> switch it
      iaux=nav%it(1)
      do i=1,nav%nt-1
-       nav%it(i)=nav%it(i+1)
+        nav%it(i)=nav%it(i+1)
      enddo
      nav%it(nt)=iaux
 
-     !---------------------------------------------------------------------
-     !-> check solution
-
-     t=nav%time
-!$OMP PARALLEL DO &
-!$OMP DEFAULT(SHARED) PRIVATE(i,j,k,x,y,z) &
-!$OMP SCHEDULE(RUNTIME)
-     do k=1,nav%nz
-        do j=1,nav%ny
-           do i=1,nav%nx
-             x=nav%gridx%grid1d(i)
-             y=nav%gridy%grid1d(j)
-             z=nav%gridz%grid1d(k)
-             uex(i,j,k,1)=sol(x,y,z,t,'u',nav%rey)
-             uex(i,j,k,2)=sol(x,y,z,t,'v',nav%rey)
-             uex(i,j,k,3)=sol(x,y,z,t,'w',nav%rey)
-             pex(i,j,k)=sol(x,y,z,t,'p',nav%rey)
-           enddo
-        enddo
-     enddo
-!$OMP END PARALLEL DO
- 
-     nav%aux%f=1._rk
-     ref=norme2(mpid,nav,nav%aux)
-
-     nav%aux%f=0._rk
-     nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
-          dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
-          derz(nav%dcz,nav%w(nav%it(nav%nt)))
-
-    error=norme2(mpid,nav,nav%aux)/ref
-    if (mpid%rank==0) print*,'error Div V       : ',error
-
-!     nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
-!          dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
-!          derz(nav%dcz,nav%w(nav%it(nav%nt)))
-!    call navier_nullify_boundary(mpid,nav,nav%aux,1)
-
-!    error=norme2(mpid,nav,nav%aux)/ref
-!    if (mpid%rank==0) print*,'error Div V   HI  : ',error
-
-!     nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
-!          dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
-!          derz(nav%dcz,nav%w(nav%it(nav%nt)))
-!    call navier_nullify_boundary(mpid,nav,nav%aux,-1)
-
-!    error=norme2(mpid,nav,nav%aux)/ref
-!    if (mpid%rank==0) print*,'error Div V   HB  : ',error
-
-!     nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
-!          dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
-!          derz(nav%dcz,nav%w(nav%it(nav%nt)))
-!    call navier_nullify_boundary(mpid,nav,nav%aux,0)
-
-!    error=norme2(mpid,nav,nav%aux)/ref
-!    if (mpid%rank==0) print*,'error Div V   HBI : ',error
-
-!    vectorerror(:,:,:,5)=nav%aux%f
-
-
-    nav%aux%f=sqrt(uex(:,:,:,1)**2 &
-                 + uex(:,:,:,2)**2 &
-                 + uex(:,:,:,3)**2)
-    ref=norme2(mpid,nav,nav%aux)
-
-    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
-                 + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
-                 + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
-
-    error=norme2(mpid,nav,nav%aux)
-    err_vts_t=err_vts_t+error**2*nav%ts
-    if (mpid%rank==0) print*,'error tot V       : ',error,error/ref,sqrt(err_vts_t)
-
-!    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
-!                 + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
-!                 + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
-!    call navier_nullify_boundary(mpid,nav,nav%aux,1)
-!    error=norme2(mpid,nav,nav%aux)/ref
-!    if (mpid%rank==0) print*,'error tot V   HI  : ',error
-
-!    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
-!                 + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
-!                 + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
-!    call navier_nullify_boundary(mpid,nav,nav%aux,-1)
-!    error=norme2(mpid,nav,nav%aux)/ref
-!    if (mpid%rank==0) print*,'error tot V   HB  : ',error
-
-!    nav%aux%f=sqrt((uex(:,:,:,1)-nav%u(nav%it(nav%nt))%f)**2&
-!                 + (uex(:,:,:,2)-nav%v(nav%it(nav%nt))%f)**2&
-!                 + (uex(:,:,:,3)-nav%w(nav%it(nav%nt))%f)**2)
-!    call navier_nullify_boundary(mpid,nav,nav%aux,0)
-!    error=norme2(mpid,nav,nav%aux)/ref
-!    if (mpid%rank==0) print*,'error tot V   HBI : ',error
-
-
-    nav%aux%f=1._rk  ;    ref=integrale(mpid,nav,nav%aux)
-    nav%aux%f=nav%p(nav%it(nav%nt))%f! - pex
-    call navier_nullify_boundary(mpid,nav,nav%aux,0)
-    error=integrale(mpid,nav,nav%aux)
-    nav%aux%f=nav%aux%f-error/ref
-    nav%p(nav%it(nav%nt))%f=nav%aux%f
-    nav%aux%f=pex
-    call navier_nullify_boundary(mpid,nav,nav%aux,0)
-    error=integrale(mpid,nav,nav%aux)
-    pex=pex-error/ref
-    nav%aux%f=pex
-    ref=norme2(mpid,nav,nav%aux)
-
-    nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
-    error=norme2(mpid,nav,nav%aux)
-    err_pre_t=err_pre_t+error**2*nav%ts
-    if (mpid%rank==0) print*,'error tot P       : ',error,error/ref,sqrt(err_pre_t)
-
-!    nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
-!    call navier_nullify_boundary(mpid,nav,nav%aux,1)
-!    error=norme2(mpid,nav,nav%aux)/ref
-!    if (mpid%rank==0) print*,'error tot P   HI  : ',error
-
-!    nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
-!    call navier_nullify_boundary(mpid,nav,nav%aux,-1)
-!    error=norme2(mpid,nav,nav%aux)/ref
-!    if (mpid%rank==0) print*,'error tot P   HB  : ',error
-
-!    nav%aux%f=nav%p(nav%it(nav%nt))%f - pex
-!    call navier_nullify_boundary(mpid,nav,nav%aux,0)
-!    error=norme2(mpid,nav,nav%aux)/ref
-!    if (mpid%rank==0) print*,'error tot P   HBI : ',error
-
-
-    nav%aux%f=1._rk ;     reft=integrale(mpid,nav,nav%aux)
-    errort=0.5_rk*(norme2(mpid,nav,nav%u(nav%it(nav%nt)))**2 &
-                  +norme2(mpid,nav,nav%v(nav%it(nav%nt)))**2 &
-                  +norme2(mpid,nav,nav%w(nav%it(nav%nt))))
-    if (mpid%rank==0) print*,'En Cinet  V       : ',errort/reft
-
-    nav%aux%f=nav%p(nav%it(nav%nt))%f - nav%p(nav%it(nav%nt-1))%f
-    call navier_nullify_boundary(mpid,nav,nav%aux,0)
-    error=integrale(mpid,nav,nav%aux)
-    nav%aux%f=nav%aux%f- error/reft
-    error=norme2(mpid,nav,nav%aux)
-    if (mpid%rank==0) print*,'Station   P       : ',error,error/(reft)
-
-    errort=norme2(mpid,nav,nav%u(nav%it(nav%nt))-nav%u(nav%it(nav%nt-1)))**2 &
-          +norme2(mpid,nav,nav%v(nav%it(nav%nt))-nav%v(nav%it(nav%nt-1)))**2 &
-          +norme2(mpid,nav,nav%w(nav%it(nav%nt))-nav%w(nav%it(nav%nt-1)))
-    if (mpid%rank==0) print*,'Station   V       : ',sqrt(errort),sqrt(errort)/(reft)
-
-  !if(ite>20.and.(error)/(reft)<1d-9) exit temps
-  !if(ite>20.and.sqrt(errort)/(reft)<1d-9) exit temps
-  if(ite>20.and.(error)/(reft)<1d-10) exit temps
-  if(ite>20.and.sqrt(errort)/(reft)<1d-10) exit temps
+  if (int(ite/300)*300.eq.ite) then
+    if (mpid%rank==0) print*,'Write fields'
+    call restart_write(mpid,nav)
+    call navier_write_fields(mpid,nav,ite,ite)
+  endif
 
   enddo temps
+  !------------------------------------------------------------------------ 
+  !-> time loop end
+  !------------------------------------------------------------------------ 
+  if (mpid%rank==0) write(*,'(a)', advance= 'yes') ' STOP '
   call system_clock(t2,irate)
   time=real(t2-t1)/real(irate)
-  if (mpid%rank==0) print*,'time : ',time,time/(ite-20)
+  if (mpid%rank==0) print*,'time : ',time,time/(ite-19)
+stop
 
 !  call restart_write(mpid,nav)
   call navier_write_fields(mpid,nav,ite,ite)
   !------------------------------------------------------------------------ 
   !-> time loop end
   !------------------------------------------------------------------------ 
+  call restart_write(mpid,nav)
 
-    nav%aux%f=0._rk
-    nav%aux=derx(nav%dcx,nav%phi(nav%it(nav%nt)))
-
-  goto 100
-  k=nav%nz-1
-  do j=1,nav%ny
-     do i=1,nav%nx
-!        write(10+mpid%rank,*)nav%gridx%grid1d(i),nav%gridy%grid1d(j),&
-!             nav%v(nav%it(nav%nt))%f(i,j,k),nav%p(nav%it(nav%nt))%f(i,j,k),&
-!             uex(i,j,k,1),nav%aux%f(i,j,k),pex(i,j,k)
-        write(10+mpid%rank,'(20es17.8)')nav%gridx%grid1d(i),nav%gridy%grid1d(j),&
-             nav%u(nav%it(nav%nt))%f(i,j,k),nav%v(nav%it(nav%nt))%f(i,j,k),&
-             nav%w(nav%it(nav%nt))%f(i,j,k),nav%p(nav%it(nav%nt))%f(i,j,k),&
-!             nav%w(nav%it(nav%nt))%f(i,j,k),nav%phi(nav%it(nav%nt))%f(i,j,k),&
-             nav%aux%f(i,j,k),pex(i,j,k),&
-             uex(i,j,k,1),uex(i,j,k,2),uex(i,j,k,3)
-     enddo
-     write(10+mpid%rank,*)
-  enddo
-  close(10+mpid%rank)
-100 continue
-if (.true.) then
-
- vectorerror(:,:,:,1)=nav%u(nav%it(nav%nt))%f-uex(:,:,:,1)
- vectorerror(:,:,:,2)=nav%v(nav%it(nav%nt))%f-uex(:,:,:,2)
- vectorerror(:,:,:,3)=nav%w(nav%it(nav%nt))%f-uex(:,:,:,3)
- vectorerror(:,:,:,4)=nav%p(nav%it(nav%nt))%f-pex
- !vectorerror(:,:,:,1:3)=uex(:,:,:,1:3)
- !vectorerror(:,:,:,4)=pex
-!    nav%aux%f=0._rk
-!    nav%aux=derx(nav%dcx,nav%p(nav%it(nav%nt)))
-! vectorerror(:,:,:,4)=nav%aux%f
-!    nav%aux%f=0._rk
-!    nav%aux=derx(nav%dcx,nav%phi(nav%it(nav%nt)))
-! vectorerror(:,:,:,5)=nav%aux%f
-
-  do k=1,5
-    nav%aux%f=vectorerror(:,:,:,k)
-    call field_zero_edges(nav%aux)
-    vectorerror(:,:,:,k)=nav%aux%f
-  enddo
-
-  k=nav%nz/2
-!  k=nav%nz-1
-  do j=1,nav%ny
-     do i=1,nav%nx
-        write(20+mpid%rank,'(20es17.8)')nav%gridx%grid1d(i),nav%gridy%grid1d(j),&
-!             nav%gridz%grid1d(k),&
-             vectorerror(i,j,k,1),&
-             vectorerror(i,j,k,2),&
-             vectorerror(i,j,k,3),&
-             vectorerror(i,j,k,4),&
-             vectorerror(i,j,k,5)
-     enddo
-     write(20+mpid%rank,*)
-  enddo
-  close(20+mpid%rank)
-endif
-
-
-!  call write_field('vel_u',nav%u(nav%it(nav%nt)),mpid)
-!  call write_field('vel_v',nav%v(nav%it(nav%nt)),mpid)
-!  call write_field('vel_w',nav%w(nav%it(nav%nt)),mpid)
-!  call write_field('vel_p',nav%p(nav%it(nav%nt)),mpid)
-!  call write_field('vel_phi',nav%phi(nav%it(nav%nt)),mpid)
-
+  call write_field('vel_u',nav%u(nav%it(nav%nt)),mpid)
+  call write_field('vel_v',nav%v(nav%it(nav%nt)),mpid)
+  call write_field('vel_w',nav%w(nav%it(nav%nt)),mpid)
+  call write_field('vel_p',nav%p(nav%it(nav%nt)),mpid)
+  call write_field('vel_phi',nav%phi(nav%it(nav%nt)),mpid)
+  call write_field('les_nu',nav%les_nu,mpid)
 
   !------------------------------------------------------------------------ 
   !-> post-computation
@@ -404,7 +330,7 @@ subroutine testconv(mpid,nav,u,v,w,p,sub_u,sub_v,sub_w,sub_p,aux,test,eps)
 
 !    if (mpid%rank==0) print*,'conv tot V       : ',error1
 
-    aux%f=1._rk         ;    ref=integrale(mpid,nav,aux)
+    aux%f=1._rk   ;    ref=integrale(mpid,nav,aux)
     aux=p - sub_p ; error2=integrale(mpid,nav,aux)
 
     sub_p=sub_p + error2/ref
@@ -440,7 +366,7 @@ subroutine initialise_navier(nav,mpid)
 
   if (mpid%rank==0)     print*,'Initialisation'
 
-if(.true.) then
+if(.false.) then
 if(.false.) then
 
   fich_grid=(/"init/gridxi.nc","init/gridyi.nc","init/gridzi.nc"/)

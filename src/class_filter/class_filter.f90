@@ -28,7 +28,7 @@ module class_filter
   
   !-> Declare exported procedure
   public :: flt_init,LSQUnivariateSpline
-  public :: print_filter,interp_period_test
+  public :: print_filter,interp_period_test,interp_period
 contains
 
   subroutine flt_init(filt_coeffs,na1,na2,na3,nb1,nb2,nb3,nc1,nc2,nc3,&
@@ -263,5 +263,87 @@ subroutine interp_period_test(ni,xi,yi,nor,xor,yor,ypor,nos,xos,yos,ypos)
   deallocate(xn)
 
 end subroutine Interp_period_test
+
+subroutine interp_period(ni,xi,yi,nos,xos,yos)
+
+!---------------------------------------------------------------------
+!
+! INPUT :
+!
+!   xi : coordinate of the function to filter
+!   yi : function to filter
+!   ni : number of points of the function to filter
+!   nor : number of points of the  filtered function in regular mesh
+!   xor : coordinate of the filtered function  in regular mesh
+!   yor : filtered function  in regular mesh
+!   nos : number of points of the  filtered function in  stretched mesh
+!   xos : coordinate of the filtered function  in stretched  mesh
+!   yos : filtered function  in stretched mesh
+!
+! OUTPUT :
+!
+!   yo : filtered function
+!   ier : error code (0 for normal)
+!
+! REQUIREMENT : 
+!
+! xi[1]  = xn[1] 
+! xi[ni] = xn[nn]
+!
+!---------------------------------------------------------------------
+
+  implicit none
+
+  integer(ik),parameter :: k=5
+
+  integer(ik) :: nos,nor,ni
+  real(rk) :: xi(ni),yi(ni)
+  real(rk) :: xos(nos),yos(nos),ypos(nos)      
+
+  integer(ik) :: nn,ier
+  real(rk),allocatable :: xn(:)
+  real(rk) :: wi(ni)       
+  integer(ik) :: nest,m,i
+  integer(ik) :: iwrk(ni+2*k),lwrk
+  real(rk) :: fp,wrk(ni*(k+1)+(ni+2*k)*(8+5*k)),wrk2s(ni+k-1),wrk2r(ni+k-1)
+  real(rk) :: t(ni+k-1),c(ni+k-1)
+!-------------------------------------------------------
+  nn = ni-k-1
+  allocate(xn(nn))
+  do i=1,nn
+    xn(i) = (xi(ni)-xi(1))*real(i-1,8)/real(nn-1,8)
+!    print *,'xn=',xn(i)
+  enddo
+
+  do i=1,ni
+   wi(i) = 1.0_rk
+  enddo
+
+ 
+!-------------------------------------------------------
+  nest = ni+2*k
+  lwrk = ni*(k+1)+nest*(8+5*k)    
+  
+  m = ni+k-1
+
+  t(k+2:m-k-1) = xn(2:nn-1)
+
+  t(1:k+1) = xi(1)  
+  t(m-k:) = xi(ni)    
+
+!-------------------------------------------------------
+  call percur(-1,ni,xi,yi,wi,k,0.,nest,m,t,c,fp,wrk,lwrk,iwrk,ier)
+
+  if (ier .ne. 0) then
+    print *,'Error with percur:',ier
+    stop
+  endif
+
+  !-> give filtered function yo on coordinates xos
+  call splev(t,m,c,k,xos,yos,nos,ier)
+
+  deallocate(xn)
+
+end subroutine Interp_period
 
 end module class_filter

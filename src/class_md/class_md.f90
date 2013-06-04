@@ -432,7 +432,8 @@ contains
 !    call VecDestroy(solx,inf_mat%err)
     inf_sol%iter=iters
     inf_sol%res=norm
-    if (mpid%rank==0) print'(a,i0,a,es17.8)',' Iterations ',iters,'  Residus solver',norm
+!    if (mpid%rank==0) write(*,'(a,i4,a,es17.8)') ' Iterations ',iters,'  Residus solver',norm
+    if (mpid%rank==0) write(*,'(i5,X,es9.2)', advance= 'no') iters,norm
 
 
   end subroutine md_solve

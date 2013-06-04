@@ -517,4 +517,8 @@ x2=xi
 
   end subroutine read_mesh
 
+function sech(x)
+real(rk)::x,sech
+sech=2._rk*exp(-x)/(1._rk+exp(-2._rk*x))
+end function sech
 end module class_mesh

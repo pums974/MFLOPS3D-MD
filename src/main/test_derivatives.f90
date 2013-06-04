@@ -185,17 +185,17 @@ program test_derivatives
 
         !-> define dimensions
         if (m==1.and.nx<maxdim) then 
-           nx=nx*errcoef-1 ; ny=mindim ; nz=mindim 
+           nx=nx*int(errcoef)-1 ; ny=mindim ; nz=mindim 
         elseif (m==1.and.nx>maxdim) then
            nx=mindim ; print'(a,f5.2)','Approximate scheme order : ',sumderr/real(nerr,rk) ; exit
         endif
         if (m==2.and.ny<maxdim) then 
-           ny=ny*errcoef-1 ; nx=mindim ; nz=mindim
+           ny=ny*int(errcoef)-1 ; nx=mindim ; nz=mindim
         elseif (m==2.and.ny>maxdim) then
            ny=mindim ; print'(a,f5.2)','Approximate scheme order : ',sumderr/real(nerr,rk) ; exit
         endif
         if (m==3.and.nz<maxdim) then  
-           nz=nz*errcoef-1 ; nx=mindim ; ny=mindim 
+           nz=nz*int(errcoef)-1 ; nx=mindim ; ny=mindim 
         elseif (m==3.and.nz>maxdim) then
            nz=mindim ; print'(a,f5.2)','Approximate scheme order : ',sumderr/real(nerr,rk) ; exit
         endif

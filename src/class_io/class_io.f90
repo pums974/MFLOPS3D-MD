@@ -16,7 +16,7 @@ module class_io
   public :: write_var3d,read_var3d
   public :: get_dim_size
   public :: get_var3d_info
-  public :: error_stop
+  public :: error_stop,io_check
 
 contains
 
@@ -41,7 +41,7 @@ contains
     real(rk) :: var(:,:,:)
     logical :: file_exist
     integer(ik) :: varid(1),i
-    integer(ik) :: ncid,dim_len(ndim),dimid(ndim),dim_len_check
+    integer(ik) :: ncid,dim_len(ndim),dimid(ndim),dim_len_check,chunksizes(ndim)
     integer(ik) :: dimt(3),coord(3,2)
     integer(ik) :: startv(3),countv(3)
     
@@ -52,8 +52,8 @@ contains
     if (file_exist) then
        if (present(mpid)) then
           call io_check(nf90_open(path=file_name,&
-!               mode=IOR(NF90_WRITE,NF90_MPIPOSIX),ncid=ncid,&
-               mode=IOR(NF90_WRITE,NF90_MPIIO),ncid=ncid,&
+               mode=IOR(NF90_WRITE,NF90_MPIPOSIX),ncid=ncid,&
+!               mode=IOR(NF90_WRITE,NF90_MPIIO),ncid=ncid,&
                comm=mpid%comm,info=MPI_INFO_NULL))
        else
           call io_check(nf90_open(path=file_name,mode=nf90_write,ncid=ncid))
@@ -62,8 +62,8 @@ contains
     else
        if (present(mpid)) then
           call io_check(nf90_create(path=file_name,&
-!               cmode=IOR(NF90_NETCDF4,NF90_MPIPOSIX),ncid=ncid,&
-               cmode=IOR(NF90_NETCDF4,NF90_MPIIO),ncid=ncid,&
+               cmode=IOR(NF90_NETCDF4,NF90_MPIPOSIX),ncid=ncid,&
+!               cmode=IOR(NF90_NETCDF4,NF90_MPIIO),ncid=ncid,&
                comm=mpid%comm,info=MPI_INFO_NULL))
        else
           call io_check(nf90_create(path=file_name,cmode=nf90_clobber,ncid=ncid))
@@ -112,6 +112,12 @@ contains
        endif
     endif
 
+!  chunksizes = dim_len
+!  call io_check(nf90_def_var_chunking(ncid, varid(1), NF90_CONTIGUOUS, chunksizes))
+!  call io_check(nf90_def_var_chunking(ncid, varid(1), NF90_CHUNKED, chunksizes))
+!  call io_check(nf90_def_var_deflate(ncid, varid(1), 0, 1, 9)) ! pas en parrallele
+!    call io_check(nf90_var_par_access(ncid,varid(1), nf90_collective))
+
     !-> end of definition
     call io_check(nf90_enddef(ncid))
 
@@ -148,11 +154,11 @@ contains
     !-> open file
     if (present(mpid)) then
        call io_check(nf90_open(path=file_name,&
-!               mode=IOR(NF90_WRITE,NF90_MPIPOSIX),ncid=ncid,&
-            mode=IOR(NF90_WRITE,NF90_MPIIO),ncid=ncid,&
+            mode=IOR(NF90_NOWRITE,NF90_MPIPOSIX),ncid=ncid,&
+!            mode=IOR(NF90_NOWRITE,NF90_MPIIO),ncid=ncid,&
             comm=mpid%comm,info=MPI_INFO_NULL))
     else
-       call io_check(nf90_open(path=file_name,mode=nf90_write,ncid=ncid))
+       call io_check(nf90_open(path=file_name,mode=nf90_nowrite,ncid=ncid))
     endif
     
     !-> get variable id
@@ -178,6 +184,11 @@ contains
        startv=(/1,1,1/)
        countv=get_dim_size(var)
     endif
+
+!  chunksizes = dim_len
+!  call io_check(nf90_def_var_chunking(ncid, varid(1), NF90_CHUNKED, chunksizes))
+!  call io_check(nf90_def_var_chunking(ncid, varid(1), NF90_CONTIGUOUS, chunksizes))
+!    call io_check(nf90_var_par_access(ncid,varid(1), nf90_collective))
 
     !-> read field variable
 !    call io_check(nf90_get_var(ncid,varid(1),var))

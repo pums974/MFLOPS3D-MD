@@ -1,16 +1,16 @@
 #!/bin/bash -l
 
 # job name (default is name of pbs script file)
-#PBS -N testconv
+#PBS -N testcanal
 
 # resource limits:  number of nodes and process per nodes 
-#PBS -l nodes=1:ppn=8
+#PBS -l nodes=1:ppn=48
 
 # resource limits: amount of memory to be used
-#PBS -l mem=20gb,vmem=20gb
+#PBS -l mem=100gb,vmem=100gb
 
 # resource limits: max. wall clock time during which job can be running
-#PBS -l walltime=5:00:00
+#PBS -l walltime=10:00:00
 
 # Go to submission directory
 cd $PBS_O_WORKDIR
@@ -23,37 +23,40 @@ export OMP_NUM_THREADS=1
 
 # exports perso ---------------------------------------------------------------
 
-#export points='16'
-#export pression='1'
-export blocs='2'
-#export precond='none'
-#export solv='gmres'
-export iter='1000'
-export ordrev='2'
-export ordrep='2'
+export points=20 # 30
+export blocs=2
+export pression=3
+export ordrev=2
+export ordrep=2
+export ts=1e-3
+export nsub=1
+export iter=1000
+export re=3250 # re_tau = 180
 
-export TIME='Elapsed : %e ,User: %U ,CPU : %P ,Max Mem : %R , command : %C'
-export nproc=`echo "$blocs^2" | bc -l `
+
+export     TIME='Elapsed : %e ,User: %U ,CPU : %P ,Max Mem : %R , command : %C'
+export  pointsx=`echo "$points"  | bc `
+export  pointsy=`echo "$points"  | bc `
+export  pointsz=`echo "$points"  | bc `
+export   blocsx=`echo "$blocs*3" | bc `
+export   blocsy=`echo "$blocs"   | bc `
+export   blocsz=`echo "$blocs*2" | bc `
+export    nproc=`echo "$blocsx*$blocsy*$blocsz" | bc `
 
 mkdir $PBS_JOBID
-cp bin/testnav $PBS_JOBID
+cp ../testnav $PBS_JOBID
 cd $PBS_JOBID
+ln -s ../../gridi.nc gridi.nc  
+ln -s ../../init.nc init.nc  
 
-for points in `echo "20 30 40 50"`; do
-rm -f matrix_* *.nc
-for pression in `echo "1 3"`; do
-echo
+echo "***************************************************************************************************************"
+
+ /usr/bin/time mpiexec -n $nproc numactl -l \
+    ./testnav -dim $pointsx,$pointsy,$pointsz -dom $blocsx,$blocsy,$blocsz -period 1,0,1 -reynolds $re -ts $ts -ntime $iter \
+              -nlt 2 -pt $pression -to $ordrev,$ordrep -nsub $nsub \
+              -u_ksp_rtol 1.e-8 -u_pc_type jacobi -u_ksp_type gmres -u_ksp_max_it 60 -u_ksp_initial_guess_nonzero \
+              -p_ksp_rtol 1.e-8 -p_pc_type jacobi -p_ksp_type gmres -p_ksp_max_it 100 -p_ksp_initial_guess_nonzero -psm 1 \
+              > resultat.out 
+
 echo "***************************************************************************************************************"
 echo
-  /usr/bin/time mpiexec -n $nproc numactl -l \
-    ./testnav -dim $points,$points,$points -dom $blocs,$blocs,1 -period 0,0,0 -reynolds 100 -ts 0.1 -ntime $iter \
-              -nlt 2 -pt $pression -to $ordrev,$ordrep \
-              -u_ksp_rtol 1.e-13 -u_pc_type pbjacobi -u_ksp_type gmres -u_ksp_max_it 10\
-              -p_ksp_rtol 1.e-13 -p_pc_type pbjacobi -p_ksp_type gmres -p_ksp_constant_null_space -p_ksp_max_it 60\
-      > resultats_$pression_$points.out
-echo
-echo "***************************************************************************************************************"
-echo
-done
-done
-

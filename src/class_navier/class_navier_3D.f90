@@ -29,7 +29,7 @@ module class_navier_3D
      !-> dimensions
      integer(ik) :: nx,ny,nz
      !-> velocity fields
-     type(field) :: u(nt),v(nt),w(nt),sub_u,sub_v,sub_w,sub_p
+     type(field) :: u(nt),v(nt),w(nt),sub_u,sub_v,sub_w,sub_p,nu
      !-> pressure
      type(field) :: p(nt),phi(nt)
      !-> velocity rhs
@@ -753,9 +753,9 @@ if (nav%dcm%mapt==1) &
     nav%aux=derym(nav%dcm,navier_extrapol(nav,nav%v,type='p'))&
            +derzm(nav%dcm,navier_extrapol(nav,nav%w,type='p'))
     nav%aux=derxm(nav%dcm,nav%aux)-dderym(nav%dcm,navier_extrapol(nav,nav%u,type='p'))&
-                                 -dderzm(nav%dcm,navier_extrapol(nav,nav%u,type='p'))
-    nav%bcphi(it(1))%bcx(:,:,1)=nav%bcphi(it(1))%bcx(:,:,1)-nav%aux%f(1     ,2:nav%ny-1,2:nav%nz-1)/nav%rey
-    nav%bcphi(it(1))%bcx(:,:,2)=nav%bcphi(it(1))%bcx(:,:,2)-nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%rey
+                                 -dderzm(nav%dcm,navier_extrapol(nav,nav%u,type='p'))*nav%nu
+    nav%bcphi(it(1))%bcx(:,:,1)=nav%bcphi(it(1))%bcx(:,:,1)-nav%aux%f(1     ,2:nav%ny-1,2:nav%nz-1)
+    nav%bcphi(it(1))%bcx(:,:,2)=nav%bcphi(it(1))%bcx(:,:,2)-nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)
 
 
     !-> bcy
@@ -763,18 +763,18 @@ if (nav%dcm%mapt==1) &
     nav%aux=derxm(nav%dcm,navier_extrapol(nav,nav%u,type='p'))&
            +derzm(nav%dcm,navier_extrapol(nav,nav%w,type='p'))
     nav%aux=derym(nav%dcm,nav%aux)-dderxm(nav%dcm,navier_extrapol(nav,nav%v,type='p'))&
-                                 -dderzm(nav%dcm,navier_extrapol(nav,nav%v,type='p'))
-    nav%bcphi(it(1))%bcy(:,:,1)=nav%bcphi(it(1))%bcy(:,:,1)-nav%aux%f(2:nav%nx-1,1     ,2:nav%nz-1)/nav%rey
-    nav%bcphi(it(1))%bcy(:,:,2)=nav%bcphi(it(1))%bcy(:,:,2)-nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)/nav%rey
+                                 -dderzm(nav%dcm,navier_extrapol(nav,nav%v,type='p'))*nav%nu
+    nav%bcphi(it(1))%bcy(:,:,1)=nav%bcphi(it(1))%bcy(:,:,1)-nav%aux%f(2:nav%nx-1,1     ,2:nav%nz-1)
+    nav%bcphi(it(1))%bcy(:,:,2)=nav%bcphi(it(1))%bcy(:,:,2)-nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)
 
     !-> bcz
     nav%aux%f=0._rk
     nav%aux=derxm(nav%dcm,navier_extrapol(nav,nav%u,type='p'))&
            +derym(nav%dcm,navier_extrapol(nav,nav%v,type='p'))
     nav%aux=derzm(nav%dcm,nav%aux)-dderxm(nav%dcm,navier_extrapol(nav,nav%w,type='p'))&
-                                 -dderym(nav%dcm,navier_extrapol(nav,nav%w,type='p'))
-    nav%bcphi(it(1))%bcz(:,:,1)=nav%bcphi(it(1))%bcz(:,:,1)-nav%aux%f(2:nav%nx-1,2:nav%ny-1,1     )/nav%rey
-    nav%bcphi(it(1))%bcz(:,:,2)=nav%bcphi(it(1))%bcz(:,:,2)-nav%aux%f(2:nav%nx-1,2:nav%ny-1,nav%nz)/nav%rey
+                                 -dderym(nav%dcm,navier_extrapol(nav,nav%w,type='p'))*nav%nu
+    nav%bcphi(it(1))%bcz(:,:,1)=nav%bcphi(it(1))%bcz(:,:,1)-nav%aux%f(2:nav%nx-1,2:nav%ny-1,1     )
+    nav%bcphi(it(1))%bcz(:,:,2)=nav%bcphi(it(1))%bcz(:,:,2)-nav%aux%f(2:nav%nx-1,2:nav%ny-1,nav%nz)
 
   end subroutine add_boundary_rotrot
 
@@ -806,11 +806,11 @@ if (nav%dcm%mapt==1) &
           z=gridz%grid1d(k)
           
           x=gridx%grid1d(1)
-          bc%bcx(j-1,k-1,1)=sol(x,y,z,t,var,rey)
-!          bc%bcx(j-1,k-1,1)=0._rk
+!          bc%bcx(j-1,k-1,1)=sol(x,y,z,t,var,rey)
+          bc%bcx(j-1,k-1,1)=0._rk
           x=gridx%grid1d(nx)
-          bc%bcx(j-1,k-1,2)=sol(x,y,z,t,var,rey)
-!          bc%bcx(j-1,k-1,2)=0._rk
+!          bc%bcx(j-1,k-1,2)=sol(x,y,z,t,var,rey)
+          bc%bcx(j-1,k-1,2)=0._rk
        enddo
     enddo
 !$OMP END PARALLEL DO
@@ -825,10 +825,11 @@ if (nav%dcm%mapt==1) &
           z=gridz%grid1d(k)
 
           y=gridy%grid1d(1)
-          bc%bcy(i-1,k-1,1)=sol(x,y,z,t,var,rey)
-!          bc%bcy(i-1,k-1,1)=0._rk
+!          bc%bcy(i-1,k-1,1)=sol(x,y,z,t,var,rey)
+          bc%bcy(i-1,k-1,1)=0._rk
           y=gridy%grid1d(ny)
-          bc%bcy(i-1,k-1,2)=sol(x,y,z,t,var,rey)
+!          bc%bcy(i-1,k-1,2)=sol(x,y,z,t,var,rey)
+          bc%bcy(i-1,k-1,2)=0._rk
 !          if (var=='u') then
 !             bc%bcy(i-1,k-1,2)=(1._rk-x**2)
 !          else
@@ -847,11 +848,11 @@ if (nav%dcm%mapt==1) &
           y=gridy%grid1d(j)
           
           z=gridz%grid1d(1)
-          bc%bcz(i-1,j-1,1)=sol(x,y,z,t,var,rey)
-!          bc%bcz(i-1,j-1,1)=0._rk
+!          bc%bcz(i-1,j-1,1)=sol(x,y,z,t,var,rey)
+          bc%bcz(i-1,j-1,1)=0._rk
           z=gridz%grid1d(nz)
-          bc%bcz(i-1,j-1,2)=sol(x,y,z,t,var,rey)
-!          bc%bcz(i-1,j-1,2)=0._rk
+!          bc%bcz(i-1,j-1,2)=sol(x,y,z,t,var,rey)
+          bc%bcz(i-1,j-1,2)=0._rk
        enddo
     enddo
 !$OMP END PARALLEL DO
@@ -868,14 +869,29 @@ if (nav%dcm%mapt==1) &
     implicit none
     real(rk) :: sol,rey
     integer(ik) ::i,n,j,k
-    PARAMETER(n=5)     !espace vitesse
+    PARAMETER(n=1)     !espace vitesse
 !    PARAMETER(i=0)     !espace pression
 !    PARAMETER(j=0)     !temps vitesse
 !    PARAMETER(k=0)     !temps pression
     real(rk) :: x,y,z,t,pi,wx(n),wt(n),wy(n),wp(n),a(n),b(n)
     character(*) :: type
 
+!644  -> sol
+!1359 -> solve_u
+!2045 -> K
+
     sol=0._rk
+
+!    if (type=="u") then !u
+!        sol= sin(x+y+z)
+!    endif
+!    if (type=="v") then ! a
+!       sol=2._rk+sin(x+y+z)
+!    endif
+!    if (type=="w") then ! f
+!       sol=-3._rk*sin(x+y+z)*(2._rk+sin(x+y+z)) + 3._rk*cos(x+y+z)**2 -2._rk*sin(x+y+z)
+!    endif
+
 
 !    if (type=="u") then
 !       if(n>0) sol= (n*(x**n)+n*n*x*y**(n-1))*t**j
@@ -954,12 +970,12 @@ if (nav%dcm%mapt==1) &
        sol=sol+0._rk
     case ("rhsu")
 sol=sol+b(i)*wp(i)*cos(wt(i)*t)*cos(wp(i)*(y-x)) & !grap p
-+a(i)**2*cos(wt(i)*t)**2*cos(wx(i)*x)*sin(wx(i)*x)*(sin(wy(i)*y)**2+cos(wy(i)*y)**2)/wx(i) & !nonlinear
+!+a(i)**2*cos(wt(i)*t)**2*cos(wx(i)*x)*sin(wx(i)*x)*(sin(wy(i)*y)**2+cos(wy(i)*y)**2)/wx(i) & !nonlinear
 +a(i)*cos(wt(i)*t)*sin(wx(i)*x)*cos(wy(i)*y)*(wy(i)**2/wx(i)+wx(i))/rey & !lap
 -a(i)*wt(i)*sin(wt(i)*t)*sin(wx(i)*x)*cos(wy(i)*y)/wx(i)  !temps
     case ("rhsv")
 sol=sol-b(i)*wp(i)*cos(wt(i)*t)*cos(wp(i)*(y-x)) & !grap p
-+a(i)**2*cos(wt(i)*t)**2*cos(wy(i)*y)*sin(wy(i)*y)*(sin(wx(i)*x)**2+cos(wx(i)*x)**2)/wy(i)& !nonlinear
+!+a(i)**2*cos(wt(i)*t)**2*cos(wy(i)*y)*sin(wy(i)*y)*(sin(wx(i)*x)**2+cos(wx(i)*x)**2)/wy(i)& !nonlinear
 -a(i)*cos(wt(i)*t)*cos(wx(i)*x)*sin(wy(i)*y)*(wy(i)+wx(i)**2/wy(i))/rey& !lap
 +a(i)*wt(i)*sin(wt(i)*t)*cos(wx(i)*x)*sin(wy(i)*y)/wy(i)  !temps
     case ("rhsw")
@@ -985,16 +1001,17 @@ sol=sol-b(i)*wp(i)*cos(wt(i)*t)*cos(wp(i)*(y-x)) & !grap p
     implicit none
     type(field) :: f
     type(navier3d) :: nav
+    type(field),save :: g
     type(mpi_data) :: mpid
     integer(ik) :: i,j,k,nt,it(nav%nt)
-    real(rk) :: x,y,z,t
+    real(rk) :: x,y,z,t,reft,errort
+    real(rk),save :: debit
     character(*) :: var
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
     it(:)=nav%it(:)
 
     call field_init(f,"F",nav%nx,nav%ny,nav%nz)
-    f%f=0._rk
 
     t=nav%time
 !$OMP PARALLEL DO &
@@ -1006,7 +1023,8 @@ sol=sol-b(i)*wp(i)*cos(wt(i)*t)*cos(wp(i)*(y-x)) & !grap p
              x=nav%gridx%grid1d(i)
              y=nav%gridy%grid1d(j)
              z=nav%gridz%grid1d(k)
-             f%f(i,j,k)=sol(x,y,z,t,var,nav%rey)
+!             f%f(i,j,k)=sol(x,y,z,t,var,nav%rey)
+             f%f(i,j,k)=0._rk
           enddo
        enddo
     enddo
@@ -1061,10 +1079,39 @@ if(var=='rhsu') then
 
 endif
 
-!    f=-navier_extrapol(nav,nav%les_f,type='v')
+!    f=f-navier_extrapol(nav,nav%les_f,type='v')
     f=f-nav%les_f(it(nt))
 endif
 
+if(var=='rhsu') then !debit
+
+    nav%aux%f=1._rk ;     reft=integrale(mpid,nav,nav%aux)
+    errort= integrale(mpid,nav,navier_extrapol(nav,nav%u,type='v'))/reft 
+
+    if(.not.allocated(g%f)) then
+       debit=errort
+       call field_init(g,"F",nav%nx,nav%ny,nav%nz)
+       g%f=3._rk * debit
+     endif
+
+   errort= errort - debit 
+
+!$OMP PARALLEL DO &
+!$OMP DEFAULT(SHARED) PRIVATE(i,j,k,x,y,z) &
+!$OMP SCHEDULE(RUNTIME)
+    do k=1,nav%nz
+       do j=1,nav%ny
+          do i=1,nav%nx
+             x=nav%gridx%grid1d(i)
+             y=nav%gridy%grid1d(j)
+             z=nav%gridz%grid1d(k)
+             g%f(i,j,k)=g%f(i,j,k)- errort*nav%fac(1)
+          enddo
+       enddo
+    enddo
+!$OMP END PARALLEL DO
+f=f+g
+endif
   end function f
 
  subroutine navier_nonlinear(mpid,nav,x,f)
@@ -1353,6 +1400,14 @@ endif
 call field_zero_edges(nav%les_nu)
 
 endif
+
+!nav%nu%f=1._rk/nav%rey + min(nav%les_nu%f,1._rk/nav%rey) ! partie implicite
+!nav%les_nu%f=max(nav%les_nu%f-1._rk/nav%rey,0._rk) ! partie explicite
+
+nav%nu%f=1._rk/nav%rey ! partie implicite
+nav%les_nu=nav%les_nu ! partie explicite
+
+
   end subroutine navier_LES
 
 
@@ -1511,14 +1566,29 @@ g=matmul(g2,transpose(g2))
 ! Matthieu Marquillie
 ! 10/2012
 !
+use mpi
     implicit none
     type(navier3d) :: nav
+    type(field) :: a
     type(mpi_data) :: mpid
-    integer(ik) :: it(nav%nt),nt
+    integer(ik) :: it(nav%nt),nt,i,j,k
+    real(rk) :: error,errort,ref,x,y,z
+    integer(ik) :: l,m,c(3),inter(3,2)
+    character(1) ::stepn
 
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
     it(:)=nav%it(:)
+
+   !-> get interface type
+    if (mpid%dims.ne.0) then
+      call md_mpi_getcoord(mpid,c)
+      call md_get_interfaces_number(nav%infp,c,inter)
+    else
+      inter=0
+    endif
+
+    nav%aux%f=1._rk ; ref=integrale(mpid,nav,nav%aux)
 
     !--------------------------------------------------------------------
     !-> compute rhs
@@ -1547,9 +1617,58 @@ g=matmul(g2,transpose(g2))
     !-> reynolds number multiplication
     nav%fu(it(nt))=nav%rey*nav%fu(it(nt))
     
+if(.true.) then
+
+  call field_init(a,"a",nav%nx,nav%ny,nav%nz)
+  nav%u(it(1))=navier_extrapol(nav,nav%u,type='v')
+  nav%v(it(1))=navier_extrapol(nav,nav%v,type='v')
+  nav%w(it(1))=navier_extrapol(nav,nav%w,type='v')
+  a=nav%nu*nav%rey
+
+!-> terme div(a grad^t u) (petit)
+nav%fu(it(nt))=nav%fu(it(nt))- derx(nav%dcx,a*derx(nav%dcx,nav%u(it(1))))
+nav%fu(it(nt))=nav%fu(it(nt))- dery(nav%dcy,a*derx(nav%dcx,nav%v(it(1))))
+nav%fu(it(nt))=nav%fu(it(nt))- derz(nav%dcz,a*derx(nav%dcx,nav%w(it(1))))
+
+  !-> changement de variable et scaling
+nav%u(it(1))%f      =nav%u(it(1))%f      *sqrt(a%f)
+nav%fu(it(nt))%f    =nav%fu(it(nt))%f    /sqrt(a%f)
+    !-> m : left-right ; l : directions (x,y,z)
+    do m=1,2
+      do l=1,3
+        if (inter(l,m)<=0) then
+          select case (l)
+            case (1)
+              nav%bcu(it(1))%bcx(:,:,m)=nav%bcu(it(1))%bcx(:,:,m)*sqrt(a%f((m-1)*(nav%nx-1)+1,2:nav%ny-1,2:nav%nz-1))
+            case (2)
+              nav%bcu(it(1))%bcy(:,:,m)=nav%bcu(it(1))%bcy(:,:,m)*sqrt(a%f(2:nav%nx-1,(m-1)*(nav%ny-1)+1,2:nav%nz-1))
+            case (3)
+              nav%bcu(it(1))%bcz(:,:,m)=nav%bcu(it(1))%bcz(:,:,m)*sqrt(a%f(2:nav%nx-1,2:nav%ny-1,(m-1)*(nav%nz-1)+1))
+          end select
+        endif
+      enddo
+    enddo
+    call erase_boundary_inter(inter,nav%bcu(it(1)))
+
+    nav%bcu(it(2))=nav%bcu(it(1)) ! FIXIT a cause de multidomaine_solve
+    nav%aux1= nav%u(it(1))        ! mesure de l'erreur
+    nav%aux2= nav%fu(it(nt))      ! partie constante du second membre
+endif
+
+do i=1,1
+if(.true.) then
+    nav%aux%f=sqrt(a%f)
+    nav%aux=(dderx(nav%dcx,nav%aux) &
+            +ddery(nav%dcy,nav%aux) &
+            +dderz(nav%dcz,nav%aux) )/nav%aux
+    nav%aux%f=nav%aux%f + nav%fac(1)*nav%rey/a%f
+
+    nav%fu(it(nt))= nav%aux2 + (nav%aux+nav%sigmau)*nav%u(it(1))
+endif
+    
     !--------------------------------------------------------------------
     !-> solve
-!    call md_set_guess(mpid,nav%infu,nt,it,nav%bcu,nav%u)
+    call field_zero_edges(nav%fu(it(nt)))
     if (mpid%dims.ne.0) then
       call multidomain_solve(mpid,nav%infu,nav%scu,nav%bcu(it(1)),nav%u(it(1)),&
           nav%fu(it(nt)),nav%aux,nav%sigmau,nav%dcx,nav%dcy,nav%dcz,&
@@ -1557,8 +1676,37 @@ g=matmul(g2,transpose(g2))
     else
       call solver_3d(nav%scu,nav%fu(it(nt)),nav%u(it(1)),nav%bcu(it(1)),nav%sigmau)
     endif
+    call field_zero_edges(nav%u(it(1)))
 
+if(.true.) then
+    nav%bcu(it(1))=nav%bcu(it(2)) ! FIXIT a cause de multidomaine_solve
+    nav%aux1=nav%u(it(1))
+endif
 
+enddo
+
+if(.true.) then
+!-> rechangement de variable et rescaling
+nav%fu(it(nt))%f    =nav%fu(it(nt))%f    *sqrt(a%f)
+nav%u(it(1))%f      =nav%u(it(1))%f      /sqrt(a%f)
+    !-> m : left-right ; l : directions (x,y,z)
+    do m=1,2
+      do l=1,3
+        if (inter(l,m)<=0) then
+          select case (l)
+            case (1)
+              nav%bcu(it(1))%bcx(:,:,m)=nav%bcu(it(1))%bcx(:,:,m)/sqrt(a%f((m-1)*(nav%nx-1)+1,2:nav%ny-1,2:nav%nz-1))
+            case (2)
+              nav%bcu(it(1))%bcy(:,:,m)=nav%bcu(it(1))%bcy(:,:,m)/sqrt(a%f(2:nav%nx-1,(m-1)*(nav%ny-1)+1,2:nav%nz-1))
+            case (3)
+              nav%bcu(it(1))%bcz(:,:,m)=nav%bcu(it(1))%bcz(:,:,m)/sqrt(a%f(2:nav%nx-1,2:nav%ny-1,(m-1)*(nav%nz-1)+1))
+          end select
+        endif
+      enddo
+    enddo
+    call erase_boundary_inter(inter,nav%bcu(it(1)))
+    call field_destroy(a)
+endif
   end subroutine navier_solve_u
 
   subroutine navier_solve_v(mpid,nav)
@@ -1568,14 +1716,29 @@ g=matmul(g2,transpose(g2))
 ! Matthieu Marquillie
 ! 10/2012
 !
+use mpi
     implicit none
     type(navier3d) :: nav
+    type(field) :: a
     type(mpi_data) :: mpid
-    integer(ik) :: it(nav%nt),nt
+    integer(ik) :: it(nav%nt),nt,i,j,k
+    real(rk) :: error,errort,ref,x,y,z
+    integer(ik) :: l,m,c(3),inter(3,2)
+    character(1) ::stepn
     
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
     it(:)=nav%it(:)
+
+   !-> get interface type
+    if (mpid%dims.ne.0) then
+      call md_mpi_getcoord(mpid,c)
+      call md_get_interfaces_number(nav%infp,c,inter)
+    else
+      inter=0
+    endif
+
+    nav%aux%f=1._rk ; ref=integrale(mpid,nav,nav%aux)
 
     !--------------------------------------------------------------------
     !-> compute rhs
@@ -1602,11 +1765,60 @@ g=matmul(g2,transpose(g2))
     call navier_lap_nc(mpid,nav,nav%v,nav%fv(it(nt)))
 
     !-> reynolds number multiplication
-    nav%fv(it(nt))=nav%rey*nav%fv(it(nt))
+    nav%fv(it(nt))=nav%fv(it(nt)) * nav%rey
+
+
+if(.true.) then
+
+  call field_init(a,"a",nav%nx,nav%ny,nav%nz)
+  nav%v(it(1))=navier_extrapol(nav,nav%v,type='v')
+  nav%w(it(1))=navier_extrapol(nav,nav%w,type='v')
+  a=nav%nu*nav%rey
+
+!-> terme div(a grad^t u) (petit)
+nav%fv(it(nt))=nav%fv(it(nt))- derx(nav%dcx,a*dery(nav%dcy,nav%u(it(1))))
+nav%fv(it(nt))=nav%fv(it(nt))- dery(nav%dcy,a*dery(nav%dcy,nav%v(it(1))))
+nav%fv(it(nt))=nav%fv(it(nt))- derz(nav%dcz,a*dery(nav%dcy,nav%w(it(1))))
+
+  !-> changement de variable et scaling
+nav%v(it(1))%f      =nav%v(it(1))%f      *sqrt(a%f)
+nav%fv(it(nt))%f    =nav%fv(it(nt))%f    /sqrt(a%f)
+    !-> m : left-right ; l : directions (x,y,z)
+    do m=1,2
+      do l=1,3
+        if (inter(l,m)<=0) then
+          select case (l)
+            case (1)
+              nav%bcv(it(1))%bcx(:,:,m)=nav%bcv(it(1))%bcx(:,:,m)*sqrt(a%f((m-1)*(nav%nx-1)+1,2:nav%ny-1,2:nav%nz-1))
+            case (2)
+              nav%bcv(it(1))%bcy(:,:,m)=nav%bcv(it(1))%bcy(:,:,m)*sqrt(a%f(2:nav%nx-1,(m-1)*(nav%ny-1)+1,2:nav%nz-1))
+            case (3)
+              nav%bcv(it(1))%bcz(:,:,m)=nav%bcv(it(1))%bcz(:,:,m)*sqrt(a%f(2:nav%nx-1,2:nav%ny-1,(m-1)*(nav%nz-1)+1))
+          end select
+        endif
+      enddo
+    enddo
+    call erase_boundary_inter(inter,nav%bcv(it(1)))
+
+    nav%bcv(it(2))=nav%bcv(it(1)) ! FIXIT a cause de multidomaine_solve
+    nav%aux1= nav%v(it(1))        ! mesure de l'erreur
+    nav%aux2= nav%fv(it(nt))      ! partie constante du second membre
+endif
+
+do i=1,1
+if(.true.) then
+    nav%aux%f=sqrt(a%f)
+    nav%aux=(dderx(nav%dcx,nav%aux) &
+            +ddery(nav%dcy,nav%aux) &
+            +dderz(nav%dcz,nav%aux) )/nav%aux
+    nav%aux%f=nav%aux%f + nav%fac(1)*nav%rey/a%f
+
+    nav%fv(it(nt))= nav%aux2 + (nav%aux+nav%sigmau)*nav%v(it(1))
+endif
 
     !--------------------------------------------------------------------
     !-> solve
-!    call md_set_guess(mpid,nav%infv,nt,it,nav%bcv,nav%v)
+    call field_zero_edges(nav%fv(it(nt)))
     if (mpid%dims.ne.0) then
       call multidomain_solve(mpid,nav%infv,nav%scv,nav%bcv(it(1)),nav%v(it(1)),&
           nav%fv(it(nt)),nav%aux,nav%sigmau,nav%dcx,nav%dcy,nav%dcz,&
@@ -1614,7 +1826,37 @@ g=matmul(g2,transpose(g2))
     else
       call solver_3d(nav%scv,nav%fv(it(nt)),nav%v(it(1)),nav%bcv(it(1)),nav%sigmau)
     endif
+    call field_zero_edges(nav%u(it(1)))
 
+if(.true.) then
+    nav%bcv(it(1))=nav%bcv(it(2)) ! FIXIT a cause de multidomaine_solve
+    nav%aux1=nav%v(it(1))
+endif
+
+enddo
+
+if(.true.) then
+!-> rechangement de variable et rescaling
+nav%fv(it(nt))%f    =nav%fv(it(nt))%f    *sqrt(a%f)
+nav%v(it(1))%f      =nav%v(it(1))%f      /sqrt(a%f)
+    !-> m : left-right ; l : directions (x,y,z)
+    do m=1,2
+      do l=1,3
+        if (inter(l,m)<=0) then
+          select case (l)
+            case (1)
+              nav%bcv(it(1))%bcx(:,:,m)=nav%bcv(it(1))%bcx(:,:,m)/sqrt(a%f((m-1)*(nav%nx-1)+1,2:nav%ny-1,2:nav%nz-1))
+            case (2)
+              nav%bcv(it(1))%bcy(:,:,m)=nav%bcv(it(1))%bcy(:,:,m)/sqrt(a%f(2:nav%nx-1,(m-1)*(nav%ny-1)+1,2:nav%nz-1))
+            case (3)
+              nav%bcv(it(1))%bcz(:,:,m)=nav%bcv(it(1))%bcz(:,:,m)/sqrt(a%f(2:nav%nx-1,2:nav%ny-1,(m-1)*(nav%nz-1)+1))
+          end select
+        endif
+      enddo
+    enddo
+    call erase_boundary_inter(inter,nav%bcv(it(1)))
+    call field_destroy(a)
+endif
   end subroutine navier_solve_v
 
   subroutine navier_solve_w(mpid,nav)
@@ -1624,14 +1866,29 @@ g=matmul(g2,transpose(g2))
 ! Matthieu Marquillie
 ! 10/2012
 !
+use mpi
     implicit none
     type(navier3d) :: nav
+    type(field) :: a
     type(mpi_data) :: mpid
-    integer(ik) :: it(nav%nt),nt
+    integer(ik) :: it(nav%nt),nt,i,j,k
+    real(rk) :: error,errort,ref,x,y,z
+    integer(ik) :: l,m,c(3),inter(3,2)
+    character(1) ::stepn
     
     !-> put nav%nt in nt for ease of use
     nt=nav%nt
     it(:)=nav%it(:)
+
+   !-> get interface type
+    if (mpid%dims.ne.0) then
+      call md_mpi_getcoord(mpid,c)
+      call md_get_interfaces_number(nav%infp,c,inter)
+    else
+      inter=0
+    endif
+
+    nav%aux%f=1._rk ; ref=integrale(mpid,nav,nav%aux)
 
     !--------------------------------------------------------------------
     !-> compute rhs
@@ -1658,11 +1915,58 @@ g=matmul(g2,transpose(g2))
     call navier_lap_nc(mpid,nav,nav%w,nav%fw(it(nt)))
 
     !-> reynolds number multiplication
-    nav%fw(it(nt))=nav%rey*nav%fw(it(nt))
+    nav%fw(it(nt))=nav%fw(it(nt))* nav%rey
+
+if(.true.) then
+
+  call field_init(a,"a",nav%nx,nav%ny,nav%nz)
+  nav%w(it(1))=navier_extrapol(nav,nav%w,type='v')
+  a=nav%nu*nav%rey
+
+!-> terme div(a grad^t u) (petit)
+nav%fw(it(nt))=nav%fw(it(nt))- derx(nav%dcx,a*derz(nav%dcz,nav%u(it(1))))
+nav%fw(it(nt))=nav%fw(it(nt))- dery(nav%dcy,a*derz(nav%dcz,nav%v(it(1))))
+nav%fw(it(nt))=nav%fw(it(nt))- derz(nav%dcz,a*derz(nav%dcz,nav%w(it(1))))
+
+  !-> changement de variable et scaling
+nav%w(it(1))%f      =nav%w(it(1))%f      *sqrt(a%f)
+nav%fw(it(nt))%f    =nav%fw(it(nt))%f    /sqrt(a%f)
+    !-> m : left-right ; l : directions (x,y,z)
+    do m=1,2
+      do l=1,3
+        if (inter(l,m)<=0) then
+          select case (l)
+            case (1)
+              nav%bcw(it(1))%bcx(:,:,m)=nav%bcw(it(1))%bcx(:,:,m)*sqrt(a%f((m-1)*(nav%nx-1)+1,2:nav%ny-1,2:nav%nz-1))
+            case (2)
+              nav%bcw(it(1))%bcy(:,:,m)=nav%bcw(it(1))%bcy(:,:,m)*sqrt(a%f(2:nav%nx-1,(m-1)*(nav%ny-1)+1,2:nav%nz-1))
+            case (3)
+              nav%bcw(it(1))%bcz(:,:,m)=nav%bcw(it(1))%bcz(:,:,m)*sqrt(a%f(2:nav%nx-1,2:nav%ny-1,(m-1)*(nav%nz-1)+1))
+          end select
+        endif
+      enddo
+    enddo
+    call erase_boundary_inter(inter,nav%bcw(it(1)))
+
+    nav%bcw(it(2))=nav%bcw(it(1)) ! FIXIT a cause de multidomaine_solve
+    nav%aux1= nav%w(it(1))        ! mesure de l'erreur
+    nav%aux2= nav%fw(it(nt))      ! partie constante du second membre
+endif
+
+do i=1,1
+if(.true.) then
+    nav%aux%f=sqrt(a%f)
+    nav%aux=(dderx(nav%dcx,nav%aux) &
+            +ddery(nav%dcy,nav%aux) &
+            +dderz(nav%dcz,nav%aux) )/nav%aux
+    nav%aux%f=nav%aux%f + nav%fac(1)*nav%rey/a%f
+
+    nav%fw(it(nt))= nav%aux2 + (nav%aux+nav%sigmau)*nav%w(it(1))
+endif
 
     !--------------------------------------------------------------------
     !-> solve
-!    call md_set_guess(mpid,nav%infw,nt,it,nav%bcw,nav%w)
+    call field_zero_edges(nav%fw(it(nt)))
     if (mpid%dims.ne.0) then
       call multidomain_solve(mpid,nav%infw,nav%scw,nav%bcw(it(1)),nav%w(it(1)),&
           nav%fw(it(nt)),nav%aux,nav%sigmau,nav%dcx,nav%dcy,nav%dcz,&
@@ -1670,7 +1974,37 @@ g=matmul(g2,transpose(g2))
     else
       call solver_3d(nav%scw,nav%fw(it(nt)),nav%w(it(1)),nav%bcw(it(1)),nav%sigmau)
     endif
+    call field_zero_edges(nav%w(it(1)))
 
+if(.true.) then
+    nav%bcw(it(1))=nav%bcw(it(2)) ! FIXIT a cause de multidomaine_solve
+    nav%aux1=nav%w(it(1))
+endif
+
+enddo
+
+if(.true.) then
+!-> rechangement de variable et rescaling
+nav%fw(it(nt))%f    =nav%fw(it(nt))%f    *sqrt(a%f)
+nav%w(it(1))%f      =nav%w(it(1))%f      /sqrt(a%f)
+    !-> m : left-right ; l : directions (x,y,z)
+    do m=1,2
+      do l=1,3
+        if (inter(l,m)<=0) then
+          select case (l)
+            case (1)
+              nav%bcw(it(1))%bcx(:,:,m)=nav%bcw(it(1))%bcx(:,:,m)/sqrt(a%f((m-1)*(nav%nx-1)+1,2:nav%ny-1,2:nav%nz-1))
+            case (2)
+              nav%bcw(it(1))%bcy(:,:,m)=nav%bcw(it(1))%bcy(:,:,m)/sqrt(a%f(2:nav%nx-1,(m-1)*(nav%ny-1)+1,2:nav%nz-1))
+            case (3)
+              nav%bcw(it(1))%bcz(:,:,m)=nav%bcw(it(1))%bcz(:,:,m)/sqrt(a%f(2:nav%nx-1,2:nav%ny-1,(m-1)*(nav%nz-1)+1))
+          end select
+        endif
+      enddo
+    enddo
+    call erase_boundary_inter(inter,nav%bcw(it(1)))
+    call field_destroy(a)
+endif
   end subroutine navier_solve_w
 
 
@@ -2069,8 +2403,16 @@ g=matmul(g2,transpose(g2))
        nav%fac(4)=- 2._rk/(6._rk*nav%ts)
     endif
 
+!644  -> sol
+!1359 -> solve_u
+!2045 -> K
+
+
     !-> compute sigma
     nav%sigmau=-nav%rey*nav%fac(1)
+!    nav%sigmau=-4800000._rk
+!    nav%sigmau=-real(2.75e6,rk )
+!    nav%sigmau=-real(1e0,rk )
     nav%sigmap=0.0_rk
 
     bctu=(/1,1,1,1,1,1/)
@@ -2169,6 +2511,7 @@ g=matmul(g2,transpose(g2))
     call field_init(nav%sub_w,"SUB_W",nx,ny,nz)
     call field_init(nav%sub_p,"SUB_P",nx,ny,nz)
     call field_init(nav%les_nu,"les_nu",nx,ny,nz)
+    call field_init(nav%nu,"nu",nx,ny,nz)
 
     !--------------------------------------------------------------------
     !-> initialize type boundary_conditions
@@ -2317,6 +2660,7 @@ g=matmul(g2,transpose(g2))
     call field_destroy(nav%sub_w)
     call field_destroy(nav%sub_p)
     call field_destroy(nav%les_nu)
+    call field_destroy(nav%nu)
     if (mpid%dims.ne.0) then
         !--------------------------------------------------------------------
         !-> finalize petsc
@@ -2515,6 +2859,42 @@ function norme2(mpid,nav,x)
   norme2=sqrt(norme2)
 
 end function norme2
+
+function normeinfmin(mpid,nav,x)
+  use class_field
+  use class_md
+  use precision
+  use mpi
+!$ use OMP_LIB
+  implicit none
+  type(field),intent(in) ::x
+  type(mpi_data) :: mpid
+  type(navier3d),intent(in) :: nav
+  real(rk) :: normeinfmin,error
+
+  error= minval(x%f)
+  call mpi_reduce(error,normeinfmin,1,mpi_double_precision,mpi_min,0,&
+         mpi_comm_world,mpid%code)
+  call md_mpi_bcast_double(mpid,normeinfmin,0)
+end function normeinfmin
+
+function normeinfmax(mpid,nav,x)
+  use class_field
+  use class_md
+  use precision
+  use mpi
+!$ use OMP_LIB
+  implicit none
+  type(field),intent(in) ::x
+  type(mpi_data) :: mpid
+  type(navier3d),intent(in) :: nav
+  real(rk) :: normeinfmax,error
+
+  error= maxval(x%f)
+  call mpi_reduce(error,normeinfmax,1,mpi_double_precision,mpi_max,0,&
+         mpi_comm_world,mpid%code)
+  call md_mpi_bcast_double(mpid,normeinfmax,0)
+end function normeinfmax
 
 subroutine error_stop2(error_mesg)
 !  use mpi_utils, only : code,rang
