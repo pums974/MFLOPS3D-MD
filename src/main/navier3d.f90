@@ -155,9 +155,9 @@ subit:  do subite=1,nav%nsubite
      ref=norme2(mpid,nav,nav%aux)
 
      nav%aux%f=0._rk
-     nav%aux=derx(nav%dcx,nav%u(nav%it(nav%nt)))+&
-          dery(nav%dcy,nav%v(nav%it(nav%nt)))+&
-          derz(nav%dcz,nav%w(nav%it(nav%nt)))
+     nav%aux=derx1(nav%dcx,nav%u(nav%it(nav%nt)))+&
+          dery1(nav%dcy,nav%v(nav%it(nav%nt)))+&
+          derz1(nav%dcz,nav%w(nav%it(nav%nt)))
 
     error=norme2(mpid,nav,nav%aux)/ref
     if (mpid%rank==0) print*,'error Div V       : ',error
@@ -293,7 +293,7 @@ subit:  do subite=1,nav%nsubite
   !------------------------------------------------------------------------ 
 
     nav%aux%f=0._rk
-    nav%aux=derx(nav%dcx,nav%phi(nav%it(nav%nt)))
+    nav%aux=derx1(nav%dcx,nav%phi(nav%it(nav%nt)))
 
   goto 100
   k=nav%nz-1
@@ -330,7 +330,7 @@ if (.true.) then
 
   do k=1,5
     nav%aux%f=vectorerror(:,:,:,k)
-    call field_zero_edges(nav%aux)
+    call field_zero_edges(nav%aux,mpid,nav)
     vectorerror(:,:,:,k)=nav%aux%f
   enddo
 

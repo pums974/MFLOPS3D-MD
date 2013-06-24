@@ -653,21 +653,21 @@ if (nav%dcm%mapt==1) &
 
     !-> bcx
 !    nav%aux%f=0._rk
-!    nav%aux=derxm(nav%dcm,navier_extrapol(nav,nav%phi,type='p'))
+!    nav%aux=derx1(nav%dcy,navier_extrapol(mpid,nav,nav%phi,type='p'))
 !    nav%bcu(it(1))%bcx(:,:,1)=nav%bcu(it(1))%bcx(:,:,1)&
 !                             +nav%aux%f(1,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
 !    nav%bcu(it(1))%bcx(:,:,2)=nav%bcu(it(1))%bcx(:,:,2)&
 !                             +nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
 
     nav%aux%f=0._rk
-    nav%aux=derym(nav%dcm,navier_extrapol(nav,nav%phi,type='p'))
+    nav%aux=dery1(nav%dcy,navier_extrapol(mpid,nav,nav%phi,type='p'))
     nav%bcv(it(1))%bcx(:,:,1)=nav%bcv(it(1))%bcx(:,:,1)&
                              +nav%aux%f(1,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
     nav%bcv(it(1))%bcx(:,:,2)=nav%bcv(it(1))%bcx(:,:,2)&
                              +nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
 
     nav%aux%f=0._rk
-    nav%aux=derzm(nav%dcm,navier_extrapol(nav,nav%phi,type='p'))
+    nav%aux=derz1(nav%dcz,navier_extrapol(mpid,nav,nav%phi,type='p'))
     nav%bcw(it(1))%bcx(:,:,1)=nav%bcw(it(1))%bcx(:,:,1)&
                              +nav%aux%f(1,2:nav%ny-1,2:nav%nz-1)/nav%fac(1)
     nav%bcw(it(1))%bcx(:,:,2)=nav%bcw(it(1))%bcx(:,:,2)&
@@ -675,21 +675,21 @@ if (nav%dcm%mapt==1) &
 
     !-> bcy
 !    nav%aux%f=0._rk
-!    nav%aux=derym(nav%dcm,navier_extrapol(nav,nav%phi,type='p'))
+!    nav%aux=dery1(nav%dcx,navier_extrapol(mpid,nav,nav%phi,type='p'))
 !    nav%bcv(it(1))%bcy(:,:,1)=nav%bcv(it(1))%bcy(:,:,1)&
 !                             +nav%aux%f(2:nav%nx-1,1,2:nav%nz-1)/nav%fac(1)
 !    nav%bcv(it(1))%bcy(:,:,2)=nav%bcv(it(1))%bcy(:,:,2)&
 !                             +nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)/nav%fac(1)
 
     nav%aux%f=0._rk
-    nav%aux=derxm(nav%dcm,navier_extrapol(nav,nav%phi,type='p'))
+    nav%aux=derx1(nav%dcx,navier_extrapol(mpid,nav,nav%phi,type='p'))
     nav%bcu(it(1))%bcy(:,:,1)=nav%bcu(it(1))%bcy(:,:,1)&
                              +nav%aux%f(2:nav%nx-1,1,2:nav%nz-1)/nav%fac(1)
     nav%bcu(it(1))%bcy(:,:,2)=nav%bcu(it(1))%bcy(:,:,2)&
                              +nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)/nav%fac(1)
 
     nav%aux%f=0._rk
-    nav%aux=derzm(nav%dcm,navier_extrapol(nav,nav%phi,type='p'))
+    nav%aux=derz1(nav%dcz,navier_extrapol(mpid,nav,nav%phi,type='p'))
     nav%bcw(it(1))%bcy(:,:,1)=nav%bcw(it(1))%bcy(:,:,1)&
                              +nav%aux%f(2:nav%nx-1,1,2:nav%nz-1)/nav%fac(1)
     nav%bcw(it(1))%bcy(:,:,2)=nav%bcw(it(1))%bcy(:,:,2)&
@@ -697,21 +697,21 @@ if (nav%dcm%mapt==1) &
 
     !-> bcz
 !    nav%aux%f=0._rk
-!    nav%aux=derzm(nav%dcm,navier_extrapol(nav,nav%phi,type='p'))
+!    nav%aux=derz1(nav%dcx,navier_extrapol(mpid,nav,nav%phi,type='p'))
 !    nav%bcw(it(1))%bcz(:,:,1)=nav%bcw(it(1))%bcz(:,:,1)&
 !                             +nav%aux%f(2:nav%nx-1,2:nav%ny-1,1)/nav%fac(1)
 !    nav%bcw(it(1))%bcz(:,:,2)=nav%bcw(it(1))%bcz(:,:,2)&
 !                             +nav%aux%f(2:nav%nx-1,2:nav%ny-1,nav%nz)/nav%fac(1)
 
     nav%aux%f=0._rk
-    nav%aux=derxm(nav%dcm,navier_extrapol(nav,nav%phi,type='p'))
+    nav%aux=derx1(nav%dcx,navier_extrapol(mpid,nav,nav%phi,type='p'))
     nav%bcu(it(1))%bcz(:,:,1)=nav%bcu(it(1))%bcz(:,:,1)&
                              +nav%aux%f(2:nav%nx-1,2:nav%ny-1,1)/nav%fac(1)
     nav%bcu(it(1))%bcz(:,:,2)=nav%bcu(it(1))%bcz(:,:,2)&
                              +nav%aux%f(2:nav%nx-1,2:nav%ny-1,nav%nz)/nav%fac(1)
 
     nav%aux%f=0._rk
-    nav%aux=derym(nav%dcm,navier_extrapol(nav,nav%phi,type='p'))
+    nav%aux=dery1(nav%dcy,navier_extrapol(mpid,nav,nav%phi,type='p'))
     nav%bcv(it(1))%bcz(:,:,1)=nav%bcv(it(1))%bcz(:,:,1)&
                              +nav%aux%f(2:nav%nx-1,2:nav%ny-1,1)/nav%fac(1)
     nav%bcv(it(1))%bcz(:,:,2)=nav%bcv(it(1))%bcz(:,:,2)&
@@ -750,33 +750,111 @@ if (nav%dcm%mapt==1) &
 
     !-> bcx
     nav%aux%f=0._rk
-    nav%aux=derym(nav%dcm,navier_extrapol(nav,nav%v,type='p'))&
-           +derzm(nav%dcm,navier_extrapol(nav,nav%w,type='p'))
-    nav%aux=derxm(nav%dcm,nav%aux)-dderym(nav%dcm,navier_extrapol(nav,nav%u,type='p'))&
-                                 -dderzm(nav%dcm,navier_extrapol(nav,nav%u,type='p'))
+    nav%aux=dery2(mpid,nav,nav%dcy,navier_extrapol(mpid,nav,nav%v,type='p'))&
+           +derz2(mpid,nav,nav%dcz,navier_extrapol(mpid,nav,nav%w,type='p'))
+    nav%aux=derx1(nav%dcx,nav%aux)-ddery1(nav%dcy,navier_extrapol(mpid,nav,nav%u,type='p'))&
+                                 -dderz1(nav%dcz,navier_extrapol(mpid,nav,nav%u,type='p'))
     nav%bcphi(it(1))%bcx(:,:,1)=nav%bcphi(it(1))%bcx(:,:,1)-nav%aux%f(1     ,2:nav%ny-1,2:nav%nz-1)/nav%rey
     nav%bcphi(it(1))%bcx(:,:,2)=nav%bcphi(it(1))%bcx(:,:,2)-nav%aux%f(nav%nx,2:nav%ny-1,2:nav%nz-1)/nav%rey
 
 
     !-> bcy
     nav%aux%f=0._rk
-    nav%aux=derxm(nav%dcm,navier_extrapol(nav,nav%u,type='p'))&
-           +derzm(nav%dcm,navier_extrapol(nav,nav%w,type='p'))
-    nav%aux=derym(nav%dcm,nav%aux)-dderxm(nav%dcm,navier_extrapol(nav,nav%v,type='p'))&
-                                 -dderzm(nav%dcm,navier_extrapol(nav,nav%v,type='p'))
+    nav%aux=derx2(mpid,nav,nav%dcx,navier_extrapol(mpid,nav,nav%u,type='p'))&
+           +derz2(mpid,nav,nav%dcz,navier_extrapol(mpid,nav,nav%w,type='p'))
+    nav%aux=dery1(nav%dcy,nav%aux)-dderx1(nav%dcx,navier_extrapol(mpid,nav,nav%v,type='p'))&
+                                 -dderz1(nav%dcz,navier_extrapol(mpid,nav,nav%v,type='p'))
     nav%bcphi(it(1))%bcy(:,:,1)=nav%bcphi(it(1))%bcy(:,:,1)-nav%aux%f(2:nav%nx-1,1     ,2:nav%nz-1)/nav%rey
     nav%bcphi(it(1))%bcy(:,:,2)=nav%bcphi(it(1))%bcy(:,:,2)-nav%aux%f(2:nav%nx-1,nav%ny,2:nav%nz-1)/nav%rey
 
     !-> bcz
     nav%aux%f=0._rk
-    nav%aux=derxm(nav%dcm,navier_extrapol(nav,nav%u,type='p'))&
-           +derym(nav%dcm,navier_extrapol(nav,nav%v,type='p'))
-    nav%aux=derzm(nav%dcm,nav%aux)-dderxm(nav%dcm,navier_extrapol(nav,nav%w,type='p'))&
-                                 -dderym(nav%dcm,navier_extrapol(nav,nav%w,type='p'))
+    nav%aux=derx2(mpid,nav,nav%dcx,navier_extrapol(mpid,nav,nav%u,type='p'))&
+           +dery2(mpid,nav,nav%dcy,navier_extrapol(mpid,nav,nav%v,type='p'))
+    nav%aux=derz1(nav%dcz,nav%aux)-dderx1(nav%dcx,navier_extrapol(mpid,nav,nav%w,type='p'))&
+                                 -ddery1(nav%dcy,navier_extrapol(mpid,nav,nav%w,type='p'))
     nav%bcphi(it(1))%bcz(:,:,1)=nav%bcphi(it(1))%bcz(:,:,1)-nav%aux%f(2:nav%nx-1,2:nav%ny-1,1     )/nav%rey
     nav%bcphi(it(1))%bcz(:,:,2)=nav%bcphi(it(1))%bcz(:,:,2)-nav%aux%f(2:nav%nx-1,2:nav%ny-1,nav%nz)/nav%rey
 
   end subroutine add_boundary_rotrot
+  
+function derx2(mpid,nav,dc,x)
+    use class_derivatives
+    implicit none
+    type(navier3d) :: nav
+    type(mpi_data) :: mpid
+    type(field) :: derx2
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    call field_init(derx2,"DXU",x%nx,x%ny,x%nz)
+    derx2=derx(dc,x)
+    call field_zero_edges(derx2,mpid,nav)
+end function
+
+function dderx2(mpid,nav,dc,x)
+    use class_derivatives
+    implicit none
+    type(navier3d) :: nav
+    type(mpi_data) :: mpid
+    type(field) :: dderx2
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    call field_init(dderx2,"DXU",x%nx,x%ny,x%nz)
+    dderx2=dderx(dc,x)
+    call field_zero_edges(dderx2,mpid,nav)
+end function
+
+function dery2(mpid,nav,dc,x)
+    use class_derivatives
+    implicit none
+    type(navier3d) :: nav
+    type(mpi_data) :: mpid
+    type(field) :: dery2
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    call field_init(dery2,"DXU",x%nx,x%ny,x%nz)
+    dery2=dery(dc,x)
+    call field_zero_edges(dery2,mpid,nav)
+end function
+
+function ddery2(mpid,nav,dc,x)
+    use class_derivatives
+    implicit none
+    type(navier3d) :: nav
+    type(mpi_data) :: mpid
+    type(field) :: ddery2
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    call field_init(ddery2,"DXU",x%nx,x%ny,x%nz)
+    ddery2=ddery(dc,x)
+    call field_zero_edges(ddery2,mpid,nav)
+end function
+
+function derz2(mpid,nav,dc,x)
+    use class_derivatives
+    implicit none
+    type(navier3d) :: nav
+    type(mpi_data) :: mpid
+    type(field) :: derz2
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    call field_init(derz2,"DXU",x%nx,x%ny,x%nz)
+    derz2=derz(dc,x)
+    call field_zero_edges(derz2,mpid,nav)
+end function
+
+function dderz2(mpid,nav,dc,x)
+    use class_derivatives
+    implicit none
+    type(navier3d) :: nav
+    type(mpi_data) :: mpid
+    type(field) :: dderz2
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    call field_init(dderz2,"DXU",x%nx,x%ny,x%nz)
+    dderz2=dderz(dc,x)
+    call field_zero_edges(dderz2,mpid,nav)
+end function
 
   subroutine navier_bc_velocity_utils(inter,bc,gridx,gridy,gridz,t,&
        var,nx,ny,nz,rey,mpid)
@@ -1118,7 +1196,7 @@ endif
         tmp(i)%f=0._rk
       enddo
     endif
-    f=f+navier_extrapol(nav,tmp,type='v')
+    f=f+navier_extrapol(mpid,nav,tmp,type='v')
 
   end subroutine navier_nonlinear
 
@@ -1163,7 +1241,7 @@ nav%du(3,3)=derzm(nav%dcm,nav%aux)
 
 do i=1,3
 do j=1,3
-call field_zero_edges(nav%du(i,j))
+call field_zero_edges(nav%du(i,j),mpid,nav)
 enddo
 enddo
 
@@ -1350,7 +1428,7 @@ endif
     enddo
 !$OMP END PARALLEL DO
 
-call field_zero_edges(nav%les_nu)
+call field_zero_edges(nav%les_nu,mpid,nav)
 
 endif
   end subroutine navier_LES
@@ -1454,7 +1532,7 @@ g=matmul(g2,transpose(g2))
     call navier_nonlinear(mpid,nav,nav%u,nav%rhs_u(1))
     nav%rhs_u(1)=f(nav,mpid,'rhsu') - nav%rhs_u(1)
 
-    call field_zero_edges(nav%rhs_u(1))
+!    call field_zero_edges(nav%rhs_u(1),mpid,nav)
 
   end subroutine navier_presolve_u
 
@@ -1477,7 +1555,7 @@ g=matmul(g2,transpose(g2))
     call navier_nonlinear(mpid,nav,nav%v,nav%rhs_v(1))
     nav%rhs_v(1)=f(nav,mpid,'rhsv') - nav%rhs_v(1)
 
-    call field_zero_edges(nav%rhs_v(1))
+!    call field_zero_edges(nav%rhs_v(1),mpid,nav)
 
   end subroutine navier_presolve_v
 
@@ -1500,7 +1578,7 @@ g=matmul(g2,transpose(g2))
     call navier_nonlinear(mpid,nav,nav%w,nav%rhs_w(1))
     nav%rhs_w(1)=f(nav,mpid,'rhsw') -  nav%rhs_w(1)
 
-    call field_zero_edges(nav%rhs_w(1))
+!    call field_zero_edges(nav%rhs_w(1),mpid,nav)
 
   end subroutine navier_presolve_w
 
@@ -1532,9 +1610,9 @@ g=matmul(g2,transpose(g2))
     !-> pressure 
     if (nav%pt>=2) then
        if (nav%pt==2) then
-          nav%fu(it(nt))=nav%fu(it(nt))+derxm(nav%dcm,navier_extrapol(nav,nav%p,type='p'))
+          nav%fu(it(nt))=nav%fu(it(nt))+derx1(nav%dcx,navier_extrapol(mpid,nav,nav%p,type='p'))
        else
-          nav%fu(it(nt))=nav%fu(it(nt))+derxm(nav%dcm,nav%p(it(1)))
+          nav%fu(it(nt))=nav%fu(it(nt))+derx1(nav%dcx,nav%p(it(1)))
        endif
     endif
     
@@ -1547,6 +1625,7 @@ g=matmul(g2,transpose(g2))
     !-> reynolds number multiplication
     nav%fu(it(nt))=nav%rey*nav%fu(it(nt))
     
+!    call field_zero_edges(nav%fu(it(nt)),mpid)
     !--------------------------------------------------------------------
     !-> solve
 !    call md_set_guess(mpid,nav%infu,nt,it,nav%bcu,nav%u)
@@ -1558,6 +1637,7 @@ g=matmul(g2,transpose(g2))
       call solver_3d(nav%scu,nav%fu(it(nt)),nav%u(it(1)),nav%bcu(it(1)),nav%sigmau)
     endif
 
+    call field_zero_edges(nav%u(it(1)),mpid,nav)
 
   end subroutine navier_solve_u
 
@@ -1589,9 +1669,9 @@ g=matmul(g2,transpose(g2))
     !-> pressure 
     if (nav%pt>=2) then
        if (nav%pt==2) then
-          nav%fv(it(nt))=nav%fv(it(nt))+derym(nav%dcm,navier_extrapol(nav,nav%p,type='p'))
+          nav%fv(it(nt))=nav%fv(it(nt))+dery1(nav%dcy,navier_extrapol(mpid,nav,nav%p,type='p'))
        else
-          nav%fv(it(nt))=nav%fv(it(nt))+derym(nav%dcm,nav%p(it(1)))
+          nav%fv(it(nt))=nav%fv(it(nt))+dery1(nav%dcy,nav%p(it(1)))
        endif
     endif
     
@@ -1604,6 +1684,7 @@ g=matmul(g2,transpose(g2))
     !-> reynolds number multiplication
     nav%fv(it(nt))=nav%rey*nav%fv(it(nt))
 
+!    call field_zero_edges(nav%fv(it(nt)),mpid,nav)
     !--------------------------------------------------------------------
     !-> solve
 !    call md_set_guess(mpid,nav%infv,nt,it,nav%bcv,nav%v)
@@ -1614,6 +1695,7 @@ g=matmul(g2,transpose(g2))
     else
       call solver_3d(nav%scv,nav%fv(it(nt)),nav%v(it(1)),nav%bcv(it(1)),nav%sigmau)
     endif
+    call field_zero_edges(nav%v(it(1)),mpid,nav)
 
   end subroutine navier_solve_v
 
@@ -1645,9 +1727,9 @@ g=matmul(g2,transpose(g2))
     !-> pressure 
     if (nav%pt>=2) then
        if (nav%pt==2) then
-          nav%fw(it(nt))=nav%fw(it(nt))+derzm(nav%dcm,navier_extrapol(nav,nav%p,type='p'))
+          nav%fw(it(nt))=nav%fw(it(nt))+derz1(nav%dcz,navier_extrapol(mpid,nav,nav%p,type='p'))
        else
-          nav%fw(it(nt))=nav%fw(it(nt))+derzm(nav%dcm,nav%p(it(1)))
+          nav%fw(it(nt))=nav%fw(it(nt))+derz1(nav%dcz,nav%p(it(1)))
        endif
     endif
     
@@ -1660,6 +1742,7 @@ g=matmul(g2,transpose(g2))
     !-> reynolds number multiplication
     nav%fw(it(nt))=nav%rey*nav%fw(it(nt))
 
+!    call field_zero_edges(nav%fw(it(nt)),mpid,nav)
     !--------------------------------------------------------------------
     !-> solve
 !    call md_set_guess(mpid,nav%infw,nt,it,nav%bcw,nav%w)
@@ -1670,6 +1753,7 @@ g=matmul(g2,transpose(g2))
     else
       call solver_3d(nav%scw,nav%fw(it(nt)),nav%w(it(1)),nav%bcw(it(1)),nav%sigmau)
     endif
+    call field_zero_edges(nav%w(it(1)),mpid,nav)
 
   end subroutine navier_solve_w
 
@@ -1691,9 +1775,9 @@ g=matmul(g2,transpose(g2))
   nav%rhs_py=navier_phi_rhs(mpid,nav,nav%v,nav%rhs_v)
   nav%rhs_pz=navier_phi_rhs(mpid,nav,nav%w,nav%rhs_w)
 
-  call field_zero_edges(nav%rhs_px)
-  call field_zero_edges(nav%rhs_py)
-  call field_zero_edges(nav%rhs_pz)
+!  call field_zero_edges(nav%rhs_px,mpid,nav)
+!  call field_zero_edges(nav%rhs_py,mpid,nav)
+!  call field_zero_edges(nav%rhs_pz,mpid,nav)
 
   end subroutine navier_presolve_phi
 
@@ -1720,13 +1804,13 @@ g=matmul(g2,transpose(g2))
     do k=1,kmax
     !--------------------------------------------------------------------
     !-> compute rhs
-    nav%fphi=nav%sigmap*navier_extrapol(nav,nav%phi,type='p')
+    nav%fphi=nav%sigmap*navier_extrapol(mpid,nav,nav%phi,type='p')
 !    nav%phi(it(1))%f=0._rk
 
     !-> 
-    nav%fphi=nav%fphi+ derxm(nav%dcm,nav%rhs_px)&
-                     + derym(nav%dcm,nav%rhs_py)&
-                     + derzm(nav%dcm,nav%rhs_pz)
+    nav%fphi=nav%fphi+ derx1(nav%dcx,nav%rhs_px)&
+                     + dery1(nav%dcy,nav%rhs_py)&
+                     + derz1(nav%dcz,nav%rhs_pz)
 
     !-> non-cartesian laplacian
        nav%fphi=nav%fphi-(&
@@ -1743,6 +1827,7 @@ g=matmul(g2,transpose(g2))
     else
       call solver_3d(nav%scp,nav%fphi,nav%phi(it(1)),nav%bcphi(it(1)),nav%sigmap)
     endif
+    call field_zero_edges(nav%phi(it(1)),mpid,nav)
 
     call navier_bc_pressure(mpid,nav)
 
@@ -1790,13 +1875,11 @@ g=matmul(g2,transpose(g2))
     ex(1,1)=2 ; ex(2,1)=2 ; ex(3,1)=2 
     ex(1,2)=nav%nx-1 ; ex(2,2)=nav%ny-1 ; ex(3,2)=nav%nz-1
 
-    call field_zero_edges(nav%phi(it(1)))
+!    call field_zero_edges(nav%phi(it(1)),mpid,nav)
     !-> pressure
-    if(nav%pt==2.or.nav%pt==4) nav%aux=navier_extrapol(nav,nav%p,type='p')
+    if(nav%pt==2.or.nav%pt==4) nav%aux=navier_extrapol(mpid,nav,nav%p,type='p')
     nav%p(it(1))=nav%phi(it(1))
     if(nav%pt==2.or.nav%pt==4) nav%p(it(1))=nav%p(it(1)) + nav%aux
-
-    call field_zero_edges(nav%p(it(1)))
 
     !-> rotationnal
     if(nav%pt<=2) then
@@ -1805,9 +1888,9 @@ g=matmul(g2,transpose(g2))
                derzm(nav%dcm,nav%w(it(1))))/nav%rey
       nav%p(it(1))=nav%p(it(1))-nav%aux
     elseif(nav%pt==4) then
-      nav%aux=(derxm(nav%dcm,navier_extrapol(nav,nav%u,type='p'))+&
-               derym(nav%dcm,navier_extrapol(nav,nav%v,type='p'))+&
-               derzm(nav%dcm,navier_extrapol(nav,nav%w,type='p')))/nav%rey
+      nav%aux=(derx(nav%dcx,navier_extrapol(mpid,nav,nav%u,type='p'))+&
+               dery(nav%dcy,navier_extrapol(mpid,nav,nav%v,type='p'))+&
+               derz(nav%dcz,navier_extrapol(mpid,nav,nav%w,type='p')))/nav%rey
       nav%p(it(1))=nav%p(it(1))-nav%aux
     endif
 !    nav%p(it(1))%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))=&
@@ -1821,8 +1904,8 @@ g=matmul(g2,transpose(g2))
 !         dderzm(nav%dcm,nav%phi(it(1))))/nav%rey
 !    nav%p(it(1))=nav%p(it(1))-nav%aux
 
-    call field_zero_edges(nav%p(it(1)))
-
+    call field_zero_edges(nav%p(it(1)),mpid,nav)
+   
 !    goto 102
     do m=1,2
        do l=1,3
@@ -1862,13 +1945,13 @@ g=matmul(g2,transpose(g2))
          -fac*nav%aux%f(ex(1,1):ex(1,2),ex(2,1):ex(2,2),ex(3,1):ex(3,2))
 101 continue
 
-    nav%u(it(1))=(nav%rhs_px-derxm(nav%dcm,nav%phi(it(1))))/nav%fac(1)
-    nav%v(it(1))=(nav%rhs_py-derym(nav%dcm,nav%phi(it(1))))/nav%fac(1)
-    nav%w(it(1))=(nav%rhs_pz-derzm(nav%dcm,nav%phi(it(1))))/nav%fac(1)
+    nav%u(it(1))=(nav%rhs_px-derx1(nav%dcx,nav%phi(it(1))))/nav%fac(1)
+    nav%v(it(1))=(nav%rhs_py-dery1(nav%dcy,nav%phi(it(1))))/nav%fac(1)
+    nav%w(it(1))=(nav%rhs_pz-derz1(nav%dcz,nav%phi(it(1))))/nav%fac(1)
 
-    call field_zero_edges(nav%u(it(1)))
-    call field_zero_edges(nav%v(it(1)))
-    call field_zero_edges(nav%w(it(1)))
+    call field_zero_edges(nav%u(it(1)),mpid,nav)
+    call field_zero_edges(nav%v(it(1)),mpid,nav)
+    call field_zero_edges(nav%w(it(1)),mpid,nav)
 
 
   end subroutine navier_projection
@@ -1917,14 +2000,15 @@ g=matmul(g2,transpose(g2))
         navier_phi_rhs=fvar(1)- fvar(2) + nav%fac(1)*var(nav%it(1))
       endif
     endif
-       call field_zero_edges(navier_phi_rhs)
+!       call field_zero_edges(navier_phi_rhs,mpid,nav)
 
   end function navier_phi_rhs
 
 
-  function navier_extrapol(nav,var,type,ordre)
+  function navier_extrapol(mpid,nav,var,type,ordre)
     implicit none
     type(navier3d),intent(in) :: nav
+    type(mpi_data),intent(in) :: mpid
     type(field),intent(in)    :: var(nav%nt)
     type(field)               :: navier_extrapol
     character(*),optional     :: type
@@ -1945,24 +2029,366 @@ g=matmul(g2,transpose(g2))
     if(nav%subite==1) then
       if (ordre1==-1) then
          navier_extrapol=1._rk*var(nav%it(1))
-			elseif (ordre1==1) then
-			   navier_extrapol=1._rk*var(nav%it(nav%nt))
-			elseif (ordre1==2) then
-			   navier_extrapol=2._rk*var(nav%it(nav%nt))&
+      elseif (ordre1==1) then
+         navier_extrapol=1._rk*var(nav%it(nav%nt))
+      elseif (ordre1==2) then
+         navier_extrapol=2._rk*var(nav%it(nav%nt))&
                         -1._rk*var(nav%it(nav%nt-1))
       elseif(ordre1==3) then
-			   navier_extrapol=3._rk*var(nav%it(nav%nt))&
-			                  -3._rk*var(nav%it(nav%nt-1))&
+         navier_extrapol=3._rk*var(nav%it(nav%nt))&
+                        -3._rk*var(nav%it(nav%nt-1))&
                         +1._rk*var(nav%it(nav%nt-2))
-			endif
+      endif
     else
-  	    navier_extrapol%f=var(nav%it(1))%f
+       navier_extrapol%f=var(nav%it(1))%f
     endif
 
-    call field_zero_edges(navier_extrapol)
+    call field_zero_edges(navier_extrapol,mpid,nav)
 
 
   end function navier_extrapol
+
+
+  subroutine field_zero_edges(x1,mpid,nav)
+! -----------------------------------------------------------------------
+! field : negate a field type variableput zero in edges and corner
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 11/2012
+!
+    use mpi
+    use class_md
+    implicit none
+    type(field),intent(inout) :: x1
+    real(rk) :: x1_nx(x1%nx,4),x1_nx_r(x1%nx,4)
+    real(rk) :: x1_ny(x1%ny,4),x1_ny_r(x1%ny,4)
+    real(rk) :: x1_nz(x1%nz,4),x1_nz_r(x1%nz,4),fac(6)
+    integer(ik) :: i,l,m,req(16),error,inter(3,2),c(3),coins
+    integer :: status(MPI_STATUS_SIZE),ordre
+    type(navier3d) :: nav
+    type(mpi_data),intent(in) :: mpid
+
+
+   if (.true.) then
+
+    ordre=4
+    if (ordre==1) then
+       fac(1)= 1.0_rk
+       fac(2)= 0.0_rk
+       fac(3)= 0.0_rk
+       fac(4)= 0.0_rk
+       fac(5)= 0.0_rk
+       fac(6)= 0.0_rk
+    elseif (ordre==2) then
+       fac(1)= 4.0_rk / 3._rk
+       fac(2)=-1.0_rk / 3._rk
+       fac(3)= 0.0_rk
+       fac(4)= 0.0_rk
+       fac(5)= 0.0_rk
+       fac(6)= 0.0_rk
+    elseif(ordre==3) then
+       fac(1)= 18._rk/11._rk
+       fac(2)=- 9._rk/11._rk
+       fac(3)=  2._rk/11._rk
+       fac(4)= 0.0_rk
+       fac(5)= 0.0_rk
+       fac(6)= 0.0_rk
+    elseif(ordre==4) then
+       fac(1)= 48._rk/25._rk
+       fac(2)=-36._rk/25._rk
+       fac(3)= 16._rk/25._rk
+       fac(4)=- 3._rk/25._rk
+       fac(5)= 0.0_rk
+       fac(6)= 0.0_rk
+    elseif(ordre==5) then
+       fac(1)= 300._rk/137._rk
+       fac(2)=-300._rk/137._rk
+       fac(3)= 200._rk/137._rk
+       fac(4)=- 75._rk/137._rk
+       fac(5)=  12._rk/137._rk
+       fac(6)= 0.0_rk
+    elseif(ordre==6) then
+       fac(1)= 360._rk/147._rk
+       fac(2)=-450._rk/147._rk
+       fac(3)= 350._rk/147._rk
+       fac(4)= 225._rk/147._rk
+       fac(5)=  72._rk/147._rk
+       fac(6)=  10._rk/147._rk
+    endif
+
+
+
+    !-> get interface type
+    if (mpid%dims.ne.0) then
+      call md_mpi_getcoord(mpid,c)
+      call md_get_interfaces_number(nav%infu,c,inter)
+    else
+      inter=0
+    endif
+do coins=1,2
+x1_nx=0._rk ; x1_nx_r=0._rk
+x1_ny=0._rk ; x1_ny_r=0._rk
+x1_nz=0._rk ; x1_nz_r=0._rk
+
+    do i=1,3
+      x1_nz(:,1)=x1_nz(:,1)+ 0.5_rk*fac(i)*(x1%f(i+1    ,1      ,:)+x1%f(1      ,i+1    ,:))
+      x1_nz(:,2)=x1_nz(:,2)+ 0.5_rk*fac(i)*(x1%f(x1%nx-i,1      ,:)+x1%f(x1%nx  ,i+1    ,:))
+      x1_nz(:,3)=x1_nz(:,3)+ 0.5_rk*fac(i)*(x1%f(i+1    ,x1%ny  ,:)+x1%f(1      ,x1%ny-i,:))
+      x1_nz(:,4)=x1_nz(:,4)+ 0.5_rk*fac(i)*(x1%f(x1%nx-i,x1%ny  ,:)+x1%f(x1%nx  ,x1%ny-i,:))
+
+      x1_ny(:,1)=x1_ny(:,1)+ 0.5_rk*fac(i)*(x1%f(i+1    ,:,1      )+x1%f(1      ,:,i+1    ))
+      x1_ny(:,2)=x1_ny(:,2)+ 0.5_rk*fac(i)*(x1%f(x1%nx-i,:,1      )+x1%f(x1%nx  ,:,i+1    ))
+      x1_ny(:,3)=x1_ny(:,3)+ 0.5_rk*fac(i)*(x1%f(i+1    ,:,x1%nz  )+x1%f(1      ,:,x1%nz-i))
+      x1_ny(:,4)=x1_ny(:,4)+ 0.5_rk*fac(i)*(x1%f(x1%nx-i,:,x1%nz  )+x1%f(x1%nx  ,:,x1%nz-i))
+
+      x1_nx(:,1)=x1_nx(:,1)+ 0.5_rk*fac(i)*(x1%f(:,i+1    ,1      )+x1%f(:,1      ,i+1    ))
+      x1_nx(:,2)=x1_nx(:,2)+ 0.5_rk*fac(i)*(x1%f(:,x1%ny-i,1      )+x1%f(:,x1%ny  ,i+1    ))
+      x1_nx(:,3)=x1_nx(:,3)+ 0.5_rk*fac(i)*(x1%f(:,i+1    ,x1%nz  )+x1%f(:,1      ,x1%nz-i))
+      x1_nx(:,4)=x1_nx(:,4)+ 0.5_rk*fac(i)*(x1%f(:,x1%ny-i,x1%nz  )+x1%f(:,x1%ny  ,x1%nz-i))
+    enddo
+                    
+    l=1
+      !-> begin tranfer boundary condition to neighbours
+      req=(/1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16/)
+      do m=1,2
+          if (inter(l,m)>0) then
+             if(m==1)  then
+                 call mpi_irecv(x1_nz_r(1,1),x1%nz,mpi_double_precision, &
+                   mpid%neighbours(l,m),1,mpi_comm_world,req(1),error)
+                 call mpi_irecv(x1_nz_r(1,3),x1%nz,mpi_double_precision, &
+                   mpid%neighbours(l,m),2,mpi_comm_world,req(2),error)
+                 call mpi_irecv(x1_ny_r(1,1),x1%ny,mpi_double_precision, &
+                   mpid%neighbours(l,m),3,mpi_comm_world,req(3),error)
+                 call mpi_irecv(x1_ny_r(1,3),x1%ny,mpi_double_precision, &
+                   mpid%neighbours(l,m),4,mpi_comm_world,req(4),error)
+
+                 call mpi_issend(x1_nz(1,1),x1%nz,mpi_double_precision, &
+                  mpid%neighbours(l,m),5,mpi_comm_world,req(5),error)
+                 call mpi_issend(x1_nz(1,3),x1%nz,mpi_double_precision, &
+                  mpid%neighbours(l,m),6,mpi_comm_world,req(6),error)
+                 call mpi_issend(x1_ny(1,1),x1%ny,mpi_double_precision, &
+                  mpid%neighbours(l,m),7,mpi_comm_world,req(7),error)
+                 call mpi_issend(x1_ny(1,3),x1%ny,mpi_double_precision, &
+                  mpid%neighbours(l,m),8,mpi_comm_world,req(8),error)
+             elseif(m==2) then
+                 call mpi_issend(x1_nz(1,2),x1%nz,mpi_double_precision, &
+                  mpid%neighbours(l,m),1,mpi_comm_world,req(9),error)
+                 call mpi_issend(x1_nz(1,4),x1%nz,mpi_double_precision, &
+                  mpid%neighbours(l,m),2,mpi_comm_world,req(10),error)
+                 call mpi_issend(x1_ny(1,2),x1%ny,mpi_double_precision, &
+                  mpid%neighbours(l,m),3,mpi_comm_world,req(11),error)
+                 call mpi_issend(x1_ny(1,4),x1%ny,mpi_double_precision, &
+                  mpid%neighbours(l,m),4,mpi_comm_world,req(12),error)
+
+                 call mpi_irecv(x1_nz_r(1,2),x1%nz,mpi_double_precision, &
+                   mpid%neighbours(l,m),5,mpi_comm_world,req(13),error)
+                 call mpi_irecv(x1_nz_r(1,4),x1%nz,mpi_double_precision, &
+                   mpid%neighbours(l,m),6,mpi_comm_world,req(14),error)
+                 call mpi_irecv(x1_ny_r(1,2),x1%ny,mpi_double_precision, &
+                   mpid%neighbours(l,m),7,mpi_comm_world,req(15),error)
+                 call mpi_irecv(x1_ny_r(1,4),x1%ny,mpi_double_precision, &
+                   mpid%neighbours(l,m),8,mpi_comm_world,req(16),error)
+             endif
+          endif
+       enddo
+
+       !-> end tranfer boundary condition to neighbours
+       do m=1,2
+          if (inter(l,m)>0) then
+            if(m==1)  then
+              do i=1,8
+                call mpi_wait(req(i),status,error)
+              enddo
+              x1_nz(:,1)=0.5_rk*(x1_nz(:,1)+x1_nz_r(:,1))
+              x1_nz(:,3)=0.5_rk*(x1_nz(:,3)+x1_nz_r(:,3))
+              x1_ny(:,1)=0.5_rk*(x1_ny(:,1)+x1_ny_r(:,1))
+              x1_ny(:,3)=0.5_rk*(x1_ny(:,3)+x1_ny_r(:,3))
+            elseif(m==2) then
+              do i=9,16
+                call mpi_wait(req(i),status,error)
+              enddo
+              x1_nz(:,2)=0.5_rk*(x1_nz(:,2)+x1_nz_r(:,2))
+              x1_nz(:,4)=0.5_rk*(x1_nz(:,4)+x1_nz_r(:,4))
+              x1_ny(:,2)=0.5_rk*(x1_ny(:,2)+x1_ny_r(:,2))
+              x1_ny(:,4)=0.5_rk*(x1_ny(:,4)+x1_ny_r(:,4))
+            endif
+          endif
+       enddo
+
+    l=2
+      !-> begin tranfer boundary condition to neighbours
+      req=(/1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16/)
+      do m=1,2
+          if (inter(l,m)>0) then
+             if(m==1)  then
+                 call mpi_irecv(x1_nx_r(1,1),x1%nx,mpi_double_precision, &
+                   mpid%neighbours(l,m),1,mpi_comm_world,req(1),error)
+                 call mpi_irecv(x1_nx_r(1,3),x1%nx,mpi_double_precision, &
+                   mpid%neighbours(l,m),2,mpi_comm_world,req(2),error)
+                 call mpi_irecv(x1_nz_r(1,1),x1%nz,mpi_double_precision, &
+                   mpid%neighbours(l,m),3,mpi_comm_world,req(3),error)
+                 call mpi_irecv(x1_nz_r(1,2),x1%nz,mpi_double_precision, &
+                   mpid%neighbours(l,m),4,mpi_comm_world,req(4),error)
+
+                 call mpi_issend(x1_nx(1,1),x1%nx,mpi_double_precision, &
+                  mpid%neighbours(l,m),5,mpi_comm_world,req(5),error)
+                 call mpi_issend(x1_nx(1,3),x1%nx,mpi_double_precision, &
+                  mpid%neighbours(l,m),6,mpi_comm_world,req(6),error)
+                 call mpi_issend(x1_nz(1,1),x1%nz,mpi_double_precision, &
+                  mpid%neighbours(l,m),7,mpi_comm_world,req(7),error)
+                 call mpi_issend(x1_nz(1,2),x1%nz,mpi_double_precision, &
+                  mpid%neighbours(l,m),8,mpi_comm_world,req(8),error)
+             elseif(m==2) then
+                 call mpi_issend(x1_nx(1,2),x1%nx,mpi_double_precision, &
+                  mpid%neighbours(l,m),1,mpi_comm_world,req(9),error)
+                 call mpi_issend(x1_nx(1,4),x1%nx,mpi_double_precision, &
+                  mpid%neighbours(l,m),2,mpi_comm_world,req(10),error)
+                 call mpi_issend(x1_nz(1,3),x1%nz,mpi_double_precision, &
+                  mpid%neighbours(l,m),3,mpi_comm_world,req(11),error)
+                 call mpi_issend(x1_nz(1,4),x1%nz,mpi_double_precision, &
+                  mpid%neighbours(l,m),4,mpi_comm_world,req(12),error)
+
+                 call mpi_irecv(x1_nx_r(1,2),x1%nx,mpi_double_precision, &
+                   mpid%neighbours(l,m),5,mpi_comm_world,req(13),error)
+                 call mpi_irecv(x1_nx_r(1,4),x1%nx,mpi_double_precision, &
+                   mpid%neighbours(l,m),6,mpi_comm_world,req(14),error)
+                 call mpi_irecv(x1_nz_r(1,3),x1%nz,mpi_double_precision, &
+                   mpid%neighbours(l,m),7,mpi_comm_world,req(15),error)
+                 call mpi_irecv(x1_nz_r(1,4),x1%nz,mpi_double_precision, &
+                   mpid%neighbours(l,m),8,mpi_comm_world,req(16),error)
+             endif
+          endif
+       enddo
+
+       !-> end tranfer boundary condition to neighbours
+       do m=1,2
+          if (inter(l,m)>0) then
+            if(m==1)  then
+              do i=1,8
+                call mpi_wait(req(i),status,error)
+              enddo
+              x1_nx(:,1)=0.5_rk*(x1_nx(:,1)+x1_nx_r(:,1))
+              x1_nx(:,3)=0.5_rk*(x1_nx(:,3)+x1_nx_r(:,3))
+              x1_nz(:,1)=0.5_rk*(x1_nz(:,1)+x1_nz_r(:,1))
+              x1_nz(:,2)=0.5_rk*(x1_nz(:,2)+x1_nz_r(:,2))
+            elseif(m==2) then
+              do i=9,16
+                call mpi_wait(req(i),status,error)
+              enddo
+              x1_nx(:,2)=0.5_rk*(x1_nx(:,2)+x1_nx_r(:,2))
+              x1_nx(:,4)=0.5_rk*(x1_nx(:,4)+x1_nx_r(:,4))
+              x1_nz(:,3)=0.5_rk*(x1_nz(:,3)+x1_nz_r(:,3))
+              x1_nz(:,4)=0.5_rk*(x1_nz(:,4)+x1_nz_r(:,4))
+            endif
+          endif
+       enddo
+
+
+    l=3
+      !-> begin tranfer boundary condition to neighbours
+      req=(/1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16/)
+      do m=1,2
+          if (inter(l,m)>0) then
+             if(m==1)  then
+                 call mpi_irecv(x1_nx_r(1,1),x1%nx,mpi_double_precision, &
+                   mpid%neighbours(l,m),1,mpi_comm_world,req(1),error)
+                 call mpi_irecv(x1_nx_r(1,2),x1%nx,mpi_double_precision, &
+                   mpid%neighbours(l,m),2,mpi_comm_world,req(2),error)
+                 call mpi_irecv(x1_ny_r(1,1),x1%ny,mpi_double_precision, &
+                   mpid%neighbours(l,m),3,mpi_comm_world,req(3),error)
+                 call mpi_irecv(x1_ny_r(1,2),x1%ny,mpi_double_precision, &
+                   mpid%neighbours(l,m),4,mpi_comm_world,req(4),error)
+
+                 call mpi_issend(x1_nx(1,1),x1%nx,mpi_double_precision, &
+                  mpid%neighbours(l,m),5,mpi_comm_world,req(5),error)
+                 call mpi_issend(x1_nx(1,2),x1%nx,mpi_double_precision, &
+                  mpid%neighbours(l,m),6,mpi_comm_world,req(6),error)
+                 call mpi_issend(x1_ny(1,1),x1%ny,mpi_double_precision, &
+                  mpid%neighbours(l,m),7,mpi_comm_world,req(7),error)
+                 call mpi_issend(x1_ny(1,2),x1%ny,mpi_double_precision, &
+                  mpid%neighbours(l,m),8,mpi_comm_world,req(8),error)
+             elseif(m==2) then
+                 call mpi_issend(x1_nx(1,3),x1%nx,mpi_double_precision, &
+                  mpid%neighbours(l,m),1,mpi_comm_world,req(9),error)
+                 call mpi_issend(x1_nx(1,4),x1%nx,mpi_double_precision, &
+                  mpid%neighbours(l,m),2,mpi_comm_world,req(10),error)
+                 call mpi_issend(x1_ny(1,3),x1%ny,mpi_double_precision, &
+                  mpid%neighbours(l,m),3,mpi_comm_world,req(11),error)
+                 call mpi_issend(x1_ny(1,4),x1%ny,mpi_double_precision, &
+                  mpid%neighbours(l,m),4,mpi_comm_world,req(12),error)
+
+                 call mpi_irecv(x1_nx_r(1,3),x1%nx,mpi_double_precision, &
+                   mpid%neighbours(l,m),5,mpi_comm_world,req(13),error)
+                 call mpi_irecv(x1_nx_r(1,4),x1%nx,mpi_double_precision, &
+                   mpid%neighbours(l,m),6,mpi_comm_world,req(14),error)
+                 call mpi_irecv(x1_ny_r(1,3),x1%ny,mpi_double_precision, &
+                   mpid%neighbours(l,m),7,mpi_comm_world,req(15),error)
+                 call mpi_irecv(x1_ny_r(1,4),x1%ny,mpi_double_precision, &
+                   mpid%neighbours(l,m),8,mpi_comm_world,req(16),error)
+             endif
+          endif
+       enddo
+
+       !-> end tranfer boundary condition to neighbours
+       do m=1,2
+          if (inter(l,m)>0) then
+            if(m==1)  then
+              do i=1,8
+                call mpi_wait(req(i),status,error)
+              enddo
+              x1_nx(:,1)=0.5_rk*(x1_nx(:,1)+x1_nx_r(:,1))
+              x1_nx(:,2)=0.5_rk*(x1_nx(:,2)+x1_nx_r(:,2))
+              x1_ny(:,1)=0.5_rk*(x1_ny(:,1)+x1_ny_r(:,1))
+              x1_ny(:,2)=0.5_rk*(x1_ny(:,2)+x1_ny_r(:,2))
+            elseif(m==2) then
+              do i=9,16
+                call mpi_wait(req(i),status,error)
+              enddo
+              x1_nx(:,3)=0.5_rk*(x1_nx(:,3)+x1_nx_r(:,3))
+              x1_nx(:,4)=0.5_rk*(x1_nx(:,4)+x1_nx_r(:,4))
+              x1_ny(:,3)=0.5_rk*(x1_ny(:,3)+x1_ny_r(:,3))
+              x1_ny(:,4)=0.5_rk*(x1_ny(:,4)+x1_ny_r(:,4))
+            endif
+          endif
+       enddo
+
+
+
+    x1%f(1    ,1    ,:)=x1_nz(:,1)
+    x1%f(x1%nx,1    ,:)=x1_nz(:,2)
+    x1%f(1    ,x1%ny,:)=x1_nz(:,3)
+    x1%f(x1%nx,x1%ny,:)=x1_nz(:,4)
+
+    x1%f(1    ,:,1    )=x1_ny(:,1)
+    x1%f(x1%nx,:,1    )=x1_ny(:,2)
+    x1%f(1    ,:,x1%nz)=x1_ny(:,3)
+    x1%f(x1%nx,:,x1%nz)=x1_ny(:,4)
+
+    x1%f(:,1    ,1    )=x1_nx(:,1)
+    x1%f(:,x1%ny,1    )=x1_nx(:,2)
+    x1%f(:,1    ,x1%nz)=x1_nx(:,3)
+    x1%f(:,x1%ny,x1%nz)=x1_nx(:,4)
+enddo
+else
+    x1%f(1,1,:)=0._rk
+    x1%f(x1%nx,1,:)=0._rk
+    x1%f(1,x1%ny,:)=0._rk
+    x1%f(x1%nx,x1%ny,:)=0._rk
+
+    x1%f(1,:,1)=0._rk
+    x1%f(x1%nx,:,1)=0._rk
+    x1%f(1,:,x1%nz)=0._rk
+    x1%f(x1%nx,:,x1%nz)=0._rk
+
+    x1%f(:,1,1)=0._rk
+    x1%f(:,x1%ny,1)=0._rk
+    x1%f(:,1,x1%nz)=0._rk
+    x1%f(:,x1%ny,x1%nz)=0._rk
+endif
+  end subroutine field_zero_edges
+
+
+
 
   subroutine navier_time(nav)
 ! -----------------------------------------------------------------------

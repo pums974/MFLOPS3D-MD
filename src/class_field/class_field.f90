@@ -363,16 +363,148 @@ contains
     field_neg%f=-x1%f
   end function field_neg
 
-  subroutine field_zero_edges(x1)
+  subroutine field_zero_edges1(x1,mpid,inter)
 ! -----------------------------------------------------------------------
 ! field : negate a field type variableput zero in edges and corner
 ! -----------------------------------------------------------------------
 ! Matthieu Marquillie
 ! 11/2012
 !
+    use mpi
+    use class_md
     implicit none
     type(field),intent(inout) :: x1
-    
+    real(rk) :: x1_nx(x1%nx,4),x1_nx_r(x1%nx,4)
+    real(rk) :: x1_ny(x1%ny,4),x1_ny_r(x1%ny,4)
+    real(rk) :: x1_nz(x1%nz,4),x1_nz_r(x1%nz,4)
+    integer(ik) :: i,l,m,req(16),error,inter(3,2),c(3)
+    integer :: status(MPI_STATUS_SIZE)
+!    type(navier3d) :: nav
+    type(mpi_data),intent(in) :: mpid
+
+
+   if (.true.) then
+
+!    !-> get interface type
+!    if (mpid%dims.ne.0) then
+!      call md_mpi_getcoord(mpid,c)
+!      call md_get_interfaces_number(nav%infu,c,inter)
+!    else
+!      inter=0
+!    endif
+
+
+
+    x1_nz(:,1)=0.5_rk*(2._rk*x1%f(2      ,1      ,:)-x1%f(3      ,1      ,:) &
+                      +2._rk*x1%f(1      ,2      ,:)-x1%f(1      ,3      ,:))
+    x1_nz(:,2)=0.5_rk*(2._rk*x1%f(x1%nx-1,1      ,:)-x1%f(x1%nx-2,1      ,:) &
+                      +2._rk*x1%f(x1%nx  ,2      ,:)-x1%f(x1%nx  ,3      ,:))
+    x1_nz(:,3)=0.5_rk*(2._rk*x1%f(2      ,x1%ny  ,:)-x1%f(3      ,x1%ny  ,:) &
+                      +2._rk*x1%f(1      ,x1%ny-1,:)-x1%f(1      ,x1%ny-2,:))
+    x1_nz(:,4)=0.5_rk*(2._rk*x1%f(x1%nx-1,x1%ny  ,:)-x1%f(x1%nx-2,x1%ny  ,:) &
+                      +2._rk*x1%f(x1%nx  ,x1%ny-1,:)-x1%f(x1%nx  ,x1%ny-2,:))
+                               
+                               
+    x1_ny(:,1)=0.5_rk*(2._rk*x1%f(2      ,:,1      )-x1%f(3      ,:,1      ) &
+                      +2._rk*x1%f(1      ,:,2      )-x1%f(1      ,:,3      ))
+    x1_ny(:,2)=0.5_rk*(2._rk*x1%f(x1%nx-1,:,1      )-x1%f(x1%nx-2,:,1      ) &
+                      +2._rk*x1%f(x1%nx  ,:,2      )-x1%f(x1%nx  ,:,3      ))
+    x1_ny(:,3)=0.5_rk*(2._rk*x1%f(2      ,:,x1%nz  )-x1%f(3      ,:,x1%nz  ) &
+                      +2._rk*x1%f(1      ,:,x1%nz-1)-x1%f(1      ,:,x1%nz-2))
+    x1_ny(:,4)=0.5_rk*(2._rk*x1%f(x1%nx-1,:,x1%nz  )-x1%f(x1%nx-2,:,x1%nz  ) &
+                      +2._rk*x1%f(x1%nx  ,:,x1%nz-1)-x1%f(x1%nx  ,:,x1%nz-2))
+                               
+                               
+    x1_nx(:,1)=0.5_rk*(2._rk*x1%f(:,2      ,1      )-x1%f(:,3      ,1      ) &
+                               +2._rk*x1%f(:,1      ,2      )-x1%f(:,1      ,3      ))
+    x1_nx(:,2)=0.5_rk*(2._rk*x1%f(:,x1%ny-1,1      )-x1%f(:,x1%ny-2,1      ) &
+                               +2._rk*x1%f(:,x1%ny  ,2      )-x1%f(:,x1%ny  ,3      ))
+    x1_nx(:,3)=0.5_rk*(2._rk*x1%f(:,2      ,x1%nz  )-x1%f(:,3      ,x1%nz  ) &
+                               +2._rk*x1%f(:,1      ,x1%nz-1)-x1%f(:,1      ,x1%nz-2))
+    x1_nx(:,4)=0.5_rk*(2._rk*x1%f(:,x1%ny-1,x1%nz  )-x1%f(:,x1%ny-2,x1%nz  ) &
+                               +2._rk*x1%f(:,x1%ny  ,x1%nz-1)-x1%f(:,x1%ny  ,x1%nz-2))
+
+    l=1
+      !-> begin tranfer boundary condition to neighbours
+      req=(/1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16/)
+      do m=1,2
+          if (inter(l,m)>0) then
+             if(m==1)  then
+                 call mpi_irecv(x1_nz_r(1,1),x1%nz,mpi_double_precision, &
+                   mpid%neighbours(l,m),1,mpi_comm_world,req(1),error)
+                 call mpi_irecv(x1_nz_r(1,3),x1%nz,mpi_double_precision, &
+                   mpid%neighbours(l,m),2,mpi_comm_world,req(2),error)
+                 call mpi_irecv(x1_ny_r(1,1),x1%ny,mpi_double_precision, &
+                   mpid%neighbours(l,m),3,mpi_comm_world,req(3),error)
+                 call mpi_irecv(x1_ny_r(1,3),x1%ny,mpi_double_precision, &
+                   mpid%neighbours(l,m),4,mpi_comm_world,req(4),error)
+
+                 call mpi_issend(x1_nz(1,1),x1%nz,mpi_double_precision, &
+                  mpid%neighbours(l,m),5,mpi_comm_world,req(5),error)
+                 call mpi_issend(x1_nz(1,3),x1%nz,mpi_double_precision, &
+                  mpid%neighbours(l,m),6,mpi_comm_world,req(6),error)
+                 call mpi_issend(x1_ny(1,1),x1%ny,mpi_double_precision, &
+                  mpid%neighbours(l,m),7,mpi_comm_world,req(7),error)
+                 call mpi_issend(x1_ny(1,1),x1%ny,mpi_double_precision, &
+                  mpid%neighbours(l,m),8,mpi_comm_world,req(8),error)
+             elseif(m==2) then
+                 call mpi_issend(x1_nz(1,2),x1%nz,mpi_double_precision, &
+                  mpid%neighbours(l,m),1,mpi_comm_world,req(9),error)
+                 call mpi_issend(x1_nz(1,4),x1%nz,mpi_double_precision, &
+                  mpid%neighbours(l,m),2,mpi_comm_world,req(10),error)
+                 call mpi_issend(x1_ny(1,2),x1%ny,mpi_double_precision, &
+                  mpid%neighbours(l,m),3,mpi_comm_world,req(11),error)
+                 call mpi_issend(x1_ny(1,4),x1%ny,mpi_double_precision, &
+                  mpid%neighbours(l,m),4,mpi_comm_world,req(12),error)
+
+                 call mpi_irecv(x1_nz_r(1,2),x1%nz,mpi_double_precision, &
+                   mpid%neighbours(l,m),5,mpi_comm_world,req(13),error)
+                 call mpi_irecv(x1_nz_r(1,4),x1%nz,mpi_double_precision, &
+                   mpid%neighbours(l,m),6,mpi_comm_world,req(14),error)
+                 call mpi_irecv(x1_ny_r(1,2),x1%ny,mpi_double_precision, &
+                   mpid%neighbours(l,m),7,mpi_comm_world,req(15),error)
+                 call mpi_irecv(x1_ny_r(1,4),x1%ny,mpi_double_precision, &
+                   mpid%neighbours(l,m),8,mpi_comm_world,req(16),error)
+             endif
+          endif
+       enddo
+
+       !-> end tranfer boundary condition to neighbours
+       do m=1,2
+          if (inter(l,m)>0) then
+            if(m==1)  then
+              do i=1,8
+                call mpi_wait(req(i),status,error)
+              enddo
+            elseif(m==2) then
+              do i=9,16
+                call mpi_wait(req(i),status,error)
+              enddo
+            endif
+          endif
+       enddo
+
+do i=1,4
+    x1_nz(:,i)=0.5_rk*(x1_nz(:,i)+x1_nz_r(:,i))
+    x1_ny(:,i)=0.5_rk*(x1_ny(:,i)+x1_ny_r(:,i))
+enddo
+
+    x1%f(1    ,1    ,:)=x1_nz(:,1)
+    x1%f(x1%nx,1    ,:)=x1_nz(:,2)
+    x1%f(1    ,x1%ny,:)=x1_nz(:,3)
+    x1%f(x1%nx,x1%ny,:)=x1_nz(:,4)
+
+    x1%f(1    ,:,1    )=x1_ny(:,1)
+    x1%f(x1%nx,:,1    )=x1_ny(:,2)
+    x1%f(1    ,:,x1%nz)=x1_ny(:,3)
+    x1%f(x1%nx,:,x1%nz)=x1_ny(:,4)
+
+    x1%f(:,1    ,1    )=x1_nx(:,1)
+    x1%f(:,x1%ny,1    )=x1_nx(:,2)
+    x1%f(:,1    ,x1%nz)=x1_nx(:,3)
+    x1%f(:,x1%ny,x1%nz)=x1_nx(:,4)
+
+    else
     x1%f(1,1,:)=0._rk
     x1%f(x1%nx,1,:)=0._rk
     x1%f(1,x1%ny,:)=0._rk
@@ -387,8 +519,8 @@ contains
     x1%f(:,x1%ny,1)=0._rk
     x1%f(:,1,x1%nz)=0._rk
     x1%f(:,x1%ny,x1%nz)=0._rk
-
-  end subroutine field_zero_edges
+endif
+  end subroutine field_zero_edges1
 
   subroutine field_put_boundary(x1,bc,inter)
 ! -----------------------------------------------------------------------
@@ -617,6 +749,371 @@ contains
     endif
 
   end subroutine read_field
+
+! =======================================================================
+! =======================================================================
+! field : derivatives methods
+! =======================================================================
+! =======================================================================
+
+  function derx1(dc,x)
+!  function derx(x,dc)
+! -----------------------------------------------------------------------
+! field : compute first derivative in x direction
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 05/2011
+!
+!$ use OMP_LIB
+    use class_derivatives
+    implicit none
+    type(field) :: derx
+    type(field) :: derx1
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    integer(ik) :: i,j,k
+    real(rk) :: in(x%nx),out(x%nx)
+    call field_init(derx1,"DXU",x%nx,x%ny,x%nz)
+
+    in=0._rk ; out=0._rk
+    if (dertype(dc)) then
+!$OMP PARALLEL 
+!!$OMP DO  PRIVATE(k,in,out) SCHEDULE(RUNTIME)
+!       do k=2,x%nz-1
+!          in(:)=x%f(:,1,k) ; call der_s(dc,in,out) ; derx%f(:,1,k)=out(:)
+!          in(:)=x%f(:,x%ny,k) ; call der_s(dc,in,out) ; derx%f(:,x%ny,k)=out(:)
+!       enddo
+!!$OMP END DO
+!!$OMP DO  PRIVATE(j,in,out) SCHEDULE(RUNTIME)
+!       do j=2,x%ny-1
+!          in(:)=x%f(:,j,1) ; call der_s(dc,in,out) ; derx%f(:,j,1)=out(:)
+!          in(:)=x%f(:,j,x%nz) ; call der_s(dc,in,out) ; derx%f(:,j,x%nz)=out(:)
+!       enddo
+!!$OMP END DO
+!$OMP DO  PRIVATE(k,in,out) SCHEDULE(RUNTIME)
+       do k=1,x%nz
+          do j=1,x%ny
+             in(:)=x%f(:,j,k)
+             call der(dc,in,out)
+             derx1%f(:,j,k)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+    else
+!$OMP PARALLEL PRIVATE(k,in,out)
+!$OMP DO SCHEDULE(RUNTIME)
+       do k=1,x%nz
+          do j=1,x%ny
+             in(:)=x%f(:,j,k)
+             call der(dc,in,out)
+             derx1%f(:,j,k)=out(:)
+!            call der(dc,x%f(:,j,k),derx%f(:,j,k))
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+    end if
+
+  end function derx1
+
+  function dderx1(dc,x)
+!  function dderx(x,dc)
+! -----------------------------------------------------------------------
+! field : compute second derivative in x direction
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 05/2011
+!
+!$ use OMP_LIB
+    use class_derivatives
+    implicit none
+    type(field) :: dderx
+    type(field) :: dderx1
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    integer(ik) :: i,j,k
+    real(rk) :: in(x%nx),out(x%nx)
+    real(rk) :: t1,t2
+    call field_init(dderx1,"DDXU",x%nx,x%ny,x%nz)
+    
+    in=0._rk ; out=0._rk
+    if (dertype(dc)) then
+!$OMP PARALLEL 
+!!$OMP DO  PRIVATE(k,in,out) SCHEDULE(RUNTIME)
+!       do k=2,x%nz-1
+!          in(:)=x%f(:,1,k) ; call dder_s(dc,in,out) ; dderx%f(:,1,k)=out(:)
+!          in(:)=x%f(:,x%ny,k) ; call dder_s(dc,in,out) ; dderx%f(:,x%ny,k)=out(:)
+!       enddo
+!!$OMP END DO
+!!$OMP DO  PRIVATE(j,in,out) SCHEDULE(RUNTIME)
+!       do j=2,x%ny-1
+!          in(:)=x%f(:,j,1) ; call dder_s(dc,in,out) ; dderx%f(:,j,1)=out(:)
+!          in(:)=x%f(:,j,x%nz) ; call dder_s(dc,in,out) ; dderx%f(:,j,x%nz)=out(:)
+!       enddo
+!!$OMP END DO
+!$OMP DO  PRIVATE(k,in,out) SCHEDULE(RUNTIME)
+       do k=1,x%nz
+          do j=1,x%ny
+             in(:)=x%f(:,j,k)
+             call dder(dc,in,out)
+             dderx1%f(:,j,k)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+    else
+!$OMP PARALLEL PRIVATE(k,in,out)
+!$OMP DO SCHEDULE(RUNTIME)
+       do k=1,x%nz
+          do j=1,x%ny
+             in(:)=x%f(:,j,k)
+             call dder(dc,in,out)
+             dderx1%f(:,j,k)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+    endif
+  end function dderx1
+
+  function dery1(dc,x)
+! -----------------------------------------------------------------------
+! field : compute first derivative in x direction
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 05/2011
+!
+!$ use OMP_LIB
+    use class_derivatives
+    implicit none
+    type(field) :: dery
+    type(field) :: dery1
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    integer(ik) :: i,j,k
+    real(rk) :: in(x%ny),out(x%ny)
+    call field_init(dery1,"DXU",x%nx,x%ny,x%nz)
+
+    in=0._rk ; out=0._rk
+    if (dertype(dc)) then
+!$OMP PARALLEL 
+!!$OMP DO  PRIVATE(k,in,out) SCHEDULE(RUNTIME)
+!       do k=2,x%nz-1
+!          in(:)=x%f(1,:,k) ; call der_s(dc,in,out) ; dery%f(1,:,k)=out(:)
+!          in(:)=x%f(x%nx,:,k) ; call der_s(dc,in,out) ; dery%f(x%nx,:,k)=out(:)
+!       enddo
+!!$OMP END DO
+!!$OMP DO  PRIVATE(i,in,out) SCHEDULE(RUNTIME)
+!       do i=2,x%nx-1
+!          in(:)=x%f(i,:,1) ; call der_s(dc,in,out) ; dery%f(i,:,1)=out(:)
+!          in(:)=x%f(i,:,x%nz) ; call der_s(dc,in,out) ; dery%f(i,:,x%nz)=out(:)
+!       enddo
+!!$OMP END DO
+!$OMP DO  PRIVATE(k,in,out) SCHEDULE(RUNTIME)
+       do k=1,x%nz
+          do i=1,x%nx
+             in(:)=x%f(i,:,k)
+             call der(dc,in,out)
+             dery1%f(i,:,k)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+    else
+!$OMP PARALLEL PRIVATE(k,in,out)
+!$OMP DO SCHEDULE(RUNTIME)
+       do k=1,x%nz
+          do i=1,x%nx
+             in(:)=x%f(i,:,k)
+             call der(dc,in,out)
+             dery1%f(i,:,k)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+    endif
+
+  end function dery1
+
+  function ddery1(dc,x)
+! -----------------------------------------------------------------------
+! field : compute second derivative in x direction
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 05/2011
+!
+!$ use OMP_LIB
+    use class_derivatives
+    implicit none
+    type(field) :: ddery
+    type(field) :: ddery1
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    integer(ik) :: i,j,k
+    real(rk) :: in(x%ny),out(x%ny)
+    call field_init(ddery1,"DDXU",x%nx,x%ny,x%nz)
+    
+    in=0._rk ; out=0._rk
+    if (dertype(dc)) then
+!$OMP PARALLEL 
+!!$OMP DO  PRIVATE(k,in,out) SCHEDULE(RUNTIME)
+!       do k=2,x%nz-1
+!          in(:)=x%f(1,:,k) ; call dder_s(dc,in,out) ; ddery%f(1,:,k)=out(:)
+!          in(:)=x%f(x%nx,:,k) ; call dder_s(dc,in,out) ; ddery%f(x%nx,:,k)=out(:)
+!       enddo
+!!$OMP END DO
+!!$OMP DO  PRIVATE(i,in,out) SCHEDULE(RUNTIME)
+!       do i=2,x%nx-1
+!          in(:)=x%f(i,:,1) ; call dder_s(dc,in,out) ; ddery%f(i,:,1)=out(:)
+!          in(:)=x%f(i,:,x%nz) ; call dder_s(dc,in,out) ; ddery%f(i,:,x%nz)=out(:)
+!       enddo
+!!$OMP END DO
+!$OMP DO  PRIVATE(k,in,out) SCHEDULE(RUNTIME)
+       do k=1,x%nz
+          do i=1,x%nx
+             in(:)=x%f(i,:,k)
+             call dder(dc,in,out)
+             ddery1%f(i,:,k)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+    else
+!$OMP PARALLEL PRIVATE(k,in,out)
+!$OMP DO SCHEDULE(RUNTIME)
+       do k=1,x%nz
+          do i=1,x%nx
+             in(:)=x%f(i,:,k)
+             call dder(dc,in,out)
+             ddery1%f(i,:,k)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+    endif
+
+  end function ddery1
+
+  function derz1(dc,x)
+! -----------------------------------------------------------------------
+! field : compute first derivative in z direction
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 05/2011
+!
+!$ use OMP_LIB
+    use class_derivatives
+    implicit none
+    type(field) :: derz
+    type(field) :: derz1
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    integer(ik) :: i,j,k
+    real(rk) :: in(x%nz),out(x%nz)
+    call field_init(derz1,"DZU",x%nx,x%ny,x%nz)
+    
+    in=0._rk ; out=0._rk
+    if (dertype(dc)) then
+!$OMP PARALLEL 
+!!$OMP DO  PRIVATE(j,in,out) SCHEDULE(RUNTIME)
+!       do j=2,x%ny-1
+!          in(:)=x%f(1,j,:) ; call der_s(dc,in,out) ; derz%f(1,j,:)=out(:)
+!          in(:)=x%f(x%nx,j,:) ; call der_s(dc,in,out) ; derz%f(x%nx,j,:)=out(:)
+!       enddo
+!!$OMP END DO
+!!$OMP DO  PRIVATE(i,in,out) SCHEDULE(RUNTIME)
+!       do i=2,x%nx-1
+!          in(:)=x%f(i,1,:) ; call der_s(dc,in,out) ; derz%f(i,1,:)=out(:)
+!          in(:)=x%f(i,x%ny,:) ; call der_s(dc,in,out) ; derz%f(i,x%ny,:)=out(:)
+!       enddo
+!!$OMP END DO
+!$OMP DO  PRIVATE(j,in,out) SCHEDULE(RUNTIME)
+       do j=1,x%ny
+          do i=1,x%nx
+             in(:)=x%f(i,j,:)
+             call der(dc,in,out)
+             derz1%f(i,j,:)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+    else
+!$OMP PARALLEL PRIVATE(j,in,out)
+!$OMP DO SCHEDULE(RUNTIME)
+       do j=1,x%ny
+          do i=1,x%nx
+             in(:)=x%f(i,j,:)
+             call der(dc,in,out)
+             derz1%f(i,j,:)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+    endif
+
+  end function derz1
+
+  function dderz1(dc,x)
+! -----------------------------------------------------------------------
+! field : compute first derivative in z direction
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 05/2011
+!
+!$ use OMP_LIB
+    use class_derivatives
+    implicit none
+    type(field) :: dderz
+    type(field) :: dderz1
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    integer(ik) :: i,j,k
+    real(rk) :: in(x%nz),out(x%nz)
+    call field_init(dderz1,"DDZU",x%nx,x%ny,x%nz)
+    
+    in=0._rk ; out=0._rk
+    if (dertype(dc)) then
+!$OMP PARALLEL 
+!!$OMP DO  PRIVATE(j,in,out) SCHEDULE(RUNTIME)
+!       do j=2,x%ny-1
+!          in(:)=x%f(1,j,:) ; call dder_s(dc,in,out) ; dderz%f(1,j,:)=out(:)
+!          in(:)=x%f(x%nx,j,:) ; call dder_s(dc,in,out) ; dderz%f(x%nx,j,:)=out(:)
+!       enddo
+!!$OMP END DO
+!!$OMP DO  PRIVATE(i,in,out) SCHEDULE(RUNTIME)
+!       do i=2,x%nx-1
+!          in(:)=x%f(i,1,:) ; call dder_s(dc,in,out) ; dderz%f(i,1,:)=out(:)
+!          in(:)=x%f(i,x%ny,:) ; call dder_s(dc,in,out) ; dderz%f(i,x%ny,:)=out(:)
+!       enddo
+!!$OMP END DO
+!$OMP DO  PRIVATE(j,in,out) SCHEDULE(RUNTIME)
+       do j=1,x%ny
+          do i=1,x%nx
+             in(:)=x%f(i,j,:)
+             call dder(dc,in,out)
+             dderz1%f(i,j,:)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+    else
+!$OMP PARALLEL PRIVATE(j,in,out)
+!$OMP DO SCHEDULE(RUNTIME)
+       do j=1,x%ny
+          do i=1,x%nx
+             in(:)=x%f(i,j,:)
+             call dder(dc,in,out)
+             dderz1%f(i,j,:)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+    endif
+
+  end function dderz1
+
+
 
 ! =======================================================================
 ! =======================================================================
