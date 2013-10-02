@@ -4,7 +4,7 @@ module class_derivatives
 ! class derivatives 
 ! -----------------------------------------------------------------------
 ! Object : 
-! Computation of first and second derivatives with an 8-order compact 
+! Computation of first and second derivatives with an so-order compact 
 ! finite difference scheme of maximum stencil 5-7 on irregular grid
 ! -----------------------------------------------------------------------
 ! Files :
@@ -37,6 +37,8 @@ module class_derivatives
      logical :: solver
      !-> dimension for solver type
      integer(ik) :: n_s
+     !-> order of spatial discretization
+     integer(ik) :: so
      !-> coefficient for solver type
      real(rk),allocatable :: dl_s(:,:),ddl_s(:,:),dr_s(:,:),ddr_s(:,:)
 !     real(rk) :: dl(n,5),ddl(n,5),dr(n,7),ddr(nx,7)
@@ -106,7 +108,7 @@ contains
     
   end function dertype
 
-  subroutine der_coeffs_init(grid,dc,n,solve,out_name)
+  subroutine der_coeffs_init(grid,dc,n,solve,so,out_name)
 ! -----------------------------------------------------------------------
 ! Derivatives : Initialisation of derivatives coefficients
 ! -----------------------------------------------------------------------
@@ -115,13 +117,14 @@ contains
 !
     implicit none
     type(derivatives_coefficients),intent(out) :: dc
-    integer(ik),intent(in) :: n
+    integer(ik),intent(in) :: n,so
     real(rk),intent(in) :: grid(n)
     character(len=*),optional :: out_name
     character(len=500) :: error_msg
     logical :: solve
 
     dc%solver=solve
+    dc%so=so
     !-> initialize and allocate dc
 
     !-> coefficients for n
@@ -149,7 +152,7 @@ contains
     !-> compute coefficients for first derivatives
     if (present(out_name)) open(333,file='d_'//out_name)
     dc%dl=0._rk ; dc%dr=0._rk
-    call der_coeffs(dc%n,dc%dl,dc%dr,grid)
+    call der_coeffs_generic_gobal(dc%n,dc%dl,dc%dr,grid,1,dc%so)
     call der_lu_factor(dc%n,dc%dl)
     if (present(out_name)) close(333)
 
@@ -157,7 +160,7 @@ contains
     if (dc%solver) then
        if (present(out_name)) open(333,file='ds_'//out_name)
        dc%dl_s=0._rk ; dc%dr_s=0._rk
-       call der_coeffs(dc%n_s,dc%dl_s,dc%dr_s,grid(2))
+       call der_coeffs_generic_gobal(dc%n_s,dc%dl_s,dc%dr_s,grid(2),1,dc%so)
        call der_lu_factor(dc%n_s,dc%dl_s)
        if (present(out_name)) close(333)
     endif
@@ -165,7 +168,7 @@ contains
     !-> compute coefficients for second derivatives
     if (present(out_name)) open(333,file='dd_'//out_name)
     dc%ddl=0._rk ; dc%ddr=0._rk
-    call dder_coeffs(dc%n,dc%ddl,dc%ddr,grid)
+    call der_coeffs_generic_gobal(dc%n,dc%ddl,dc%ddr,grid,1,dc%so)
     call der_lu_factor(dc%n,dc%ddl)
     if (present(out_name)) close(333)
 
@@ -173,7 +176,7 @@ contains
     if (dc%solver) then
        if (present(out_name)) open(333,file='dds_'//out_name)
        dc%ddl_s=0._rk ; dc%ddr_s=0._rk
-       call dder_coeffs(dc%n_s,dc%ddl_s,dc%ddr_s,grid(2))
+       call der_coeffs_generic_gobal(dc%n_s,dc%ddl_s,dc%ddr_s,grid(2),1,dc%so)
        call der_lu_factor(dc%n_s,dc%ddl_s)
        if (present(out_name)) close(333)
     endif
@@ -324,7 +327,7 @@ contains
 
   end subroutine der_lu_solve
  
-  subroutine der_coeffs(n,dl,dr,grid)
+  subroutine der_coeffs_generic_gobal(n,dl,dr,grid,der,so)
 ! -----------------------------------------------------------------------
 ! Derivatives : computation of coefficients for first derivatives
 ! -----------------------------------------------------------------------
@@ -332,171 +335,46 @@ contains
 ! 06/2011
 !
     implicit none
-    integer(ik),intent(in) :: n
-    integer(ik) :: i
+    integer(ik),intent(in) :: n,der,so
+!  der : order of derivation
+    integer(ik) :: i,j,l
     real(rk),intent(out) :: dl(n,5),dr(n,7)
     real(rk),intent(in) :: grid(n)
+    real(rk) :: h(7),coef_exp(7),coef_imp(5)
+    dl=0._rk
+    dr=0._rk
 
-    ! alpha,beta,gam,del : central coefficients lhs
-    ! a,b,c,d,e : central coefficients rhs
-    real(rk) :: alp,bet,gam,del
-    real(rk) :: a,b,c,d,e
-    ! alp1,bet1,gam1,del1 : 1st points coefficients lhs
-    ! alp2,bet2,gam2,del2 : 2st points coefficients lhs
-    real(rk) :: alp1,bet1,gam1,del1
-    real(rk) :: alp2,bet2,gam2,del2
-    ! b1,c1,d1,e1,f1,g1 : 1st points coefficients rhs
-    ! b2,c2,d2,e2,f1,g1 : 2st points coefficients lhs
-    real(rk) :: a1,b1,c1,d1,e1,f1,g1
-    real(rk) :: a2,b2,c2,d2,e2,f2,g2
-    ! h1,h2,h3,h4,h5,h6 : grid intervals
-    real(rk) :: h1,h2,h3,h4,h5,h6
+    h=grid(1)-grid(1:7) ! point on the edge
+    call der_coeffs_generic(coef_imp,coef_exp,h,1,der,so)
+    dl(1,:)=CSHIFT( coef_imp, shift=-2 )
+    dr(1,:)=-coef_exp(:)
 
-    h1=grid(2)-grid(1)
-    h2=grid(3)-grid(2)
-    h3=grid(4)-grid(3)
-    h4=grid(5)-grid(4)
-    h5=grid(6)-grid(5)
-    h6=grid(7)-grid(6)
-    call der_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alp1,bet1,gam1,del1,h1,h2,h3,h4,h5,h6)
-    dl(1,1)=del1 ; dl(1,2)=0._rk ; dl(1,3)=alp1 ; dl(1,4)=bet1 ; dl(1,5)=gam1
-    dr(1,1)=a1 ; dr(1,2)=b1 ; dr(1,3)=c1 ; dr(1,4)=d1 ; dr(1,5)=e1 
-    dr(1,6)=f1 ; dr(1,7)=g1 ; 
+    h=grid(2)-grid(1:7) ! first point after the edge
+    call der_coeffs_generic(coef_imp,coef_exp,h,2,der,so)
+    dl(2,:)=CSHIFT( coef_imp, shift=-1 )
+    dr(2,:)=-coef_exp(:)
 
-    h1=grid(2)-grid(1)
-    h2=grid(3)-grid(2)
-    h3=grid(4)-grid(3)
-    h4=grid(5)-grid(4)
-    h5=grid(6)-grid(5)
-    h6=grid(7)-grid(6)
-    call der_coeffs_i2(a2,b2,c2,d2,e2,f2,g2,alp2,bet2,gam2,del2,h1,h2,h3,h4,h5,h6)
-    dl(2,1)=0._rk ; dl(2,2)=alp2 ; dl(2,3)=bet2 ; dl(2,4)=gam2 ; dl(2,5)=del2
-    dr(2,1)=a2 ; dr(2,2)=b2 ; dr(2,3)=c2 ; dr(2,4)=d2 ; dr(2,5)=e2 
-    dr(2,6)=f2 ; dr(2,7)=g2 ; 
-
+    h=0._rk
     do i=3,n-2
-       h1=grid(i-1)-grid(i-2)
-       h2=grid(i)-grid(i-1)
-       h3=grid(i+1)-grid(i)
-       h4=grid(i+2)-grid(i+1)
-       call der_coeffs_c(a,b,c,d,e,alp,bet,gam,del,h1,h2,h3,h4)
-       dl(i,1)=alp ; dl(i,2)=bet ; dl(i,3)=1._rk ; dl(i,4)=gam ; dl(i,5)=del
-       dr(i,1)=a ; dr(i,2)=b ; dr(i,3)=c ; dr(i,4)=d ; dr(i,5)=e
+      h(1:5)=grid(i)-grid(i-2:i+2) ! every other points
+      call der_coeffs_generic(coef_imp,coef_exp,h,3,der,so)
+      dl(i,:)=coef_imp
+      dr(i,:)=-coef_exp
     enddo
 
-    h1=grid(n)-grid(n-1)
-    h2=grid(n-1)-grid(n-2)
-    h3=grid(n-2)-grid(n-3)
-    h4=grid(n-3)-grid(n-4)
-    h5=grid(n-4)-grid(n-5)
-    h6=grid(n-5)-grid(n-6)
-    call der_coeffs_i2(a2,b2,c2,d2,e2,f2,g2,alp2,bet2,gam2,del2,h1,h2,h3,h4,h5,h6)
-    dl(n-1,1)=del2 ; dl(n-1,2)=gam2 ; dl(n-1,3)=bet2 ; dl(n-1,4)=alp2 ; dl(n-1,5)=0._rk
-    dr(n-1,1)=-g2 ; dr(n-1,2)=-f2
-    dr(n-1,3)=-e2 ; dr(n-1,4)=-d2 ; dr(n-1,5)=-c2 ; dr(n-1,6)=-b2 ; dr(n-1,7)=-a2
- 
-    h1=grid(n)-grid(n-1)
-    h2=grid(n-1)-grid(n-2)
-    h3=grid(n-2)-grid(n-3)
-    h4=grid(n-3)-grid(n-4)
-    h5=grid(n-4)-grid(n-5)
-    h6=grid(n-5)-grid(n-6)
-    call der_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alp1,bet1,gam1,del1,h1,h2,h3,h4,h5,h6)
-    dl(n,1)=gam1 ; dl(n,2)=bet1 ; dl(n,3)=alp1 ; dl(n,4)=0._rk ; dl(n,5)=del1
-    dr(n,1)=-g1 ; dr(n,2)=-f1
-    dr(n,3)=-e1 ; dr(n,4)=-d1 ; dr(n,5)=-c1 ; dr(n,6)=-b1 ; dr(n,7)=-a1
+    h=grid(n-1)-grid(n:n-6:-1) ! last point before the edge
+    call der_coeffs_generic(coef_imp,coef_exp,h,2,der,so)
+    dl(n-1,:)=CSHIFT( coef_imp(5:1:-1), shift=1 )
+    dr(n-1,:)=-coef_exp(7:1:-1)
 
-  end subroutine der_coeffs
+    h=grid(n)-grid(n:n-6:-1) ! point on the edge
+    call der_coeffs_generic(coef_imp,coef_exp,h,1,der,so)
+    dl(n,:)=CSHIFT( coef_imp(5:1:-1), shift=2 )
+    dr(n,:)=-coef_exp(7:1:-1)
 
-  subroutine dder_coeffs(n,ddl,ddr,grid)
-! -----------------------------------------------------------------------
-! Derivatives : computation of coefficients for second derivatives
-! -----------------------------------------------------------------------
-! Matthieu Marquillie
-! 07/2011
-!
-    implicit none
-    integer(ik),intent(in) :: n
-    integer(ik) :: i
-    real(rk),intent(out) :: ddl(n,5),ddr(n,7)
-    real(rk),intent(in) :: grid(n)
+    if (der==2)  dr=-dr
 
-    ! alpha,beta : central coefficients lhs
-    ! a,b : central coefficients rhs
-    real(rk) :: alp,bet,gam,del
-    real(rk) :: a,b,c,d,e
-    ! alp1,bet1,gam1,del1 : 1st points coefficients lhs
-    ! alp2,bet2,gam2,del2 : 2st points coefficients lhs
-    real(rk) :: alp1,bet1,gam1,del1
-    real(rk) :: alp2,bet2,gam2,del2
-    ! b1,c1,d1,e1,f1,g1 : 1st points coefficients rhs
-    ! b2,c2,d2,e2,f2,g2 : 2st points coefficients lhs
-    real(rk) :: a1,b1,c1,d1,e1,f1,g1
-    real(rk) :: a2,b2,c2,d2,e2,f2,g2
-    ! h1,h2,h3,h4,h5,h6 : grid intervals
-    real(rk) :: h1,h2,h3,h4,h5,h6
-
-    f1=0._rk ; g1=0._rk ; f2=0._rk ; g2=0._rk
-
-    h1=grid(2)-grid(1)
-    h2=grid(3)-grid(2)
-    h3=grid(4)-grid(3)
-    h4=grid(5)-grid(4)
-    h5=grid(6)-grid(5)
-    h6=grid(7)-grid(6)
-    call dder_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alp1,bet1,gam1,del1,h1,h2,h3,h4,h5,h6)
-    alp1=1._rk
-    ddl(1,1)=del1 ; ddl(1,2)=0._rk ; ddl(1,3)=alp1 ; ddl(1,4)=bet1 ; ddl(1,5)=gam1
-    ddr(1,1)=a1 ; ddr(1,2)=b1 ; ddr(1,3)=c1 ; ddr(1,4)=d1 ; ddr(1,5)=e1
-    ddr(1,6)=f1 ; ddr(1,7)=g1
-
-    h1=grid(2)-grid(1)
-    h2=grid(3)-grid(2)
-    h3=grid(4)-grid(3)
-    h4=grid(5)-grid(4)
-    h5=grid(6)-grid(5)
-    h6=grid(7)-grid(6)
-    call dder_coeffs_i2(a2,b2,c2,d2,e2,f2,g2,alp2,bet2,gam2,del2,h1,h2,h3,h4,h5,h6)
-    bet2=1._rk
-    ddl(2,1)=0._rk ; ddl(2,2)=alp2 ; ddl(2,3)=bet2 ; ddl(2,4)=gam2 ; ddl(2,5)=del2
-    ddr(2,1)=a2 ; ddr(2,2)=b2 ; ddr(2,3)=c2 ; ddr(2,4)=d2 ; ddr(2,5)=e2
-    ddr(2,6)=f2 ; ddr(2,7)=g2
-
-    do i=3,n-2
-       h1=grid(i-1)-grid(i-2)
-       h2=grid(i)-grid(i-1)
-       h3=grid(i+1)-grid(i)
-       h4=grid(i+2)-grid(i+1)
-       call dder_coeffs_c(a,b,c,d,e,alp,bet,gam,del,h1,h2,h3,h4)
-       ddl(i,1)=alp ; ddl(i,2)=bet ; ddl(i,3)=1._rk ; ddl(i,4)=gam ; ddl(i,5)=del
-       ddr(i,1)=a ; ddr(i,2)=b ; ddr(i,3)=c ; ddr(i,4)=d ; ddr(i,5)=e
-    enddo
-
-    h1=grid(n)-grid(n-1)
-    h2=grid(n-1)-grid(n-2)
-    h3=grid(n-2)-grid(n-3)
-    h4=grid(n-3)-grid(n-4)
-    h5=grid(n-4)-grid(n-5)
-    h6=grid(n-5)-grid(n-6)
-    call dder_coeffs_i2(a2,b2,c2,d2,e2,f2,g2,alp2,bet2,gam2,del2,h1,h2,h3,h4,h5,h6)
-    bet2=1._rk
-    ddl(n-1,1)=del2 ; ddl(n-1,2)=gam2 ; ddl(n-1,3)=bet2 ; ddl(n-1,4)=alp2 ; ddl(n-1,5)=0._rk
-    ddr(n-1,1)=g2 ; ddr(n-1,2)=f2
-    ddr(n-1,3)=e2 ; ddr(n-1,4)=d2 ; ddr(n-1,5)=c2 ; ddr(n-1,6)=b2 ; ddr(n-1,7)=a2
-
-    h1=grid(n)-grid(n-1)
-    h2=grid(n-1)-grid(n-2)
-    h3=grid(n-2)-grid(n-3)
-    h4=grid(n-3)-grid(n-4)
-    h5=grid(n-4)-grid(n-5)
-    h6=grid(n-5)-grid(n-6)
-    call dder_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alp1,bet1,gam1,del1,h1,h2,h3,h4,h5,h6)
-    alp1=1._rk
-    ddl(n,1)=gam1 ; ddl(n,2)=bet1 ; ddl(n,3)=alp1 ; ddl(n,4)=0._rk ; ddl(n,5)=del1
-    ddr(n,1)=g1 ; ddr(n,2)=f1
-    ddr(n,3)=e1 ; ddr(n,4)=d1 ; ddr(n,5)=c1 ; ddr(n,6)=b1 ; ddr(n,7)=a1
-
-  end subroutine dder_coeffs
+  end subroutine der_coeffs_generic_gobal
 
   subroutine pentalu(n,p,f,c,d,e,alpha,beta)
 ! -----------------------------------------------------------------------

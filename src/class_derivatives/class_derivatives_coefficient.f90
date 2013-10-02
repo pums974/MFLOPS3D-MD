@@ -4,7 +4,7 @@ module class_derivatives_coefficient
 ! class derivatives 
 ! -----------------------------------------------------------------------
 ! Object : 
-! Computation of first and second derivatives with an 8-order compact 
+! Computation of first and second derivatives with an so-order compact 
 ! finite difference scheme of maximum stencil 5-7 on irregular grid
 ! -----------------------------------------------------------------------
 ! Files :
@@ -25,10 +25,11 @@ module class_derivatives_coefficient
   use precision
   implicit none
 !  private
-  real(rk),private,save :: h(7)
+  real(rk),private,save :: h(10),h0(10)
   
 contains
-subroutine der_coeffs_c(a1,b1,c1,d1,e1,alpha,beta,gamma,delta,h1,h2,h3,h4)
+
+subroutine der_coeffs_generic(coef_imp,coef_exp,h0,cl,der,so)
 ! -----------------------------------------------------------------------
 ! Derivatives : Coefficients for first derivatives : non-uniform grid,centered 
 ! -----------------------------------------------------------------------
@@ -36,470 +37,157 @@ subroutine der_coeffs_c(a1,b1,c1,d1,e1,alpha,beta,gamma,delta,h1,h2,h3,h4)
 ! 04/2011
 !
   implicit none
-  real(rk),intent(out) :: a1,b1,c1,d1,e1,alpha,beta,gamma,delta
-  real(rk),intent(in) :: h1,h2,h3,h4
+  real(rk),intent(out) :: coef_imp(5),coef_exp(7)
+  real(rk),intent(in) :: h0(7)
+  ! cl : position of the point
+  ! der : order of derivative
+  integer(ik),intent(in) :: cl,der,so
   !
   ! n : size of linear system
-  ! info : output of solver (zero is ok) 
-  integer,parameter :: n=9
-  character(len=1) :: fact,trans,equed
-  integer(ik) :: nrhs,lda,ldb,ldaf,ldx
-  real(rk) :: a(n,n),af(n,n),ipiv(n),b(n,1),r(n),c(n),x(n),work(4*n)
-  real(rk) :: rcond,ferr,berr,dum
-  integer(ik) :: iwork(n),info
-
-  !-> space interval
-  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4
-
-  !-> define matrix
-  a(1,1)=0._rk;a(1,2)=0._rk;a(1,3)=0._rk;a(1,4)=0._rk;a(1,5)=1._rk;a(1,6)=1._rk;a(1,7)=1._rk;a(1,8)=1._rk;a(1,9)=1._rk
-  
-  a(2,1)=-1._rk;a(2,2)=-1._rk;a(2,3)=-1._rk;a(2,4)=-1._rk;a(2,5)=-h2-h1;a(2,6)=-h2;a(2,7)=0._rk
-  a(2,8)=h3;a(2,9)=h4+h3
-  
-  a(3,1)=h2+h1;a(3,2)=h2;a(3,3)=-h3;a(3,4)=-h4-h3;a(3,5)=(h2+h1)**2/2.0_rk;a(3,6)=h2**2/2.0_rk
-  a(3,7)=0._rk;a(3,8)=h3**2/2.0_rk;a(3,9)=(-h4-h3)**2/2.0_rk
-  
-  a(4,1)=-(h2+h1)**2/2.0_rk;a(4,2)=-h2**2/2.0_rk;a(4,3)=-h3**2/2.0_rk;a(4,4)=-(-h4-h3)**2/2.0_rk
-  a(4,5)=-(h2+h1)**3/6.0_rk;a(4,6)=-h2**3/6.0_rk;a(4,7)=0._rk;a(4,8)=h3**3/6.0_rk
-  a(4,9)=-(-h4-h3)**3/6.0_rk
-  
-  a(5,1)=(h2+h1)**3/6.0_rk;a(5,2)=h2**3/6.0_rk;a(5,3)=-h3**3/6.0_rk;a(5,4)=(-h4-h3)**3/6.0_rk
-  a(5,5)=(h2+h1)**4/24.0_rk;a(5,6)=h2**4/24.0_rk;a(5,7)=0._rk;a(5,8)=h3**4/24.0_rk;a(5,9)=(-h4-h3)**4/24.0_rk
-  
-  a(6,1)=-(h2+h1)**4/24.0_rk;a(6,2)=-h2**4/24.0_rk;a(6,3)=-h3**4/24.0_rk;a(6,4)=-(-h4-h3)**4/24.0_rk
-  a(6,5)=-(h2+h1)**5/120.0_rk;a(6,6)=-h2**5/120.0_rk;a(6,7)=0._rk;a(6,8)=h3**5/120.0_rk
-  a(6,9)=-(-h4-h3)**5/120.0_rk
-
-  a(7,1)=(h2+h1)**5/120.0_rk;a(7,2)=h2**5/120.0_rk;a(7,3)=-h3**5/120.0_rk;a(7,4)=(-h4-h3)**5/120.0_rk
-  a(7,5)=(h2+h1)**6/720.0_rk;a(7,6)=h2**6/720.0_rk;a(7,7)=0._rk;a(7,8)=h3**6/720.0_rk
-  a(7,9)=(-h4-h3)**6/720.0_rk
-
-  a(8,1)=-(h2+h1)**6/720.0_rk;a(8,2)=-h2**6/720.0_rk;a(8,3)=-h3**6/720.0_rk;a(8,4)=-(-h4-h3)**6/720.0_rk
-  a(8,5)=-(h2+h1)**7/5040.0_rk;a(8,6)=-h2**7/5040.0_rk;a(8,7)=0._rk;a(8,8)=h3**7/5040.0_rk
-  a(8,9)=-(-h4-h3)**7/5040.0_rk
-
-  a(9,1)=(h2+h1)**7/5040.0_rk;a(9,2)=h2**7/5040.0_rk;a(9,3)=-h3**7/5040.0_rk
-  a(9,4)=(-h4-h3)**7/5040.0_rk;a(9,5)=(h2+h1)**8/40320.0_rk;a(9,6)=h2**8/40320.0_rk
-  a(9,7)=0._rk;a(9,8)=h3**8/40320.0_rk;a(9,9)=(-h4-h3)**8/40320.0_rk
-
-  !-> define rhs
-  b(1,1)=0._rk ; b(2,1)=1._rk ; b(3,1)=0._rk ; b(4,1)=0._rk ; b(5,1)=0._rk ; b(6,1)=0._rk ; b(7,1)=0._rk
-  b(8,1)=0._rk ; b(9,1)=0._rk
-
-  fact='E' ; trans='N' ; nrhs=1 ; lda=n ; ldb=n ; ldaf=n ; equed='N' ; ldx=n
-  call dgesvx( fact, trans, n, nrhs, a, lda, af, ldaf, ipiv,equed, r, c, b, ldb, x, &
-       ldx, rcond, ferr, berr, work, iwork, info )
-
-  !-> output coefficient
-  alpha=x(1) ; beta=x(2) ; gamma=x(3) ; delta=x(4) 
-  a1=x(5) ; b1=x(6) ; c1=x(7) ; d1=x(8) ; e1=x(9) 
-
-  dum=0._rk
-!  write(333,'(11es17.8,i4,4es17.8)')alpha,beta,1._rk,gamma,delta,a1,b1,c1,d1,e1,dum,&
-!       info,rcond,ferr,berr,work(1)
-
-end subroutine der_coeffs_c
-
-subroutine der_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta,h1,h2,h3,h4,h5,h6)
-! -----------------------------------------------------------------------
-! Derivatives : Coefficients for first derivatives : non-uniform grid, first point
-! -----------------------------------------------------------------------
-! Matthieu Marquillie
-! 04/2011
-!
-  implicit none
-  real(rk),intent(out) :: a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta
-  real(rk),intent(in) :: h1,h2,h3,h4,h5,h6
-  !
-  ! n : size of linear system
-  ! info : output of solver (zero is ok) 
-  integer,parameter :: n=9
-  character(len=1) :: fact,trans,equed
-  integer(ik) :: nrhs,lda,ldb,ldaf,ldx
-  real(rk) :: a(n,n),af(n,n),ipiv(n),b(n,1),r(n),c(n),x(n),work(4*n)
-  real(rk) :: rcond,ferr,berr
-  integer(ik) :: iwork(n),info
-
-  !-> space interval
-  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4 ; h(5)=h5 ; h(6)=h6
-
-  !-> define matrix
-  A(1,1)=0._rk;A(1,2)=0._rk;A(1,3)=0._rk;A(1,4)=1._rk;A(1,5)=1._rk;A(1,6)=1._rk;A(1,7)=1._rk;A(1,8)=1._rk;A(1,9)=1._rk !;A(1,10)=1._rk
-  
-  A(2,1)=-1._rk;A(2,2)=-1._rk;A(2,3)=-1._rk;A(2,4)=0._rk;A(2,5)=h1;A(2,6)=h2+h1;A(2,7)=h3+h2+h1
-  A(2,8)=h4+h3+h2+h1;A(2,9)=h5+h4+h3+h2+h1 !;A(2,10)=h6+h5+h4+h3+h2+h1
-
-  A(3,1)=-h1;A(3,2)=-h2-h1;A(3,3)=-h3-h2-h1;A(3,4)=0._rk;A(3,5)=h1**2/2.0_rk
-  A(3,6)=(-h2-h1)**2/2.0_rk;A(3,7)=(-h3-h2-h1)**2/2.0_rk;A(3,8)=(-h4-h3-h2-h1)**2/2.0_rk
-  A(3,9)=(-h5-h4-h3-h2-h1)**2/2.0_rk !;A(3,10)=(-h6-h5-h4-h3-h2-h1)**2/2.0_rk
-
-  A(4,1)=-h1**2/2.0_rk;A(4,2)=-(-h2-h1)**2/2.0_rk;A(4,3)=-(-h3-h2-h1)**2/2.0_rk;A(4,4)=0._rk
-  A(4,5)=h1**3/6.0_rk;A(4,6)=-(-h2-h1)**3/6.0_rk;A(4,7)=-(-h3-h2-h1)**3/6.0_rk
-  A(4,8)=-(-h4-h3-h2-h1)**3/6.0_rk;A(4,9)=-(-h5-h4-h3-h2-h1)**3/6.0_rk
-!  A(4,10)=-(-h6-h5-h4-h3-h2-h1)**3/6.0_rk
-
-  A(5,1)=-h1**3/6.0_rk;A(5,2)=(-h2-h1)**3/6.0_rk;A(5,3)=(-h3-h2-h1)**3/6.0_rk
-  A(5,4)=0._rk;A(5,5)=h1**4/24.0_rk;A(5,6)=(-h2-h1)**4/24.0_rk;A(5,7)=(-h3-h2-h1)**4/24.0_rk
-  A(5,8)=(-h4-h3-h2-h1)**4/24.0_rk;A(5,9)=(-h5-h4-h3-h2-h1)**4/24.0_rk
-!  A(5,10)=(-h6-h5-h4-h3-h2-h1)**4/24.0_rk
-
-  A(6,1)=-h1**4/24.0_rk;A(6,2)=-(-h2-h1)**4/24.0_rk;A(6,3)=-(-h3-h2-h1)**4/24.0_rk
-  A(6,4)=0._rk;A(6,5)=h1**5/120.0_rk;A(6,6)=-(-h2-h1)**5/120.0_rk;A(6,7)=-(-h3-h2-h1)**5/120.0_rk
-  A(6,8)=-(-h4-h3-h2-h1)**5/120.0_rk;A(6,9)=-(-h5-h4-h3-h2-h1)**5/120.0_rk
-!  A(6,10)=-(-h6-h5-h4-h3-h2-h1)**5/120.0_rk
-
-  A(7,1)=-h1**5/120.0_rk;A(7,2)=(-h2-h1)**5/120.0_rk;A(7,3)=(-h3-h2-h1)**5/120.0_rk
-  A(7,4)=0._rk;A(7,5)=h1**6/720.0_rk;A(7,6)=(-h2-h1)**6/720.0_rk;A(7,7)=(-h3-h2-h1)**6/720.0_rk
-  A(7,8)=(-h4-h3-h2-h1)**6/720.0_rk;A(7,9)=(-h5-h4-h3-h2-h1)**6/720.0_rk
-!  A(7,10)=(-h6-h5-h4-h3-h2-h1)**6/720.0_rk
-
-  A(8,1)=-h1**6/720.0_rk;A(8,2)=-(-h2-h1)**6/720.0_rk;A(8,3)=-(-h3-h2-h1)**6/720.0_rk
-  A(8,4)=0._rk;A(8,5)=h1**7/5040.0_rk;A(8,6)=-(-h2-h1)**7/5040.0_rk;A(8,7)=-(-h3-h2-h1)**7/5040.0_rk
-  A(8,8)=-(-h4-h3-h2-h1)**7/5040.0_rk;A(8,9)=-(-h5-h4-h3-h2-h1)**7/5040.0_rk
-!  A(8,10)=-(-h6-h5-h4-h3-h2-h1)**7/5040.0_rk
-  
-  A(9,1)=-h1**7/5040.0_rk;A(9,2)=(-h2-h1)**7/5040.0_rk;A(9,3)=(-h3-h2-h1)**7/5040.0_rk
-  A(9,4)=0._rk;A(9,5)=h1**8/40320.0_rk;A(9,6)=(-h2-h1)**8/40320.0_rk;A(9,7)=(-h3-h2-h1)**8/40320.0_rk
-  A(9,8)=(-h4-h3-h2-h1)**8/40320.0_rk;A(9,9)=(-h5-h4-h3-h2-h1)**8/40320.0_rk
-!  A(9,10)=(-h6-h5-h4-h3-h2-h1)**8/40320.0_rk
-
-!  A(10,1)=-h1**8/40320.0_rk;A(10,2)=-(-h2-h1)**8/40320.0_rk;A(10,3)=-(-h3-h2-h1)**8/40320.0_rk
-!  A(10,4)=0._rk;A(10,5)=h1**9/362880.0_rk;A(10,6)=-(-h2-h1)**9/362880.0_rk
-!  A(10,7)=-(-h3-h2-h1)**9/362880.0_rk;A(10,8)=-(-h4-h3-h2-h1)**9/362880.0_rk
-!  A(10,9)=-(-h5-h4-h3-h2-h1)**9/362880.0_rk;A(10,10)=-(-h6-h5-h4-h3-h2-h1)**9/362880.0_rk
-
-  !-> define rhs
-  B(1,1)=0._rk ; B(2,1)=1._rk ; B(3,1)=0._rk ; B(4,1)=0._rk ; B(5,1)=0._rk ; B(6,1)=0._rk ; 
-  B(7,1)=0._rk ; B(8,1)=0._rk ; B(9,1)=0._rk  !; B(10,1)=0._rk
-
-  fact='E' ; trans='N' ; nrhs=1 ; lda=n ; ldb=n ; ldaf=n ; equed='N' ; ldx=n
-  call dgesvx( fact, trans, n, nrhs, a, lda, af, ldaf, ipiv,equed, r, c, b, ldb, x, &
-       ldx, rcond, ferr, berr, work, iwork, info )
-  
-  !-> output coefficient
-  alpha=1._rk ; beta=x(1) ; gamma=x(2) ; delta=x(3) 
-  a1=x(4) ; b1=x(5) ; c1=x(6) ; d1=x(7) ; e1=x(8) ; f1=x(9)  ; g1=0._rk !x(10) 
-
-!  write(333,'(a,11es17.8,i4,4es17.8)')'di1',alpha,beta,gamma,delta,a1,b1,c1,d1,e1,f1,g1,&
-!       info,rcond,ferr,berr,work(1)
-
-end subroutine der_coeffs_i1
-
-subroutine der_coeffs_i2(a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta,h1,h2,h3,h4,h5,h6)
-! -----------------------------------------------------------------------
-! Derivatives : Coefficients for first derivatives : non-uniform grid, second point
-! -----------------------------------------------------------------------
-! Matthieu Marquillie
-! 04/2011
-!
-  implicit none
-  real(rk),intent(out) :: a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta
-  real(rk),intent(in) :: h1,h2,h3,h4,h5,h6
-  !
-  ! n : size of linear system
+  ! so : order of discretization
   ! info : output of solver (zero is ok) 
   integer,parameter :: n=10
-  character(len=1) :: fact,trans,equed
-  integer(ik) :: nrhs,lda,ldb,ldaf,ldx
-  real(rk) :: a(n,n),af(n,n),ipiv(n),b(n,1),r(n),c(n),x(n),work(4*n)
-  real(rk) :: rcond,ferr,berr
-  integer(ik) :: iwork(n),info
+  integer(ik) :: info,n1,n2,nt,i,j,l,k
+  real(rk),allocatable :: a(:,:), r(:)
+  integer(ik),allocatable :: iwork(:)
 
-  !-> space interval
-  h=0._rk
-  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4 ; h(5)=h5 ; h(6)=h6
+h=0._rk
 
-  !-> define matrix
-  A(1,1)=0._rk;A(1,2)=0._rk;A(1,3)=0._rk;A(1,4)=1._rk;A(1,5)=1._rk;A(1,6)=1._rk;A(1,7)=1._rk;A(1,8)=1._rk;A(1,9)=1._rk;A(1,10)=1._rk
-  
-  A(2,1)=-1._rk;A(2,2)=-1._rk;A(2,3)=-1._rk;A(2,4)=-h1;A(2,5)=0._rk;A(2,6)=h2;A(2,7)=h3+h2;A(2,8)=h4+h3+h2
-  A(2,9)=h5+h4+h3+h2;A(2,10)=h6+h5+h4+h3+h2
+  !->  ----- Stencil and space step -------
+  !->  ----- n1+n2-n3 MUST be ge 3 (dder) -------
 
-  A(3,1)=h1;A(3,2)=-h2;A(3,3)=-h3-h2;A(3,4)=h1**2/2.0_rk;A(3,5)=0._rk;A(3,6)=h2**2/2.0_rk
-  A(3,7)=(-h3-h2)**2/2.0_rk;A(3,8)=(-h4-h3-h2)**2/2.0_rk;A(3,9)=(-h5-h4-h3-h2)**2/2.0_rk
-  A(3,10)=(-h6-h5-h4-h3-h2)**2/2.0_rk
+if (cl==1) then ! point on the edge
 
-  A(4,1)=-h1**2/2.0_rk;A(4,2)=-h2**2/2.0_rk;A(4,3)=-(-h3-h2)**2/2.0_rk;A(4,4)=-h1**3/6.0_rk
-  A(4,5)=0._rk;A(4,6)=h2**3/6.0_rk;A(4,7)=-(-h3-h2)**3/6.0_rk;A(4,8)=-(-h4-h3-h2)**3/6.0_rk
-  A(4,9)=-(-h5-h4-h3-h2)**3/6.0_rk;A(4,10)=-(-h6-h5-h4-h3-h2)**3/6.0_rk
+  if(so==8) then
+    n1=3 ! implicite
+    n2=6 ! explicite
+!    n1=1 ! implicite
+!    n2=6 ! explicite
+ elseif(so==6) then
+    n1=1 ! implicite
+    n2=6 ! explicite
+ elseif(so==4) then
+    n1=1 ! implicite
+    n2=4 ! explicite
+  elseif(so==2) then
+    n1=0 ! implicite
+    n2=3 ! explicite
+  endif
+  nt=n1+n2
 
-  A(5,1)=h1**3/6.0_rk;A(5,2)=-h2**3/6.0_rk;A(5,3)=(-h3-h2)**3/6.0_rk;A(5,4)=h1**4/24.0_rk
-  A(5,5)=0._rk;A(5,6)=h2**4/24.0_rk;A(5,7)=(-h3-h2)**4/24.0_rk;A(5,8)=(-h4-h3-h2)**4/24.0_rk
-  A(5,9)=(-h5-h4-h3-h2)**4/24.0_rk;A(5,10)=(-h6-h5-h4-h3-h2)**4/24.0_rk
+  h(1:n1)=h0(2:n1+1)
+  h(n1+1:nt)=h0(1:n2)
 
-  A(6,1)=-h1**4/24.0_rk;A(6,2)=-h2**4/24.0_rk;A(6,3)=-(-h3-h2)**4/24.0_rk;A(6,4)=-h1**5/120.0_rk
-  A(6,5)=0._rk;A(6,6)=h2**5/120.0_rk;A(6,7)=-(-h3-h2)**5/120.0_rk;A(6,8)=-(-h4-h3-h2)**5/120.0_rk
-  A(6,9)=-(-h5-h4-h3-h2)**5/120.0_rk;A(6,10)=-(-h6-h5-h4-h3-h2)**5/120.0_rk
+elseif (cl==2) then ! first point after the edge
 
-  A(7,1)=h1**5/120.0_rk;A(7,2)=-h2**5/120.0_rk;A(7,3)=(-h3-h2)**5/120.0_rk;A(7,4)=h1**6/720.0_rk
-  A(7,5)=0._rk;A(7,6)=h2**6/720.0_rk;A(7,7)=(-h3-h2)**6/720.0_rk;A(7,8)=(-h4-h3-h2)**6/720.0_rk
-  A(7,9)=(-h5-h4-h3-h2)**6/720.0_rk;A(7,10)=(-h6-h5-h4-h3-h2)**6/720.0_rk
+  if(so==8) then
+!     n1=3 ! implicite
+!     n2=7 ! explicite
+     n1=1 ! implicite
+     n2=5 ! explicite
+  elseif(so==6) then
+     n1=2 ! implicite
+     n2=6 ! explicite
+!     n1=1 ! implicite
+!     n2=5 ! explicite
+  elseif(so==4) then
+     n1=1 ! implicite
+     n2=5 ! explicite
+  elseif(so==2) then
+    n1=0 ! implicite
+    n2=3 ! explicite
+  endif
+  nt=n1+n2
 
-  A(8,1)=-h1**6/720.0_rk;A(8,2)=-h2**6/720.0_rk;A(8,3)=-(-h3-h2)**6/720.0_rk;A(8,4)=-h1**7/5040.0_rk
-  A(8,5)=0._rk;A(8,6)=h2**7/5040.0_rk;A(8,7)=-(-h3-h2)**7/5040.0_rk;A(8,8)=-(-h4-h3-h2)**7/5040.0_rk
-  A(8,9)=-(-h5-h4-h3-h2)**7/5040.0_rk;A(8,10)=-(-h6-h5-h4-h3-h2)**7/5040.0_rk
-  
-  A(9,1)=h1**7/5040.0_rk;A(9,2)=-h2**7/5040.0_rk;A(9,3)=(-h3-h2)**7/5040.0_rk
-  A(9,4)=h1**8/40320.0_rk;A(9,5)=0._rk;A(9,6)=h2**8/40320.0_rk;A(9,7)=(-h3-h2)**8/40320.0_rk
-  A(9,8)=(-h4-h3-h2)**8/40320.0_rk;A(9,9)=(-h5-h4-h3-h2)**8/40320.0_rk
-  A(9,10)=(-h6-h5-h4-h3-h2)**8/40320.0_rk
+  h(1)=h0(1) ; h(2:n1)=h0(3:n1+1)
+  h(n1+1:nt)=h0(1:n2)
 
-  A(10,1)=-h1**8/40320.0_rk;A(10,2)=-h2**8/40320.0_rk;A(10,3)=-(-h3-h2)**8/40320.0_rk
-  A(10,4)=-h1**9/362880.0_rk;A(10,5)=0._rk;A(10,6)=h2**9/362880.0_rk;A(10,7)=-(-h3-h2)**9/362880.0_rk
-  A(10,8)=-(-h4-h3-h2)**9/362880.0_rk;A(10,9)=-(-h5-h4-h3-h2)**9/362880.0_rk
-  A(10,10)=-(-h6-h5-h4-h3-h2)**9/362880.0_rk
+elseif (cl==3) then ! every other points
+  !Stencil
+  if(so==8) then
+    n1=4 ! implicite
+    n2=5 ! explicite
+  elseif(so==6) then
+    n1=2 ! implicite
+    n2=5 ! explicite
+  elseif(so==4) then
+    n1=2 ! implicite
+    n2=3 ! explicite
+  elseif(so==2) then
+    n1=0 ! implicite
+    n2=3 ! explicite
+  endif
+  nt=n1+n2
 
-  !-> define rhs
-  B(1,1)=0._rk ; B(2,1)=1._rk ; B(3,1)=0._rk ; B(4,1)=0._rk ; B(5,1)=0._rk ; B(6,1)=0._rk ; 
-  B(7,1)=0._rk ; B(8,1)=0._rk ; B(9,1)=0._rk  ; B(10,1)=0._rk
+  i=(4-n1)/2 ! shift
+  h(1:2)=h0(1+i:2+i) ; h(3-i:n1)=h0(4:n1+1+i)
+  i=(5-n2)/2 ! shift
+  h(n1+1:nt)=h0(1+i:n2+i)
 
-  fact='E' ; trans='N' ; nrhs=1 ; lda=n ; ldb=n ; ldaf=n ; equed='N' ; ldx=n
-  call dgesvx( fact, trans, n, nrhs, a, lda, af, ldaf, ipiv,equed, r, c, b, ldb, x, &
-       ldx, rcond, ferr, berr, work, iwork, info )
+endif
 
-  !-> output coefficient
-  alpha=x(1) ; beta=1._rk ; gamma=x(2) ; delta=x(3) 
-  a1=x(4) ; b1=x(5) ; c1=x(6) ; d1=x(7) ; e1=x(8) ; f1=x(9)  ; g1=x(10) 
-  
-!  write(333,'(a,11es17.8,i4,4es17.8)')'di2',alpha,beta,gamma,delta,a1,b1,c1,d1,e1,f1,g1,&
-!       info,rcond,ferr,berr,work(1)
+!->  ----- matrix -------
 
-end subroutine der_coeffs_i2
-  
-subroutine dder_coeffs_c(a1,b1,c1,d1,e1,alpha,beta,gamma,delta,h1,h2,h3,h4)
-! -----------------------------------------------------------------------
-! Derivatives : Coefficients for second derivatives : non-uniform grid,centered 
-! -----------------------------------------------------------------------
-! Matthieu Marquillie
-! 04/2011
-!
-  implicit none
-  real(rk),intent(out) :: a1,b1,c1,d1,e1,alpha,beta,gamma,delta
-  real(rk),intent(in) :: h1,h2,h3,h4
-  !
-  ! n : size of linear system
-  ! info : output of solver (zero is ok) 
-  integer,parameter :: n=9
-  character(len=1) :: fact,trans,equed
-  integer(ik) :: nrhs,lda,ldb,ldaf,ldx
-  real(rk) :: a(n,n),af(n,n),ipiv(n),b(n,1),r(n),c(n),x(n),work(4*n)
-  real(rk) :: rcond,ferr,berr,dum
-  integer(ik) :: iwork(n),info
+  allocate(a(nt,nt))
+  allocate(r(nt))
+  allocate(iwork(nt))
 
-  !-> space interval
-  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4
+a=0._rk
 
-  !-> define matrix
-  a(1,1)=0._rk;a(1,2)=0._rk;a(1,3)=0._rk;a(1,4)=0._rk;a(1,5)=1._rk;a(1,6)=1._rk;a(1,7)=1._rk;a(1,8)=1._rk;a(1,9)=1._rk
-  
-  a(2,1)=0._rk;a(2,2)=0._rk;a(2,3)=0._rk;a(2,4)=0._rk;a(2,5)=-h2-h1;a(2,6)=-h2;a(2,7)=0._rk;a(2,8)=h3;a(2,9)=h4+h3
-  
-  a(3,1)=-1._rk;a(3,2)=-1._rk;a(3,3)=-1._rk;a(3,4)=-1._rk;a(3,5)=(h2+h1)**2/2.0_rk;a(3,6)=h2**2/2.0_rk
-  a(3,7)=0._rk;a(3,8)=h3**2/2.0_rk;a(3,9)=(-h4-h3)**2/2.0_rk
-  
-  a(4,1)=h2+h1;a(4,2)=h2;a(4,3)=-h3;a(4,4)=-h4-h3;a(4,5)=-(h2+h1)**3/6.0_rk;a(4,6)=-h2**3/6.0_rk
-  a(4,7)=0._rk;a(4,8)=h3**3/6.0_rk;a(4,9)=-(-h4-h3)**3/6.0_rk
-  
-  a(5,1)=-(h2+h1)**2/2.0_rk;a(5,2)=-h2**2/2.0_rk;a(5,3)=-h3**2/2.0_rk;a(5,4)=-(-h4-h3)**2/2.0_rk
-  a(5,5)=(h2+h1)**4/24.0_rk;a(5,6)=h2**4/24.0_rk;a(5,7)=0._rk;a(5,8)=h3**4/24.0_rk;a(5,9)=(-h4-h3)**4/24.0_rk
-  
-  a(6,1)=(h2+h1)**3/6.0_rk;a(6,2)=h2**3/6.0_rk;a(6,3)=-h3**3/6.0_rk;a(6,4)=(-h4-h3)**3/6.0_rk
-  a(6,5)=-(h2+h1)**5/120.0_rk;a(6,6)=-h2**5/120.0_rk;a(6,7)=0._rk;a(6,8)=h3**5/120.0_rk;a(6,9)=-(-h4-h3)**5/120.0_rk
-  
-  a(7,1)=-(h2+h1)**4/24.0_rk;a(7,2)=-h2**4/24.0_rk;a(7,3)=-h3**4/24.0_rk;a(7,4)=-(-h4-h3)**4/24.0_rk
-  a(7,5)=(h2+h1)**6/720.0_rk;a(7,6)=h2**6/720.0_rk;a(7,7)=0._rk;a(7,8)=h3**6/720.0_rk;a(7,9)=(-h4-h3)**6/720.0_rk
-  
-  a(8,1)=(h2+h1)**5/120.0_rk;a(8,2)=h2**5/120.0_rk;a(8,3)=-h3**5/120.0_rk;a(8,4)=(-h4-h3)**5/120.0_rk
-  a(8,5)=-(h2+h1)**7/5040.0_rk;a(8,6)=-h2**7/5040.0_rk;a(8,7)=0._rk;a(8,8)=h3**7/5040.0_rk;a(8,9)=-(-h4-h3)**7/5040.0_rk
-  
-  a(9,1)=-(h2+h1)**6/720.0_rk;a(9,2)=-h2**6/720.0_rk;a(9,3)=-h3**6/720.0_rk;a(9,4)=-(-h4-h3)**6/720.0_rk
-  a(9,5)=(h2+h1)**8/40320.0_rk;a(9,6)=h2**8/40320.0_rk;a(9,7)=0._rk;a(9,8)=h3**8/40320.0_rk
-  a(9,9)=(-h4-h3)**8/40320.0_rk; 
+!column for implicit points
+a(der+1,1:n1)=-1._rk 
+  do i=der+2,nt
+do j=1,n1
+  a(i,j)=a(i-1,j)*h(j)/(i-der-1)
+enddo
+enddo
 
-  !-> define rhs
-  b(1,1)=0._rk ; b(2,1)=0._rk ; b(3,1)=1._rk ; b(4,1)=0._rk ; b(5,1)=0._rk ; b(6,1)=0._rk ; b(7,1)=0._rk
-  b(8,1)=0._rk ; b(9,1)=0._rk
- 
-  fact='E' ; trans='N' ; nrhs=1 ; lda=n ; ldb=n ; ldaf=n ; equed='N' ; ldx=n
-  call dgesvx( fact, trans, n, nrhs, a, lda, af, ldaf, ipiv,equed, r, c, b, ldb, x, &
-       ldx, rcond, ferr, berr, work, iwork, info )
+!column for explicit points
+  a(1,n1+1:nt)=1._rk
+  do i=2,nt
+     do j=n1+1,nt
+  a(i,j)=a(i-1,j)*h(j)/(i-1)
+enddo
+enddo
 
-  !-> output coefficient
-  alpha=x(1) ; beta=x(2) ; gamma=x(3) ; delta=x(4) 
-  a1=x(5) ; b1=x(6) ; c1=x(7) ; d1=x(8) ; e1=x(9) 
+r=0._rk
+r(1+der)=1._rk ! der
 
-  dum=0._rk
-  write(333,'(a,11es17.8,i4,4es17.8,a3)')'ddc',alpha,beta,1._rk,gamma,delta,a1,b1,c1,d1,e1,dum,&
-       info,rcond,ferr,berr,work(1),equed
+!->  ----- solve -------
 
-end subroutine dder_coeffs_c
+iwork=0
+  call dgesv( nt, 1, a, nt, iwork, r, nt, info )
+if(info/=0) print*,'ERROR in discretization'
 
-subroutine dder_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta,h1,h2,h3,h4,h5,h6)
-! -----------------------------------------------------------------------
-! Derivatives : Coefficients for second derivatives : non-uniform grid, first point
-! -----------------------------------------------------------------------
-! Matthieu Marquillie
-! 04/2011
-!
-  implicit none
-  real(rk),intent(out) :: a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta
-  real(rk),intent(in) :: h1,h2,h3,h4,h5,h6
-  !
-  ! n : size of linear system
-  ! info : output of solver (zero is ok) 
-  integer,parameter :: n=9
-  character(len=1) :: fact,trans,equed
-  integer(ik) :: nrhs,lda,ldb,ldaf,ldx
-  real(rk) :: a(n,n),af(n,n),ipiv(n),b(n,1),r(n),c(n),x(n),work(4*n)
-  real(rk) :: rcond,ferr,berr
-  integer(ik) :: iwork(n),info
+coef_imp=0._rk
+coef_exp=0._rk
 
-  !-> space interval
-  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4 ; h(5)=h5 ; h(6)=h6
+!-> ----- export ----
 
-  !-> define matrix
-  A(1,1)=0._rk;A(1,2)=0._rk;A(1,3)=0._rk;A(1,4)=1._rk;A(1,5)=1._rk;A(1,6)=1._rk;A(1,7)=1._rk;A(1,8)=1._rk;A(1,9)=1._rk !;A(1,10)=1._rk
+j=0
+l=n1
+k=0
+if(cl==3) k=(4-n1)/2  ! shift
+if(n1+k.ge.cl) l=n1+1 ! quasi-always true
+do i=1,l
+     if(i/=cl-k) then
+    j=j+1
+    coef_imp(i+k)=r(j) 
+  endif
+enddo
+coef_imp(cl)=1._rk
 
-  A(2,1)=0._rk;A(2,2)=0._rk;A(2,3)=0._rk;A(2,4)=0._rk;A(2,5)=h1;A(2,6)=h2+h1;A(2,7)=h3+h2+h1
-  A(2,8)=h4+h3+h2+h1;A(2,9)=h5+h4+h3+h2+h1 !;A(2,10)=h6+h5+h4+h3+h2+h1
+i=0
+if(cl==3) i=(5-n2)/2 ! shift
+  coef_exp(1+i:n2+i)=r(n1+1:nt)
 
-  A(3,1)=-1._rk;A(3,2)=-1._rk;A(3,3)=-1._rk;A(3,4)=0._rk;A(3,5)=h1**2/2.0_rk;A(3,6)=(-h2-h1)**2/2.0_rk
-  A(3,7)=(-h3-h2-h1)**2/2.0_rk;A(3,8)=(-h4-h3-h2-h1)**2/2.0_rk;A(3,9)=(-h5-h4-h3-h2-h1)**2/2.0_rk
-!  A(3,10)=(-h6-h5-h4-h3-h2-h1)**2/2.0_rk
 
-  A(4,1)=-h1;A(4,2)=-h2-h1;A(4,3)=-h3-h2-h1;A(4,4)=0._rk;A(4,5)=h1**3/6.0_rk;A(4,6)=-(-h2-h1)**3/6.0_rk
-  A(4,7)=-(-h3-h2-h1)**3/6.0_rk;A(4,8)=-(-h4-h3-h2-h1)**3/6.0_rk;A(4,9)=-(-h5-h4-h3-h2-h1)**3/6.0_rk
-!  A(4,10)=-(-h6-h5-h4-h3-h2-h1)**3/6.0_rk
+!-> ---- end ----
 
-  A(5,1)=-h1**2/2.0_rk;A(5,2)=-(-h2-h1)**2/2.0_rk;A(5,3)=-(-h3-h2-h1)**2/2.0_rk;A(5,4)=0._rk
-  A(5,5)=h1**4/24.0_rk;A(5,6)=(-h2-h1)**4/24.0_rk;A(5,7)=(-h3-h2-h1)**4/24.0_rk
-  A(5,8)=(-h4-h3-h2-h1)**4/24.0_rk;A(5,9)=(-h5-h4-h3-h2-h1)**4/24.0_rk
-!  A(5,10)=(-h6-h5-h4-h3-h2-h1)**4/24.0_rk
+deallocate(a)
+deallocate(r)
+deallocate(iwork)
 
-  A(6,1)=-h1**3/6.0_rk;A(6,2)=(-h2-h1)**3/6.0_rk;A(6,3)=(-h3-h2-h1)**3/6.0_rk;A(6,4)=0._rk
-  A(6,5)=h1**5/120.0_rk;A(6,6)=-(-h2-h1)**5/120.0_rk;A(6,7)=-(-h3-h2-h1)**5/120.0_rk
-  A(6,8)=-(-h4-h3-h2-h1)**5/120.0_rk;A(6,9)=-(-h5-h4-h3-h2-h1)**5/120.0_rk
-!  A(6,10)=-(-h6-h5-h4-h3-h2-h1)**5/120.0_rk
-
-  A(7,1)=-h1**4/24.0_rk;A(7,2)=-(-h2-h1)**4/24.0_rk;A(7,3)=-(-h3-h2-h1)**4/24.0_rk
-  A(7,4)=0._rk;A(7,5)=h1**6/720.0_rk;A(7,6)=(-h2-h1)**6/720.0_rk;A(7,7)=(-h3-h2-h1)**6/720.0_rk
-  A(7,8)=(-h4-h3-h2-h1)**6/720.0_rk;A(7,9)=(-h5-h4-h3-h2-h1)**6/720.0_rk
-!  A(7,10)=(-h6-h5-h4-h3-h2-h1)**6/720.0_rk
-
-  A(8,1)=-h1**5/120.0_rk;A(8,2)=(-h2-h1)**5/120.0_rk;A(8,3)=(-h3-h2-h1)**5/120.0_rk
-  A(8,4)=0._rk;A(8,5)=h1**7/5040.0_rk;A(8,6)=-(-h2-h1)**7/5040.0_rk;A(8,7)=-(-h3-h2-h1)**7/5040.0_rk
-  A(8,8)=-(-h4-h3-h2-h1)**7/5040.0_rk;A(8,9)=-(-h5-h4-h3-h2-h1)**7/5040.0_rk
-!  A(8,10)=-(-h6-h5-h4-h3-h2-h1)**7/5040.0_rk
-
-  A(9,1)=-h1**6/720.0_rk;A(9,2)=-(-h2-h1)**6/720.0_rk;A(9,3)=-(-h3-h2-h1)**6/720.0_rk
-  A(9,4)=0._rk;A(9,5)=h1**8/40320.0_rk;A(9,6)=(-h2-h1)**8/40320.0_rk;A(9,7)=(-h3-h2-h1)**8/40320.0_rk
-  A(9,8)=(-h4-h3-h2-h1)**8/40320.0_rk;A(9,9)=(-h5-h4-h3-h2-h1)**8/40320.0_rk
-!  A(9,10)=(-h6-h5-h4-h3-h2-h1)**8/40320.0_rk
-
-!  A(10,1)=-h1**7/5040.0_rk;A(10,2)=(-h2-h1)**7/5040.0_rk;A(10,3)=(-h3-h2-h1)**7/5040.0_rk
-!  A(10,4)=0._rk;A(10,5)=h1**9/362880.0_rk;A(10,6)=-(-h2-h1)**9/362880.0_rk
-!  A(10,7)=-(-h3-h2-h1)**9/362880.0_rk;A(10,8)=-(-h4-h3-h2-h1)**9/362880.0_rk
-!  A(10,9)=-(-h5-h4-h3-h2-h1)**9/362880.0_rk;A(10,10)=-(-h6-h5-h4-h3-h2-h1)**9/362880.0_rk
-
-  !-> define rhs
-  B(1,1)=0._rk ; B(2,1)=0._rk ; B(3,1)=1._rk ; B(4,1)=0._rk ; B(5,1)=0._rk ; B(6,1)=0._rk ; 
-  B(7,1)=0._rk ; B(8,1)=0._rk ; B(9,1)=0._rk  !; B(10,1)=0._rk
- 
-  fact='E' ; trans='N' ; nrhs=1 ; lda=n ; ldb=n ; ldaf=n ; equed='N' ; ldx=n
-  call dgesvx( fact, trans, n, nrhs, a, lda, af, ldaf, ipiv,equed, r, c, b, ldb, x, &
-       ldx, rcond, ferr, berr, work, iwork, info )
-
-  !-> output coefficient
-  alpha=1._rk ; beta=x(1) ; gamma=x(2) ; delta=x(3) 
-  a1=x(4) ; b1=x(5) ; c1=x(6) ; d1=x(7) ; e1=x(8) ; f1=x(9)  ; g1=0._rk !x(10) 
-
-  write(333,'(a,11es17.8,i4,4es17.8,a3)')'ddi1',alpha,beta,gamma,delta,a1,b1,c1,d1,e1,f1,g1,&
-       info,rcond,ferr,berr,work(1),equed
-  
-end subroutine dder_coeffs_i1
-
-subroutine dder_coeffs_i2(a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta,h1,h2,h3,h4,h5,h6)
-! -----------------------------------------------------------------------
-! Derivatives : Coefficients for second derivatives : non-uniform grid, second point
-! -----------------------------------------------------------------------
-! Matthieu Marquillie
-! 04/2011
-!
-  implicit none
-  real(rk),intent(out) :: a1,b1,c1,d1,e1,f1,g1,alpha,beta,gamma,delta
-  real(rk),intent(in) :: h1,h2,h3,h4,h5,h6
-  !
-  ! n : size of linear system
-  ! info : output of solver (zero is ok) 
-  integer,parameter :: n=10
-  character(len=1) :: fact,trans,equed
-  integer(ik) :: nrhs,lda,ldb,ldaf,ldx
-  real(rk) :: a(n,n),af(n,n),ipiv(n),b(n,1),r(n),c(n),x(n),work(4*n)
-  real(rk) :: rcond,ferr,berr
-  integer(ik) :: iwork(n),info
-
-  !-> space interval
-  h=0._rk
-  h(1)=h1 ; h(2)=h2 ; h(3)=h3 ; h(4)=h4 ; h(5)=h5 ; h(6)=h6
-
-  !-> define matrix
-  A(1,1)=0._rk;A(1,2)=0._rk;A(1,3)=0._rk;A(1,4)=1._rk;A(1,5)=1._rk;A(1,6)=1._rk;A(1,7)=1._rk;A(1,8)=1._rk;A(1,9)=1._rk;A(1,10)=1._rk
-
-  A(2,1)=0._rk;A(2,2)=0._rk;A(2,3)=0._rk;A(2,4)=-h1;A(2,5)=0._rk;A(2,6)=h2;A(2,7)=h3+h2;A(2,8)=h4+h3+h2
-  A(2,9)=h5+h4+h3+h2;A(2,10)=h6+h5+h4+h3+h2
-
-  A(3,1)=-1._rk;A(3,2)=-1._rk;A(3,3)=-1._rk;A(3,4)=h1**2/2.0_rk;A(3,5)=0._rk;A(3,6)=h2**2/2.0_rk
-  A(3,7)=(-h3-h2)**2/2.0_rk;A(3,8)=(-h4-h3-h2)**2/2.0_rk;A(3,9)=(-h5-h4-h3-h2)**2/2.0_rk
-  A(3,10)=(-h6-h5-h4-h3-h2)**2/2.0_rk
-
-  A(4,1)=h1;A(4,2)=-h2;A(4,3)=-h3-h2;A(4,4)=-h1**3/6.0_rk;A(4,5)=0._rk;A(4,6)=h2**3/6.0_rk
-  A(4,7)=-(-h3-h2)**3/6.0_rk;A(4,8)=-(-h4-h3-h2)**3/6.0_rk;A(4,9)=-(-h5-h4-h3-h2)**3/6.0_rk
-  A(4,10)=-(-h6-h5-h4-h3-h2)**3/6.0_rk
-
-  A(5,1)=-h1**2/2.0_rk;A(5,2)=-h2**2/2.0_rk;A(5,3)=-(-h3-h2)**2/2.0_rk;A(5,4)=h1**4/24.0_rk
-  A(5,5)=0._rk;A(5,6)=h2**4/24.0_rk;A(5,7)=(-h3-h2)**4/24.0_rk;A(5,8)=(-h4-h3-h2)**4/24.0_rk
-  A(5,9)=(-h5-h4-h3-h2)**4/24.0_rk;A(5,10)=(-h6-h5-h4-h3-h2)**4/24.0_rk
-  
-  A(6,1)=h1**3/6.0_rk;A(6,2)=-h2**3/6.0_rk;A(6,3)=(-h3-h2)**3/6.0_rk;A(6,4)=-h1**5/120.0_rk
-  A(6,5)=0._rk;A(6,6)=h2**5/120.0_rk;A(6,7)=-(-h3-h2)**5/120.0_rk;A(6,8)=-(-h4-h3-h2)**5/120.0_rk
-  A(6,9)=-(-h5-h4-h3-h2)**5/120.0_rk;A(6,10)=-(-h6-h5-h4-h3-h2)**5/120.0_rk
-
-  A(7,1)=-h1**4/24.0_rk;A(7,2)=-h2**4/24.0_rk;A(7,3)=-(-h3-h2)**4/24.0_rk;A(7,4)=h1**6/720.0_rk
-  A(7,5)=0._rk;A(7,6)=h2**6/720.0_rk;A(7,7)=(-h3-h2)**6/720.0_rk;A(7,8)=(-h4-h3-h2)**6/720.0_rk
-  A(7,9)=(-h5-h4-h3-h2)**6/720.0_rk;A(7,10)=(-h6-h5-h4-h3-h2)**6/720.0_rk
-
-  A(8,1)=h1**5/120.0_rk;A(8,2)=-h2**5/120.0_rk;A(8,3)=(-h3-h2)**5/120.0_rk;A(8,4)=-h1**7/5040.0_rk
-  A(8,5)=0._rk;A(8,6)=h2**7/5040.0_rk;A(8,7)=-(-h3-h2)**7/5040.0_rk
-  A(8,8)=-(-h4-h3-h2)**7/5040.0_rk;A(8,9)=-(-h5-h4-h3-h2)**7/5040.0_rk
-  A(8,10)=-(-h6-h5-h4-h3-h2)**7/5040.0_rk
-
-  A(9,1)=-h1**6/720.0_rk;A(9,2)=-h2**6/720.0_rk;A(9,3)=-(-h3-h2)**6/720.0_rk;A(9,4)=h1**8/40320.0_rk
-  A(9,5)=0._rk;A(9,6)=h2**8/40320.0_rk;A(9,7)=(-h3-h2)**8/40320.0_rk;A(9,8)=(-h4-h3-h2)**8/40320.0_rk
-  A(9,9)=(-h5-h4-h3-h2)**8/40320.0_rk;A(9,10)=(-h6-h5-h4-h3-h2)**8/40320.0_rk
-  
-  A(10,1)=h1**7/5040.0_rk;A(10,2)=-h2**7/5040.0_rk;A(10,3)=(-h3-h2)**7/5040.0_rk
-  A(10,4)=-h1**9/362880.0_rk;A(10,5)=0._rk;A(10,6)=h2**9/362880.0_rk;A(10,7)=-(-h3-h2)**9/362880.0_rk
-  A(10,8)=-(-h4-h3-h2)**9/362880.0_rk;A(10,9)=-(-h5-h4-h3-h2)**9/362880.0_rk
-  A(10,10)=-(-h6-h5-h4-h3-h2)**9/362880.0_rk
-
-!  A(10,:)=0._rk ; A(10,10)=0._rk
-
-  !-> define rhs
-  B(1,1)=0._rk ; B(2,1)=0._rk ; B(3,1)=1._rk ; B(4,1)=0._rk ; B(5,1)=0._rk ; B(6,1)=0._rk ; 
-  B(7,1)=0._rk ; B(8,1)=0._rk ; B(9,1)=0._rk ; B(10,1)=0._rk
- 
-  fact='E' ; trans='N' ; nrhs=1 ; lda=n ; ldb=n ; ldaf=n ; equed='N' ; ldx=n
-  call dgesvx( fact, trans, n, nrhs, a, lda, af, ldaf, ipiv,equed, r, c, b, ldb, x, &
-       ldx, rcond, ferr, berr, work, iwork, info )
-
-  !-> output coefficient
-  alpha=x(1) ; beta=1._rk ; gamma=x(2) ; delta=x(3) 
-  a1=x(4) ; b1=x(5) ; c1=x(6) ; d1=x(7) ; e1=x(8) ; f1=x(9)  ; g1=x(10) 
-
-  write(333,'(a,11es17.8,i4,4es17.8,a3)')'ddi2',alpha,beta,gamma,delta,a1,b1,c1,d1,e1,f1,g1,&
-       info,rcond,ferr,berr,work(1),equed
-  
-end subroutine dder_coeffs_i2
+end subroutine der_coeffs_generic
 
 end module class_derivatives_coefficient

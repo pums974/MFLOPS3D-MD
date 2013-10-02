@@ -50,6 +50,7 @@ module class_field
   end interface
   interface operator(**) 
      module procedure field_pow
+     module procedure field_pow2
   end interface
   interface assignment(=) 
      module procedure field_assign,field_assign_scalar
@@ -137,7 +138,7 @@ contains
     type(field) :: field_add_scal1
     character(len=512) :: name
     Character(len=15) :: num
-    write(num,'(f0.2)')x2
+!    write(num,'(f0.2)')x2
     name=trim(x1%name) !//"+"//num
     call field_init(field_add_scal1,name,x1%nx,x1%ny,x1%nz)
     field_add_scal1%f=x1%f+x2
@@ -156,7 +157,7 @@ contains
     type(field) :: field_add_scal2
     character(len=512) :: name
     Character(len=15) :: num
-    write(num,'(f0.2)')x2
+!    write(num,'(f0.2)')x2
     name=trim(x1%name) !//"+"//num
     call field_init(field_add_scal2,name,x1%nx,x1%ny,x1%nz)
     field_add_scal2%f=x1%f+x2
@@ -175,11 +176,30 @@ contains
     type(field) :: field_pow
     character(len=512) :: name
     Character(len=15) :: num
-    write(num,'(f0.2)')x2
+!    write(num,'(f0.2)')x2
     name=trim(x1%name) !//"**"//num
     call field_init(field_pow,name,x1%nx,x1%ny,x1%nz)
     field_pow%f=x1%f**x2
   end function field_pow
+
+  function field_pow2(x1,x2)
+! -----------------------------------------------------------------------
+! field : substract two field type variables
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 10/2012
+!
+    implicit none
+    type(field),intent(in) :: x1
+    integer(ik),intent(in) :: x2
+    type(field) :: field_pow2
+    character(len=512) :: name
+    Character(len=15) :: num
+!    write(num,'(f0.2)')x2
+    name=trim(x1%name) !//"**"//num
+    call field_init(field_pow2,name,x1%nx,x1%ny,x1%nz)
+    field_pow2%f=x1%f**x2
+  end function field_pow2
 
   function field_div(x1,x2)
 ! -----------------------------------------------------------------------
@@ -211,7 +231,7 @@ contains
     type(field) :: field_div_scal
     character(len=512) :: name
     Character(len=15) :: num
-    write(num,'(f0.2)')x2
+!    write(num,'(f0.2)')x2
     name=trim(x1%name) !//"/"//num
     call field_init(field_div_scal,name,x1%nx,x1%ny,x1%nz)
     x3=1._rk/x2
@@ -247,7 +267,7 @@ contains
     type(field) :: field_mul_scal1
     character(len=512) :: name
     Character(len=15) :: num
-    write(num,'(f0.2)')x2
+!    write(num,'(f0.2)')x2
     name=trim(x1%name) !//"*"//num
     call field_init(field_mul_scal1,name,x1%nx,x1%ny,x1%nz)
     field_mul_scal1%f=x1%f*x2
@@ -266,7 +286,7 @@ contains
     type(field) :: field_mul_scal2
     character(len=512) :: name
     Character(len=15) :: num
-    write(num,'(f0.2)')x2
+!    write(num,'(f0.2)')x2
     name=trim(x1%name) !//"*"//num
     call field_init(field_mul_scal2,name,x1%nx,x1%ny,x1%nz)
     field_mul_scal2%f=x1%f*x2
@@ -301,7 +321,7 @@ contains
     type(field) :: field_sub_scal1
     character(len=512) :: name
     Character(len=15) :: num
-    write(num,'(f0.2)')x2
+!    write(num,'(f0.2)')x2
     name=trim(x1%name) !//"-"//num
     call field_init(field_sub_scal1,name,x1%nx,x1%ny,x1%nz)
     field_sub_scal1%f=x1%f-x2
@@ -320,7 +340,7 @@ contains
     type(field) :: field_sub_scal2
     character(len=512) :: name
     Character(len=15) :: num
-    write(num,'(f0.2)')x2
+!    write(num,'(f0.2)')x2
     name=trim(x1%name) !//"-"//num
     call field_init(field_sub_scal2,name,x1%nx,x1%ny,x1%nz)
     field_sub_scal2%f=x1%f-x2

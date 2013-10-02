@@ -319,7 +319,7 @@ contains
     if (present(null)) then
        if (null==1) then
           call MatNullSpaceCreate(PETSC_COMM_WORLD,PETSC_TRUE,0,&
-               PETSC_NULL,inf_mat%nullsp,inf_mat%err)
+               PETSC_NULL_OBJECT,inf_mat%nullsp,inf_mat%err)
           call KSPSetNullSpace(inf_mat%ksp, inf_mat%nullsp,inf_mat%err)
           call MatNullSpaceDestroy(inf_mat%nullsp,inf_mat%err)
        endif
@@ -348,7 +348,7 @@ contains
 
     call MatNullSpaceCreate(PETSC_COMM_WORLD,PETSC_TRUE,0,0,inf_mat%nullsp,&
          inf_mat%err)
-    call MatNullSpaceRemove(inf_mat%nullsp,inf_mat%rhs,PETSC_NULL,inf_mat%err)
+    call MatNullSpaceRemove(inf_mat%nullsp,inf_mat%rhs,PETSC_NULL_OBJECT,inf_mat%err)
     call MatNullSpaceDestroy(inf_mat%nullsp,inf_mat%err);
 
   end subroutine md_rhs_nullspace
@@ -758,7 +758,7 @@ end subroutine md_vector_setvalues
     type(mpi_inf_mat) :: inf_mat
     integer(ik) :: first,last,rows,columns
     real(8) :: info(MAT_INFO_SIZE),fullmem,scalemem
-    PetscBool :: flag
+!    PetscBool :: flag
     scalemem=1024._rk*1024._rk
 
 !    call MatGetInfo(inf_mat%inf,MAT_LOCAL,info,inf_mat%err)

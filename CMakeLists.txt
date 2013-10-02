@@ -219,4 +219,9 @@ SET(TESTSTRETCH teststretch)
 ADD_EXECUTABLE( ${TESTSTRETCH} src/main/test_deriv_stretching.f90)
 target_link_libraries(${TESTSTRETCH} ${FILTER} ${FIELD} ${MESH} ${COLOR})# ${DER} ${IO} ${MD} ${CMDL})
 
+# post_prod
+SET(POSTPROD post_prod)
+ADD_EXECUTABLE( ${POSTPROD} src/main/post_prod.f90)
+target_link_libraries(${POSTPROD} ${FIELD} ${MESH} ${COLOR})# ${DER} ${IO} ${MD} ${CMDL})
+
 

@@ -53,11 +53,11 @@ program test_derivatives
 
         !-> initialize grid
         call mesh_init(gridx,'gridx','x',nx,1,1)
-        call mesh_init(gridy,'gridy','y',nx,ny,1)
+        call mesh_init(gridy,'gridy','y',1,ny,1)
         call mesh_init(gridz,'gridz','z',1,1,nz)
         !-> define grid
         call mesh_grid_init(gridx,'x',nx,1,1)
-        call mesh_grid_init(gridy,'y',nx,ny,1)
+        call mesh_grid_init(gridy,'y',1,ny,1)
         call mesh_grid_init(gridz,'z',1,1,nz)
 
         !-> define exact solution and derivatives
@@ -93,9 +93,9 @@ program test_derivatives
         enddo
 
         !-> initialisation of derivatives coefficients
-        call derivatives_coefficients_init(gridx,dcx,nx)
-        call derivatives_coefficients_init(gridy,dcy,ny)
-        call derivatives_coefficients_init(gridz,dcz,nz)
+        call derivatives_coefficients_init(gridx,dcx,nx,8)
+        call derivatives_coefficients_init(gridy,dcy,ny,8)
+        call derivatives_coefficients_init(gridz,dcz,nz,8)
 
         !-> computation of derivatives 
         dxu=derx(dcx,u(1)) ; ddxu=dderx(dcx,u(1))

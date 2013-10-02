@@ -29,6 +29,8 @@ module class_solver_3d
      private
      !-> nall : total size ; n : size without boundaries
      integer(ik) :: nall,n
+     !-> order of discretization
+     integer(ik) :: so
      !-> second derivatives coefficients : lhs and rhs
      real(rk),allocatable :: ddl(:,:),ddr(:,:)
      !-> lhs : inverse matrix 
@@ -375,7 +377,7 @@ contains
 
   end subroutine dgz
 
-  subroutine solver_coeffs_init_3d(grid1,grid2,grid3,sc,n1,n2,n3,bct,out_name)
+  subroutine solver_coeffs_init_3d(grid1,grid2,grid3,sc,n1,n2,n3,bct,so,out_name)
 ! -----------------------------------------------------------------------
 ! solver3d : Initialisation of all 3d solver coefficients
 ! -----------------------------------------------------------------------
@@ -383,28 +385,32 @@ contains
 ! 03/2012
 !
     type(solver_coeffs_3d),intent(out) :: sc
-    integer(ik),intent(in) :: n1,n2,n3
+    integer(ik),intent(in) :: n1,n2,n3,so
     real(rk),intent(in) :: grid1(n1),grid2(n2),grid3(n3)
     integer(ik),intent(in) :: bct(6) ! bc type (Diri=1/Neum=2) : x1,x2,y1,y2,z1,z2
     character(len=*),optional :: out_name
     character(len=500) :: error_msg
+
+    sc%cx%so=so
+    sc%cy%so=so
+    sc%cz%so=so
     
 !    print'(a)','Solver : x-direction -------------------------------------------'
-    call solver_coeffs_init(grid1,sc%cx,n1,bct(1),out_name)
+    call solver_coeffs_init(grid1,sc%cx,n1,bct(1),so,out_name)
 
 !    print'(a)','Solver : y-direction -------------------------------------------'
-    call solver_coeffs_init(grid2,sc%cy,n2,bct(3),out_name)
+    call solver_coeffs_init(grid2,sc%cy,n2,bct(3),so,out_name)
     sc%cy%inv_vect=transpose(sc%cy%inv_vect)
     sc%cy%vect=transpose(sc%cy%vect)
 
 !    print'(a)','Solver : z-direction -------------------------------------------'
-    call solver_coeffs_init(grid3,sc%cz,n3,bct(5),out_name)
+    call solver_coeffs_init(grid3,sc%cz,n3,bct(5),so,out_name)
     sc%cz%inv_vect=transpose(sc%cz%inv_vect)
     sc%cz%vect=transpose(sc%cz%vect)
     
   end subroutine solver_coeffs_init_3d
 
-  subroutine solver_coeffs_init(grid,dc,n,bct,out_name)
+  subroutine solver_coeffs_init(grid,dc,n,bct,so,out_name)
 ! -----------------------------------------------------------------------
 ! solver3d : Initialisation of solver coefficients in one direction
 ! -----------------------------------------------------------------------
@@ -412,7 +418,7 @@ contains
 ! 03/2012
 !
     type(solver_coeffs),intent(out) :: dc
-    integer(ik),intent(in) :: n
+    integer(ik),intent(in) :: n,so
     real(rk),intent(in) :: grid(n)
     integer(ik),intent(in) :: bct(2)
     character(len=*),optional :: out_name
@@ -446,7 +452,7 @@ contains
     
     if (present(out_name)) open(333,file='sd3d_'//out_name)
     dc%ddl=0._rk ; dc%ddr=0._rk
-    call dder_coeffs(dc%n,dc%ddl,dc%ddr,grid,bct)
+    call dder_coeffs(dc%n,dc%ddl,dc%ddr,grid,bct,so)
 
 !    call print(dc%n,dc%ddl,dc%ddr)
 
@@ -455,7 +461,7 @@ contains
          dc%inv_lhs,dc%bc)
 
     !-> compute coefficients for neumann interpolation
-    call extrapolation_coeffs(dc%n,dc%neum,grid,dc%bc)
+    call extrapolation_coeffs(dc%n,dc%neum,grid,dc%bc,so)
 
   end subroutine solver_coeffs_init
 
@@ -468,7 +474,7 @@ contains
 !
     integer(ik),intent(in) :: n,bc(2)
     integer(ik) :: i
-    real(rk),intent(out) :: ddl(n,5),ddr(n,8)
+    real(rk),intent(inout) :: ddl(n,5),ddr(n,8)
     real(rk) :: lhs(n,n),rhs(n,n)
     real(rk) :: invlhs(n,n),temp(n,n),temp1(n,n)
     integer :: ipiv(n,n),info ! lapack aux
@@ -559,104 +565,61 @@ endif
 
   end subroutine solver_matrix_init
 
-  subroutine dder_coeffs(n,ddl,ddr,grid,bct)
+  subroutine dder_coeffs(n,ddl,ddr,grid,bct,so)
 ! -----------------------------------------------------------------------
 ! solver3d : computation of coefficients for second derivatives
 ! -----------------------------------------------------------------------
 ! Matthieu Marquillie
 ! 03/2012
 !
-    !$ use OMP_LIB
     implicit none
-    integer(ik),intent(in) :: n
-    integer(ik),intent(in) :: bct(2)
-    integer(ik) :: i
+    integer(ik),intent(in) :: n,bct(2),so
+!  der : order of derivation
+    integer(ik) :: i,j,l,der=2
     real(rk),intent(out) :: ddl(n,5),ddr(n,8)
     real(rk),intent(in) :: grid(0:n+1)
+    real(rk) :: h(7),coef_exp(8),coef_imp(5)
+    ddl=0._rk
+    ddr=0._rk
 
-    ! alpha,beta : central coefficients lhs
-    ! a,b : central coefficients rhs
-    real(rk) :: alp,bet,gam,del
-    real(rk) :: a,b,c,d,e
-    ! alp1,bet1,gam1,del1 : 1st points coefficients lhs
-    ! alp2,bet2,gam2,del2 : 2st points coefficients lhs
-    real(rk) :: alp1,bet1,gam1,del1
-    real(rk) :: alp2,bet2,gam2,del2
-    ! b1,c1,d1,e1 : 1st points coefficients rhs
-    ! b2,c2,d2,e2 : 2st points coefficients lhs
-    real(rk) :: a1,b1,c1,d1,e1,f1,g1
-    real(rk) :: a2,b2,c2,d2,e2,f2,g2,hh2
-    ! h1,h2,h3,h4 : grid intervals
-    real(rk) :: h1,h2,h3,h4,h5,h6
+    h=grid(1)-grid(0:6) ! point on the edge
+    call der_coeffs_generic(coef_imp,coef_exp,h,1,der,bct(1),so)
+    ddl(1,:)=CSHIFT( coef_imp, shift=-2 )
+    ddr(1,:)=-coef_exp(:)
+    if (bct(1)==2) ddr(1,1)=-ddr(1,1) ! normal sign
 
-    ddl=0._rk ; ddr=0._rk
+    h=grid(2)-grid(0:6) ! first point after the edge
+    call der_coeffs_generic(coef_imp,coef_exp,h,2,der,bct(1),so)
+    ddl(2,:)=CSHIFT( coef_imp, shift=-1 )
+    ddr(2,:)=-coef_exp(:)
+    if (bct(1)==2) ddr(2,1)=-ddr(2,1) ! normal sign
 
-    h1=grid(1)-grid(0)
-    h2=grid(2)-grid(1)
-    h3=grid(3)-grid(2)
-    h4=grid(4)-grid(3)
-    h5=grid(5)-grid(4)
-    h6=grid(6)-grid(5)
-    call dder_coeffs_i2(a1,b1,c1,d1,e1,f1,g1,alp1,bet1,gam1,del1,h1,h2,h3,h4,h5,h6,bct(1))
-    ddl(1,1)=del1 ; ddl(1,2)=0._rk ; ddl(1,3)=alp1 ; ddl(1,4)=bet1 ; ddl(1,5)=gam1
-    ddr(1,1)=a1 ; ddr(1,2)=b1 ; ddr(1,3)=c1 ; ddr(1,4)=d1 ; ddr(1,5)=e1
-    ddr(1,6)=f1 ; ddr(1,7)=g1
-
-    h1=grid(1)-grid(0)
-    h2=grid(2)-grid(1)
-    h3=grid(3)-grid(2)
-    h4=grid(4)-grid(3)
-    h5=grid(5)-grid(4)
-    h6=grid(6)-grid(5)
-    call dder_coeffs_i3(a2,b2,c2,d2,e2,f2,g2,alp2,bet2,gam2,del2,h1,h2,h3,h4,h5,h6,bct(1))
-    ddl(2,1)=0._rk ; ddl(2,2)=alp2 ; ddl(2,3)=bet2 ; ddl(2,4)=gam2 ; ddl(2,5)=del2
-    ddr(2,1)=a2 ; ddr(2,2)=b2 ; ddr(2,3)=c2 ; ddr(2,4)=d2 ; ddr(2,5)=e2
-    ddr(2,6)=f2 ; ddr(2,7)=g2 !; ddr(2,8)=hh2 ;
-
-!$OMP PARALLEL PRIVATE(i,h1,h2,h3,h4,a,b,c,d,e,alp,bet,gam,del)
-!$OMP DO SCHEDULE(RUNTIME)
+    h=0._rk
     do i=3,n-2
-       h1=grid(i-1)-grid(i-2)
-       h2=grid(i)-grid(i-1)
-       h3=grid(i+1)-grid(i)
-       h4=grid(i+2)-grid(i+1)
-       call dder_coeffs_c(a,b,c,d,e,alp,bet,gam,del,h1,h2,h3,h4)
-       ddl(i,1)=alp ; ddl(i,2)=bet ; ddl(i,3)=1._rk ; ddl(i,4)=gam ; ddl(i,5)=del
-       ddr(i,1)=a ; ddr(i,2)=b ; ddr(i,3)=c ; ddr(i,4)=d ; ddr(i,5)=e
+      h(1:5)=grid(i)-grid(i-2:i+2) ! every other points
+      call der_coeffs_generic(coef_imp,coef_exp,h,3,der,0,so)
+      ddl(i,:)=coef_imp
+      ddr(i,:)=-coef_exp
     enddo
-!$OMP END DO
-!$OMP END PARALLEL
 
-    h1=grid(n+1)-grid(n)
-    h2=grid(n)-grid(n-1)
-    h3=grid(n-1)-grid(n-2)
-    h4=grid(n-2)-grid(n-3)
-    h5=grid(n-3)-grid(n-4)
-    h6=grid(n-4)-grid(n-5)
-    call dder_coeffs_i3(a2,b2,c2,d2,e2,f2,g2,alp2,bet2,gam2,del2,h1,h2,h3,h4,h5,h6,bct(2))
-    ddl(n-1,1)=del2 ; ddl(n-1,2)=gam2 ; ddl(n-1,3)=bet2 ; ddl(n-1,4)=alp2 ; ddl(n-1,5)=0._rk
-    !ddr(n-1,1)=hh2 
-    ddr(n-1,2)=g2 ; ddr(n-1,3)=f2 
-    ddr(n-1,4)=e2 ; ddr(n-1,5)=d2 ; ddr(n-1,6)=c2 ; ddr(n-1,7)=b2 ; ddr(n-1,8)=a2
-    if (bct(2)==2) ddr(n-1,8)=-a2
+    h=grid(n-1)-grid(n+1:n-5:-1) ! last point before the edge
+    call der_coeffs_generic(coef_imp,coef_exp,h,2,der,bct(2),so)
+    ddl(n-1,:)=CSHIFT( coef_imp(5:1:-1), shift=1 )
+    ddr(n-1,:)=-coef_exp(8:1:-1)
+    if (bct(2)==2) ddr(n-1,8)=-ddr(n-1,8) ! normal sign
 
+    h=grid(n)-grid(n+1:n-5:-1) ! point on the edge
+    call der_coeffs_generic(coef_imp,coef_exp,h,1,der,bct(2),so)
+    ddl(n,:)=CSHIFT( coef_imp(5:1:-1), shift=2 )
+    ddr(n,:)=-CSHIFT(coef_exp(8:1:-1), shift=1 )
+    if (bct(2)==2) ddr(n,7)=-ddr(n,7) ! normal sign
 
-    h1=grid(n+1)-grid(n)
-    h2=grid(n)-grid(n-1)
-    h3=grid(n-1)-grid(n-2)
-    h4=grid(n-2)-grid(n-3)
-    h5=grid(n-3)-grid(n-4)
-    h6=grid(n-4)-grid(n-5)
-    call dder_coeffs_i2(a1,b1,c1,d1,e1,f1,g1,alp1,bet1,gam1,del1,h1,h2,h3,h4,h5,h6,bct(2))
-    ddl(n,1)=gam1 ; ddl(n,2)=bet1 ; ddl(n,3)=alp1 ; ddl(n,4)=0._rk ; ddl(n,5)=del1
-    ddr(n,1)=g1 ; ddr(n,2)=f1 
-    ddr(n,3)=e1 ; ddr(n,4)=d1 ; ddr(n,5)=c1 ; ddr(n,6)=b1 ; ddr(n,7)=a1
-    if (bct(2)==2) ddr(n,7)=-a1
+    if (der==2)  ddr=-ddr 
 
   end subroutine dder_coeffs
 
 
-  subroutine extrapolation_coeffs(n,ddr,grid,bct)
+  subroutine extrapolation_coeffs(n,ddr,grid,bct,so)
 ! -----------------------------------------------------------------------
 ! solver3d : computation of coefficients for neumann extrapolation
 ! -----------------------------------------------------------------------
@@ -664,11 +627,12 @@ endif
 ! 10/2012
 !
     implicit none
-    integer(ik),intent(in) :: n
-    integer(ik) :: i
+    integer(ik),intent(in) :: n,so
+    integer(ik) :: i,der
     real(rk),intent(out) :: ddr(2,7)
     real(rk),intent(in) :: grid(0:n+1)
     integer(ik),intent(in) :: bct(2)
+    real(rk) :: h(7),coef_exp(8),coef_imp(5)
 
     ! alp1 : 1st points coefficients lhs
     real(rk) :: alp1
@@ -677,27 +641,17 @@ endif
     ! h1,h2,h3,h4 : grid intervals
     real(rk) :: h1,h2,h3,h4,h5,h6
 
-    ddr=0._rk
+    der=1                !extrapolation with first derivative
+    if(bct(1)==3) der=2 !extrapolation with second derivative
+    h=grid(0)-grid(0:6) 
+    call der_coeffs_generic(coef_imp,coef_exp,h,4,1,bct(1),so)
+    ddr(1,:)=-coef_exp(1:7)
 
-    h1=grid(1)-grid(0)
-    h2=grid(2)-grid(1)
-    h3=grid(3)-grid(2)
-    h4=grid(4)-grid(3)
-    h5=grid(5)-grid(4)
-    h6=grid(6)-grid(5)
-    call der_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alp1,h1,h2,h3,h4,h5,h6,bct(1))
-    ddr(1,1)=a1 ; ddr(1,2)=b1 ; ddr(1,3)=c1 ; ddr(1,4)=d1 ; ddr(1,5)=e1
-    ddr(1,6)=f1 ; ddr(1,7)=g1
-    
-    h1=grid(n+1)-grid(n)
-    h2=grid(n)-grid(n-1)
-    h3=grid(n-1)-grid(n-2)
-    h4=grid(n-2)-grid(n-3)
-    h5=grid(n-3)-grid(n-4)
-    h6=grid(n-4)-grid(n-5)
-    call der_coeffs_i1(a1,b1,c1,d1,e1,f1,g1,alp1,h1,h2,h3,h4,h5,h6,bct(2))
-    ddr(2,1)=-g1 ; ddr(2,2)=-f1 
-    ddr(2,3)=-e1 ; ddr(2,4)=-d1 ; ddr(2,5)=-c1 ; ddr(2,6)=-b1 ; ddr(2,7)=-a1
+    der=1                !extrapolation with first derivative
+    if(bct(2)==3) der=2  !extrapolation with second derivative
+    h=grid(n+1)-grid(n+1:n-5:-1) 
+    call der_coeffs_generic(coef_imp,coef_exp,h,4,1,bct(2),so)
+    ddr(2,:)=-coef_exp(7:1:-1)
     
   end subroutine extrapolation_coeffs
 

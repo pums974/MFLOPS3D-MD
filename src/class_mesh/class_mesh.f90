@@ -13,8 +13,10 @@ module class_mesh
      real(rk) :: pas
      !-> 1d grid array
      real(rk),allocatable :: grid1d(:)
+     real(rk),allocatable :: dgrid1d(:)
      !-> 3d grid array
      real(rk),allocatable :: grid3d(:,:,:)
+     real(rk),allocatable :: dgrid3d(:,:,:)
      !-> grid names
      character(len=512) :: gridn='noname'
   end type mesh_grid
@@ -99,9 +101,11 @@ contains
 
     !-> allocate grid1d
     call grid1d_allocate(grid%n,grid%grid1d)
+    call grid1d_allocate(grid%n,grid%dgrid1d)
 
     !-> allocate grid3d
     call grid3d_allocate(grid%nx,grid%ny,grid%nz,grid%grid3d)
+    call grid3d_allocate(grid%nx,grid%ny,grid%nz,grid%dgrid3d)
 
   end subroutine mesh_init
 
@@ -113,13 +117,14 @@ contains
 ! 06/2011
 !
     use class_md
+    use mpi
     implicit none
     integer(ik),intent(in) :: nx,ny,nz
     type(mesh_grid),intent(inout) :: grid
     type(mpi_data),optional :: mpid
     character(len=*),intent(in) :: choice
     integer(ik) :: dom_coord(3),nd(3)
-    real(rk) :: xa,xb,ya,yb,za,zb
+    real(rk) :: xa,xb,ya,yb,za,zb,x1,x2
     real(rk) :: xi,yi,zi,alpha,beta,delta,pi,gam,ksi
     integer(ik) :: i,j,k
     real(rk) :: size_dom,num_dom,num_dom_tot,xat,xbt
@@ -257,21 +262,51 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
 !    print*,grid%grid1d
 100 continue
 
-!     write(*,'(A)')"   k       rmax              rbord"
-!     write(*,'(I4,2es17.8)') k, &
-!         (grid%grid1d(grid%n/2+1)-grid%grid1d(grid%n/2-1))/(2._rk*(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))), &
-!         (grid%grid1d(grid%n-1)-grid%grid1d(grid%n-2))/(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))
+    !-> dgrid1d
+    do i=1,grid%n
+       if(i.eq.1) then
+         grid%dgrid1d(i)= grid%grid1d(i+1)- grid%grid1d(i)
+       elseif(i.eq.grid%n) then
+         grid%dgrid1d(i)= grid%grid1d(i  )- grid%grid1d(i-1)
+       else
+         grid%dgrid1d(i)=(grid%grid1d(i+1)- grid%grid1d(i-1))*0.5_rk
+       endif
+    enddo
 
     !-> grid3d
-
     if (choice=="x") grid%grid3d(:,1,1)=grid%grid1d(:)
+    if (choice=="x") grid%dgrid3d(:,1,1)=grid%dgrid1d(:)
     if (choice=="y") grid%grid3d(1,:,1)=grid%grid1d(:)
-!    if (choice=="y") then
-!       do i=1,grid%nx
-!          grid%grid3d(i,:,1)=grid%grid1d(:)
-!       enddo
-!    endif
+    if (choice=="y") grid%dgrid3d(1,:,1)=grid%dgrid1d(:)
     if (choice=="z") grid%grid3d(1,1,:)=grid%grid1d(:)
+    if (choice=="z") grid%dgrid3d(1,1,:)=grid%dgrid1d(:)
+
+xi=maxval(grid%grid1d(2:grid%n)-grid%grid1d(1:grid%n-1))
+x1=xi
+    if (present(mpid)) then
+    if (mpid%dims.ne.0) then
+    call mpi_reduce(xi,x1,1,mpi_double_precision,mpi_max,0,&
+         mpi_comm_world,mpid%code)
+    endif
+    endif
+
+xi=minval(grid%grid1d(2:grid%n)-grid%grid1d(1:grid%n-1))
+x2=xi
+    if (present(mpid)) then
+    if (mpid%dims.ne.0)  then
+    call mpi_reduce(xi,x2,1,mpi_double_precision,mpi_min,0,&
+         mpi_comm_world,mpid%code)
+   endif
+   endif
+
+    if (mpid%rank==0) then
+!     write(*,'(2A)') trim(grid%gridn),"    rmax              rbord"
+!     write(*,'(2es17.8)') &
+!         (grid%grid1d(grid%n/2+1)-grid%grid1d(grid%n/2-1))/(2._rk*(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))), &
+!         (grid%grid1d(grid%n-1)-grid%grid1d(grid%n-2))/(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))
+     write(*,'(2A)') trim(grid%gridn),"    dxmax              dxmin"
+     write(*,'(2es17.8)') x1, x2 
+   endif
 
   end subroutine mesh_grid_init
 
@@ -281,7 +316,7 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
 ! =======================================================================
 ! =======================================================================
 
-  subroutine derivatives_coefficients_init(grid,dc,n,name,solver)
+  subroutine derivatives_coefficients_init(grid,dc,n,so,name,solver)
 ! -----------------------------------------------------------------------
 ! mesh : Initialisation of derivatives coefficients
 ! -----------------------------------------------------------------------
@@ -292,7 +327,7 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
     implicit none
     type(derivatives_coefficients),intent(out) :: dc
     type(mesh_grid),intent(in) :: grid
-    integer(ik),intent(in) :: n
+    integer(ik),intent(in) :: n,so
     character(len=*),optional :: name
     character(len=500) :: error_msg
     character(len=*),optional :: solver
@@ -311,9 +346,9 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
 
     !-> compute derivatives coefficients
     if (present(name)) then
-       call der_coeffs_init(grid%grid1d,dc,grid%n,solve,name)
+       call der_coeffs_init(grid%grid1d,dc,grid%n,solve,so,name)
     else
-       call der_coeffs_init(grid%grid1d,dc,grid%n,solve)
+       call der_coeffs_init(grid%grid1d,dc,grid%n,solve,so)
     endif
 
   end subroutine derivatives_coefficients_init
@@ -347,7 +382,7 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
 
   end subroutine solver_coefficients_init_poisson
 
-  subroutine solver_init_3d(grid1,grid2,grid3,sc,bct,name)
+  subroutine solver_init_3d(grid1,grid2,grid3,sc,bct,so,name)
 ! -----------------------------------------------------------------------
 ! mesh : Initialisation of solver coefficients
 ! -----------------------------------------------------------------------
@@ -358,16 +393,16 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
     implicit none
     type(solver_coeffs_3d),intent(out) :: sc
     type(mesh_grid),intent(in) :: grid1,grid2,grid3
-    integer(ik),intent(in) :: bct(6)
+    integer(ik),intent(in) :: bct(6),so
     character(len=*),optional :: name
     character(len=500) :: error_msg
 
     if (present(name)) then
        call solver_coeffs_init_3d(grid1%grid1d,grid2%grid1d,grid3%grid1d,&
-            sc,grid1%n,grid2%n,grid3%n,bct,name)
+            sc,grid1%n,grid2%n,grid3%n,bct,so,name)
     else
        call solver_coeffs_init_3d(grid1%grid1d,grid2%grid1d,grid3%grid1d,&
-            sc,grid1%n,grid2%n,grid3%n,bct)
+            sc,grid1%n,grid2%n,grid3%n,bct,so)
     endif
 
   end subroutine solver_init_3d
@@ -397,10 +432,16 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
        call write_var3d(trim(file_name)//".nc",&
             [character(len=512) :: grid%nxn,grid%nyn,grid%nzn],&
             get_dim_size(grid%grid3d),grid%gridn,grid%grid3d,mpid=mpid)
+       call write_var3d(trim(file_name)//".nc",&
+            [character(len=512) :: grid%nxn,grid%nyn,grid%nzn],&
+            get_dim_size(grid%grid3d),'d'//grid%gridn,grid%dgrid3d,mpid=mpid)
     else
        call write_var3d(trim(file_name)//".nc",&
             [character(len=512) :: grid%nxn,grid%nyn,grid%nzn],&
             get_dim_size(grid%grid3d),grid%gridn,grid%grid3d)
+       call write_var3d(trim(file_name)//".nc",&
+            [character(len=512) :: grid%nxn,grid%nyn,grid%nzn],&
+            get_dim_size(grid%grid3d),'d'//grid%gridn,grid%dgrid3d)
     endif
 
   end subroutine write_mesh
@@ -417,11 +458,14 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
     type(mesh_grid),intent(inout) :: grid
     character(len=*),intent(in) :: file_name,grid_name
     character(len=*),intent(in) :: choice
-    integer(ik) :: dim_len(3)
+    integer(ik) :: dim_len(3),i
     character(len=512) :: dim_name(3)
     
     !-> get grid information from file
     call get_var3d_info(file_name//".nc",grid_name,dim_name(1),dim_len(1))
+    dim_len(1)=max(dim_len(1),1)
+    dim_len(2)=max(dim_len(2),1)
+    dim_len(3)=max(dim_len(3),1)
 
     !-> initialize type mesh
     call mesh_init(grid,grid_name,choice,dim_len(1),dim_len(2),dim_len(3),&
@@ -435,6 +479,21 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
     if (choice=='y') grid%grid1d(:)=grid%grid3d(1,:,1)
     if (choice=='z') grid%grid1d(:)=grid%grid3d(1,1,:)
 
+    !-> dgrid1d
+    do i=1,grid%n
+       if(i.eq.1) then
+         grid%dgrid1d(i)= grid%grid1d(i+1)- grid%grid1d(i)
+       elseif(i.eq.grid%n) then
+         grid%dgrid1d(i)= grid%grid1d(i  )- grid%grid1d(i-1)
+       else
+         grid%dgrid1d(i)=(grid%grid1d(i+1)- grid%grid1d(i-1))*0.5_rk
+       endif
+    enddo
+
+    !-> dgrid3d
+    if (choice=="x") grid%dgrid3d(:,1,1)=grid%dgrid1d(:)
+    if (choice=="y") grid%dgrid3d(1,:,1)=grid%dgrid1d(:)
+    if (choice=="z") grid%dgrid3d(1,1,:)=grid%dgrid1d(:)
 
   end subroutine read_mesh
 

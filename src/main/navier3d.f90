@@ -1,7 +1,9 @@
 program testnavier3d
   use command_line
   use class_navier_3D
-!$ use OMP_LIB
+  use class_io
+  use netcdf
+  use mpi
   implicit none
   type(cmd_line) :: cmd
   type(navier3d) :: nav
@@ -26,14 +28,15 @@ program testnavier3d
   !------------------------------------------------------------------------ 
   call navier_initialization(cmd,mpid,nav)
 
-  !-> write mesh
-!  call write_mesh('grid_x',nav%gridx,mpid)
-!  call write_mesh('grid_y',nav%gridy,mpid)
-!  call write_mesh('grid_z',nav%gridz,mpid)
-
-  
   !-> read restart files if they exists
-!  call restart_read(mpid,nav)
+!  call restart_read(mpid,nav,test)
+
+!initialisation
+if (.false..and..not.test) then
+ call initialise_navier(nav,mpid)
+endif
+  
+  call navier_write_fields(mpid,nav,1,0)
 
   !------------------------------------------------------------------------ 
   !-> time loop
@@ -43,7 +46,6 @@ program testnavier3d
   err_pre_t=0._rk
   call system_clock(t1,irate)
 temps:  do ite=1,nav%ntime
-     !print*,mpid%coord
 
      if (ite==20) then
        call system_clock(t1,irate)
@@ -54,34 +56,6 @@ temps:  do ite=1,nav%ntime
      !-> time update
      call navier_time(nav)
 
-!initialisation
-     if(ite==-1) then
-     do iaux=0,nav%nt-1
-     t=nav%time-(iaux+1)*nav%ts
-!$OMP PARALLEL DO &
-!$OMP DEFAULT(SHARED) PRIVATE(i,j,k,x,y,z) &
-!$OMP SCHEDULE(RUNTIME)
-     do k=1,nav%nz
-        z=nav%gridz%grid1d(k)
-        do j=1,nav%ny
-           y=nav%gridy%grid1d(j)
-           do i=1,nav%nx
-             x=nav%gridx%grid1d(i)
-             nav%u(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'u',nav%rey)
-             nav%v(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'v',nav%rey)
-             nav%w(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'w',nav%rey)
-             nav%p(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'p',nav%rey)
-!             if(nav%pt==1)
-!             if(nav%pt==2)
-             if(nav%pt==3) nav%phi(nav%it(nav%nt-iaux))%f(i,j,k)=nav%p(nav%it(nav%nt-iaux))%f(i,j,k)
-!             if(nav%pt==4)
-           enddo
-        enddo
-     enddo
-!$OMP END PARALLEL DO
-     enddo
-     endif
-
 subit:  do subite=1,nav%nsubite
      nav%subite=int(subite,ik)
      if (mpid%rank==0) print*,'Time : ',ite,subite
@@ -91,6 +65,7 @@ subit:  do subite=1,nav%nsubite
 !     endif
      !-> define bc
      call navier_bc_velocity(mpid,nav)
+     call navier_LES(mpid,nav)
      
      !---------------------------------------------------------------------
      !-> compute rhs
@@ -312,6 +287,7 @@ subit:  do subite=1,nav%nsubite
   if (mpid%rank==0) print*,'time : ',time,time/(ite-20)
 
 !  call restart_write(mpid,nav)
+  call navier_write_fields(mpid,nav,ite,ite)
   !------------------------------------------------------------------------ 
   !-> time loop end
   !------------------------------------------------------------------------ 
@@ -409,7 +385,7 @@ subroutine testconv(mpid,nav,u,v,w,p,sub_u,sub_v,sub_w,sub_p,aux,test,eps)
 !     nav%aux=derx(nav%dcx,nav%u(nav%it(1)))+&
 !             dery(nav%dcy,nav%v(nav%it(1)))+&
 !             derz(nav%dcz,nav%w(nav%it(1)))
-!    ref=norme2(mpid,nav,nav%aux)
+!    ref=norme(mpid,nav,nav%aux)
 !    nav%aux=derx(nav%dcx,nav%u(nav%it(1)))+&
 !            dery(nav%dcy,nav%v(nav%it(1)))+&
 !            derz(nav%dcz,nav%w(nav%it(1)))-&
@@ -417,230 +393,300 @@ subroutine testconv(mpid,nav,u,v,w,p,sub_u,sub_v,sub_w,sub_p,aux,test,eps)
 !            dery(nav%dcy,nav%sub_v)-&
 !            derz(nav%dcz,nav%sub_w)
 
-!    error=norme2(mpid,nav,nav%aux)/ref
+!    error=norme(mpid,nav,nav%aux)/ref
 !    if (mpid%rank==0) print*,'conv Div V       : ',error1
 
     aux%f=sqrt(u%f**2 + v%f**2 + w%f**2)
-    ref=norme2(mpid,nav,aux)
+    ref=norme(mpid,nav,aux)
 
     aux%f=sqrt((sub_u%f-u%f)**2 + (sub_v%f-v%f)**2 + (sub_w%f-w%f)**2)
-    error1=norme2(mpid,nav,aux)/ref
+    error1=norme(mpid,nav,aux)/ref
 
-    if (mpid%rank==0) print*,'conv tot V       : ',error1
+!    if (mpid%rank==0) print*,'conv tot V       : ',error1
 
     aux%f=1._rk         ;    ref=integrale(mpid,nav,aux)
-    aux%f=p%f - sub_p%f ; error2=integrale(mpid,nav,aux)
+    aux=p - sub_p ; error2=integrale(mpid,nav,aux)
 
-    sub_p%f=sub_p%f + error2/ref
-    aux%f=sub_p%f       ;    ref=norme2(mpid,nav,aux)
-    aux%f=p%f - sub_p%f ; error2=norme2(mpid,nav,aux)/ref
-    if (mpid%rank==0) print*,'conv tot P       : ',error2
+    sub_p=sub_p + error2/ref
+    aux  =sub_p     ;    ref=norme(mpid,nav,aux)
+    aux  =p - sub_p ; error2=norme(mpid,nav,aux)/ref
+!    if (mpid%rank==0) print*,'conv tot P       : ',error2
 
     if (error1<eps.and.error2<eps)  test=.true.
 
 end subroutine testconv
 
-function integrale(mpid,nav,x)
+function norme(mpid,nav,x)
+  use class_md
+
   use class_field
   use class_navier_3D
-  use class_md
   use precision
-!$ use OMP_LIB
-  implicit none
-  type(field),intent(in) ::x
-  type(navier3d),intent(in) :: nav
   type(mpi_data) :: mpid
-  real(rk) :: integrale1,integrale,dx,dy,dz
-  integer(ik) :: i,j,k
+  type(navier3d) :: nav
+  type(field) :: x
+  real(rk) :: norme
+norme=norme2(mpid,nav,x)
+!norme=normeinf(mpid,nav,x)
+end function norme
 
-  integrale1=0._rk
+subroutine initialise_navier(nav,mpid)
+  type(navier3d) :: nav
+  type(mpi_data) :: mpid
+  type(mesh_grid) :: gridxi,gridyi,gridzi
+  type(field)     :: uo,vo,wo,po
+  character(len=512) :: fich_grid(3),var_grid(3),fich_vel(4),var_vel(4)
 
-!$OMP  PARALLEL DO &
-!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
-!$OMP  SCHEDULE(RUNTIME) &
-!$OMP  REDUCTION(+:integrale1)
-  do k=2,x%nz-1
-     do j=2,x%ny-1
-        do i=2,x%nx-1
-           dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
-           dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
-           dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
-           integrale1=integrale1+x%f(i,j,k)*dx*dy*dz
+
+  if (mpid%rank==0)     print*,'Initialisation'
+
+if(.true.) then
+if(.false.) then
+
+  fich_grid=(/"init/gridxi.nc","init/gridyi.nc","init/gridzi.nc"/)
+  var_grid=(/'grid_x','grid_y','grid_z'/)
+  fich_vel=(/"init/init2","init/init2","init/init2","init/init2"/)
+  var_vel=(/'velocity_x','velocity_y','velocity_z','pressure  '/)
+
+  call read_initfiles(gridxi,gridyi,gridzi,uo,vo,wo,po,fich_grid,var_grid,fich_vel,var_vel)
+
+elseif(.false.) then
+
+  fich_grid=(/"init/grid_x.nc","init/grid_y.nc","init/grid_z.nc"/)
+  var_grid=(/'gridx','gridy','gridz'/)
+  fich_vel=(/"init/vel_u","init/vel_v","init/vel_w","init/vel_p"/)
+!  var_vel=(/'U','V','W','P'/)
+  var_vel=(/'U','V','W','P'/)
+
+  call read_initfiles(gridxi,gridyi,gridzi,uo,vo,wo,po,fich_grid,var_grid,fich_vel,var_vel)
+po%f=0._rk
+
+endif
+  call  interpol_initfiles(nav,gridxi,gridyi,gridzi,uo,vo,wo,po)
+
+  call field_destroy(uo)
+  call field_destroy(vo)
+  call field_destroy(wo)
+  call field_destroy(po)
+
+else
+
+     do iaux=0,nav%nt-1
+     t=nav%time-(iaux+1)*nav%ts
+!$OMP PARALLEL DO &
+!$OMP DEFAULT(SHARED) PRIVATE(i,j,k,x,y,z) &
+!$OMP SCHEDULE(RUNTIME)
+     do k=1,nav%nz
+        z=nav%gridz%grid1d(k)
+        do j=1,nav%ny
+           y=nav%gridy%grid1d(j)
+           do i=1,nav%nx
+             x=nav%gridx%grid1d(i)
+             nav%u(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'u',nav%rey)
+             nav%v(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'v',nav%rey)
+             nav%w(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'w',nav%rey)
+             nav%p(nav%it(nav%nt-iaux))%f(i,j,k)=sol(x,y,z,t,'p',nav%rey)
+!             if(nav%pt==1)
+!             if(nav%pt==2)
+             if(nav%pt==3) nav%phi(nav%it(nav%nt-iaux))%f(i,j,k)=nav%p(nav%it(nav%nt-iaux))%f(i,j,k)
+!             if(nav%pt==4)
+           enddo
         enddo
      enddo
-  enddo
-!$OMP  END PARALLEL DO
-
-  !-> x boundary
-!$OMP  PARALLEL DO &
-!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
-!$OMP  SCHEDULE(RUNTIME) &
-!$OMP  REDUCTION(+:integrale1)
-   do j=2,x%ny-1
-      do k=2,x%nz-1
-         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
-         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
-         dx=(nav%gridx%grid1d(2)-nav%gridx%grid1d(1))*0.5_rk
-         integrale1=integrale1+x%f(1,j,k)*dx*dy*dz
-         dx=(nav%gridx%grid1d(x%nx)-nav%gridx%grid1d(x%nx-1))*0.5_rk
-         integrale1=integrale1+x%f(x%nx,j,k)*dx*dy*dz
-      enddo
-  enddo
-!$OMP  END PARALLEL DO
-
-  !-> y boundary
-!$OMP  PARALLEL DO &
-!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
-!$OMP  SCHEDULE(RUNTIME) &
-!$OMP  REDUCTION(+:integrale1)
-   do i=2,x%nx-1
-      do k=2,x%nz-1
-         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
-         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
-         dy=(nav%gridy%grid1d(2)-nav%gridy%grid1d(1))*0.5_rk
-         integrale1=integrale1+x%f(i,1,k)*dx*dy*dz
-         dy=(nav%gridy%grid1d(x%ny)-nav%gridy%grid1d(x%ny-1))*0.5_rk
-         integrale1=integrale1+x%f(i,x%ny,k)*dx*dy*dz
-      enddo
-  enddo
-!$OMP  END PARALLEL DO
-
-  !-> z boundary
-!$OMP  PARALLEL DO &
-!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
-!$OMP  SCHEDULE(RUNTIME) &
-!$OMP  REDUCTION(+:integrale1)
-   do i=2,x%nx-1
-      do j=2,x%ny-1
-         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
-         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
-         dz=(nav%gridz%grid1d(2)-nav%gridz%grid1d(1))*0.5_rk
-         integrale1=integrale1+x%f(i,j,1)*dx*dy*dz
-         dz=(nav%gridz%grid1d(x%nz)-nav%gridz%grid1d(x%nz-1))*0.5_rk
-         integrale1=integrale1+x%f(i,j,x%nz)*dx*dy*dz
-      enddo
-  enddo
-!$OMP  END PARALLEL DO
-
-  if (mpid%dims.ne.0) then
-    call md_mpi_reduce_double(mpid,integrale1,integrale)
-    call md_mpi_bcast_double(mpid,integrale,0)
-  else
-    integrale=integrale1
-  endif
-
-end function integrale
-
-
-function norme2(mpid,nav,x)
-  use class_field
-  use class_navier_3D
-  use class_md
-  use precision
-!$ use OMP_LIB
-  implicit none
-  type(field),intent(in) ::x
-  type(mpi_data) :: mpid
-  type(navier3d),intent(in) :: nav
-  real(rk) :: norme2,som1,dx,dy,dz
-  integer(ik) :: i,j,k
-
-!dx=maxval(abs(x%f(2:x%nx-1,2:x%ny-1,:)))
-!dy=maxval(abs(x%f(2:x%nx-1,:,2:x%nz-1)))
-!dz=maxval(abs(x%f(:,2:x%ny-1,2:x%nz-1)))
-!norme2=max(dx,dy,dz)
-norme2=maxval(abs(x%f(2:x%nx-1,2:x%ny-1,2:x%nz-1)))
-return
-
-  som1=0._rk
-
-!$OMP  PARALLEL DO &
-!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
-!$OMP  SCHEDULE(RUNTIME) &
-!$OMP  REDUCTION(+:som1)
-  do k=2,x%nz-1
-     do j=2,x%ny-1
-        do i=2,x%nx-1
-           dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
-           dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
-           dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
-           som1=som1+x%f(i,j,k)**2*dx*dy*dz
-        enddo
+!$OMP END PARALLEL DO
      enddo
-  enddo
-!$OMP  END PARALLEL DO
 
-  !-> x boundary
-!$OMP  PARALLEL DO &
-!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
-!$OMP  SCHEDULE(RUNTIME) &
-!$OMP  REDUCTION(+:som1)
-   do j=2,x%ny-1
-      do k=2,x%nz-1
-         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
-         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
-         dx=(nav%gridx%grid1d(2)-nav%gridx%grid1d(1))*0.5_rk
-         som1=som1+x%f(1,j,k)**2*dx*dy*dz
-         dx=(nav%gridx%grid1d(x%nx)-nav%gridx%grid1d(x%nx-1))*0.5_rk
-         som1=som1+x%f(x%nx,j,k)**2*dx*dy*dz
+endif
+
+   do iaux=1,nav%nt 
+!periodisation ! todo
+!  nav%u(nav%it(iaux))%f(nav%nx,:,:)=nav%u(nav%it(iaux))%f(1,:,:)
+!  nav%v(nav%it(iaux))%f(nav%nx,:,:)=nav%v(nav%it(iaux))%f(1,:,:)
+!  nav%w(nav%it(iaux))%f(nav%nx,:,:)=nav%w(nav%it(iaux))%f(1,:,:)
+!  nav%p(nav%it(iaux))%f(nav%nx,:,:)=nav%p(nav%it(iaux))%f(1,:,:)
+!  nav%u(nav%it(iaux))%f(:,:,nav%nz)=nav%u(nav%it(iaux))%f(:,:,1)
+!  nav%v(nav%it(iaux))%f(:,:,nav%nz)=nav%v(nav%it(iaux))%f(:,:,1)
+!  nav%w(nav%it(iaux))%f(:,:,nav%nz)=nav%w(nav%it(iaux))%f(:,:,1)
+!  nav%p(nav%it(iaux))%f(:,:,nav%nz)=nav%p(nav%it(iaux))%f(:,:,1)
+
+  !nettoyage
+     call navier_nullify_boundary(mpid,nav,nav%u(nav%it(iaux)),0)
+     call navier_nullify_boundary(mpid,nav,nav%v(nav%it(iaux)),0)
+     call navier_nullify_boundary(mpid,nav,nav%w(nav%it(iaux)),0)
+     call navier_nullify_boundary(mpid,nav,nav%p(nav%it(iaux)),0)
+ 
+     nav%phi(nav%it(iaux))=nav%p(nav%it(iaux))
+   enddo
+
+end subroutine initialise_navier
+
+subroutine interpol_initfiles(nav,gridxi,gridyi,gridzi,uo,vo,wo,po)
+  type(navier3d),intent(inout) :: nav
+  type(mesh_grid),intent(in) :: gridxi,gridyi,gridzi
+  type(field),intent(in)     :: uo,vo,wo,po
+
+  integer(ik) :: i,j,k,iaux,i0,j0,k0,i1,j1,k1,i2,j2,k2
+  real(rk) :: x,y,z,x1,x2,y1,y2,z1,z2
+
+! simple interpolation for uo -> u and others fields
+   do iaux=0,nav%nt-1
+!$OMP PARALLEL DO &
+!$OMP DEFAULT(SHARED) PRIVATE(i,j,k,x,y,z) &
+!$OMP SCHEDULE(RUNTIME)
+   do i=1,nav%nx
+      x=nav%gridx%grid1d(i)
+!      x=nav%gridx%grid1d(i)*2._rk
+!      x=nav%gridx%grid1d(i)*4._rk
+      do i1=2,gridxi%nx
+        i2=i1-1
+        x1=gridxi%grid1d(i1)
+        x2=gridxi%grid1d(i2)
+        if (abs(abs(x1-x)+abs(x2-x)-abs(x1-x2))<1e-8) then
+         do j=1,nav%ny
+            y=nav%gridy%grid1d(j)
+!            y=nav%gridy%grid1d(j)+1._rk
+            do j1=2,gridyi%ny
+              j2=j1-1
+              y1=gridyi%grid1d(j1)
+              y2=gridyi%grid1d(j2)
+               if (abs(abs(y1-y)+abs(y2-y)-abs(y1-y2))<1e-8) then
+               do k=1,nav%nz
+                  z=nav%gridz%grid1d(k)
+!                  z=nav%gridz%grid1d(k)*2._rk
+!                  z=nav%gridz%grid1d(k)*4._rk
+                  do k1=2,gridzi%nz
+                    k2=k1-1
+                    z1=gridzi%grid1d(k1)
+                    z2=gridzi%grid1d(k2)
+                    if (abs(abs(z1-z)+abs(z2-z)-abs(z1-z2))<1e-8) then 
+
+!if(j.ne.1.and.j.ne.nav%ny) then !detection of null edges
+!endif
+
+
+
+      nav%u(nav%it(nav%nt-iaux))%f(i,j,k)= &
+         uo%f(i1,j1,k1)*(x-x2)*(y-y2)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + uo%f(i1,j1,k2)*(x-x2)*(y-y2)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + uo%f(i1,j2,k1)*(x-x2)*(y1-y)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + uo%f(i1,j2,k2)*(x-x2)*(y1-y)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + uo%f(i2,j1,k1)*(x1-x)*(y-y2)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + uo%f(i2,j1,k2)*(x1-x)*(y-y2)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + uo%f(i2,j2,k1)*(x1-x)*(y1-y)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + uo%f(i2,j2,k2)*(x1-x)*(y1-y)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2))
+
+      nav%v(nav%it(nav%nt-iaux))%f(i,j,k)= &
+         vo%f(i1,j1,k1)*(x-x2)*(y-y2)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + vo%f(i1,j1,k2)*(x-x2)*(y-y2)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + vo%f(i1,j2,k1)*(x-x2)*(y1-y)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + vo%f(i1,j2,k2)*(x-x2)*(y1-y)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + vo%f(i2,j1,k1)*(x1-x)*(y-y2)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + vo%f(i2,j1,k2)*(x1-x)*(y-y2)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + vo%f(i2,j2,k1)*(x1-x)*(y1-y)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + vo%f(i2,j2,k2)*(x1-x)*(y1-y)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2))
+
+      nav%w(nav%it(nav%nt-iaux))%f(i,j,k)= &
+         wo%f(i1,j1,k1)*(x-x2)*(y-y2)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + wo%f(i1,j1,k2)*(x-x2)*(y-y2)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + wo%f(i1,j2,k1)*(x-x2)*(y1-y)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + wo%f(i1,j2,k2)*(x-x2)*(y1-y)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + wo%f(i2,j1,k1)*(x1-x)*(y-y2)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + wo%f(i2,j1,k2)*(x1-x)*(y-y2)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + wo%f(i2,j2,k1)*(x1-x)*(y1-y)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + wo%f(i2,j2,k2)*(x1-x)*(y1-y)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2))
+
+      nav%p(nav%it(nav%nt-iaux))%f(i,j,k)= &
+         po%f(i1,j1,k1)*(x-x2)*(y-y2)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + po%f(i1,j1,k2)*(x-x2)*(y-y2)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + po%f(i1,j2,k1)*(x-x2)*(y1-y)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + po%f(i1,j2,k2)*(x-x2)*(y1-y)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + po%f(i2,j1,k1)*(x1-x)*(y-y2)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + po%f(i2,j1,k2)*(x1-x)*(y-y2)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + po%f(i2,j2,k1)*(x1-x)*(y1-y)*(z-z2)/((x1-x2)*(y1-y2)*(z1-z2)) &
+       + po%f(i2,j2,k2)*(x1-x)*(y1-y)*(z1-z)/((x1-x2)*(y1-y2)*(z1-z2))
+
+                        exit
+                      endif
+                    enddo
+                 enddo
+
+                  exit
+                endif
+              enddo
+           enddo
+
+          exit
+        endif
       enddo
-  enddo
-!$OMP  END PARALLEL DO
+   enddo
+!$OMP END PARALLEL DO
+   enddo
 
-  !-> y boundary
-!$OMP  PARALLEL DO &
-!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
-!$OMP  SCHEDULE(RUNTIME) &
-!$OMP  REDUCTION(+:som1)
-   do i=2,x%nx-1
-      do k=2,x%nz-1
-         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
-         dz=(nav%gridz%grid1d(k+1)-nav%gridz%grid1d(k-1))*0.5_rk
-         dy=(nav%gridy%grid1d(2)-nav%gridy%grid1d(1))*0.5_rk
-         som1=som1+x%f(i,1,k)**2*dx*dy*dz
-         dy=(nav%gridy%grid1d(x%ny)-nav%gridy%grid1d(x%ny-1))*0.5_rk
-         som1=som1+x%f(i,x%ny,k)**2*dx*dy*dz
+end subroutine interpol_initfiles
+
+subroutine read_initfiles(gridxi,gridyi,gridzi,uo,vo,wo,po,fich_grid,var_grid,fich_vel,var_vel)
+  type(mesh_grid),intent(out) :: gridxi,gridyi,gridzi
+  type(field),intent(out)     :: uo,vo,wo,po
+  character(len=512),intent(in) :: fich_grid(3),var_grid(3),fich_vel(4),var_vel(4)
+  integer(ik) :: i
+    integer(ik) :: dim_len(3)
+    character(len=512) :: dim_name(3)
+    integer(ik) :: ncid
+    integer(ik) :: startv(3),countv(3)
+    integer(ik) :: varid(1)
+
+do i=1,3 ! read grid
+    call get_var3d_info(trim(fich_grid(i)),trim(var_grid(i)),dim_name(1),dim_len(1))
+
+    startv=1
+    countv=dim_len
+
+    if(dim_len(i).eq.1) then
+       dim_len(i)=dim_len(1)
+      do j=1,3
+        if(j/=i) dim_len(j)=1
       enddo
-  enddo
-!$OMP  END PARALLEL DO
-
-  !-> z boundary
-!$OMP  PARALLEL DO &
-!$OMP  DEFAULT(SHARED) PRIVATE(i,j,k,dx,dy,dz) &
-!$OMP  SCHEDULE(RUNTIME) &
-!$OMP  REDUCTION(+:som1)
-   do i=2,x%nx-1
-      do j=2,x%ny-1
-         dx=(nav%gridx%grid1d(i+1)-nav%gridx%grid1d(i-1))*0.5_rk
-         dy=(nav%gridy%grid1d(j+1)-nav%gridy%grid1d(j-1))*0.5_rk
-         dz=(nav%gridz%grid1d(2)-nav%gridz%grid1d(1))*0.5_rk
-         som1=som1+x%f(i,j,1)**2*dx*dy*dz
-         dz=(nav%gridz%grid1d(x%nz)-nav%gridz%grid1d(x%nz-1))*0.5_rk
-         som1=som1+x%f(i,j,x%nz)**2*dx*dy*dz
+    else
+      do j=1,3
+        if(j/=i) dim_len(j)=1
+        if(j/=i) countv(j)=1
       enddo
-  enddo
-!$OMP  END PARALLEL DO
+    endif
 
-  if (mpid%dims.ne.0) then
-    call md_mpi_reduce_double(mpid,som1,norme2)
-    call md_mpi_bcast_double(mpid,norme2,0)
-  else
-    norme2=som1
-  endif
+    if(i==1) call mesh_init(gridxi,'gridx','x',dim_len(1),dim_len(2),dim_len(3))
+    if(i==2) call mesh_init(gridyi,'gridy','y',dim_len(1),dim_len(2),dim_len(3))
+    if(i==3) call mesh_init(gridzi,'gridz','z',dim_len(1),dim_len(2),dim_len(3))
 
-  norme2=sqrt(norme2)
+    call io_check(nf90_open(path=trim(fich_grid(i)),mode=nf90_nowrite,ncid=ncid))
 
-end function norme2
+                            
+    !-> get variable id
+    call io_check(nf90_inq_varid(ncid,trim(var_grid(i)),varid(1)))
+                                                        
+    !-> read field variable
+    if(i==1) call io_check(nf90_get_var(ncid,varid(1),gridxi%grid3d,start=startv,count=countv))
+    if(i==2) call io_check(nf90_get_var(ncid,varid(1),gridyi%grid3d,start=startv,count=countv))
+    if(i==3) call io_check(nf90_get_var(ncid,varid(1),gridzi%grid3d,start=startv,count=countv))
 
-subroutine error_stop2(error_mesg)
-!  use mpi_utils, only : code,rang
-  implicit none
-  character(*) :: error_mesg
-!  call MPI_FINALIZE(code)
-!  if (rang==0) then
-     print'(a)',error_mesg(1:len_trim(error_mesg))
-!  endif
-!  stop
-  
-end subroutine error_stop2
+    !-> close file              
+    call io_check(nf90_close(ncid))
+
+    if(i==1) gridxi%grid1d(:)=gridxi%grid3d(:,1,1)
+    if(i==2) gridyi%grid1d(:)=gridyi%grid3d(1,:,1)
+    if(i==3) gridzi%grid1d(:)=gridzi%grid3d(1,1,:)
+
+enddo
+
+       call field_init(uo,"U",gridxi%n,gridyi%n,gridzi%n)
+       call field_init(vo,"V",gridxi%n,gridyi%n,gridzi%n)
+       call field_init(wo,"W",gridxi%n,gridyi%n,gridzi%n)
+       call field_init(po,"P",gridxi%n,gridyi%n,gridzi%n)
+
+  call read_field(trim(fich_vel(1)),uo,trim(var_vel(1)))  
+  call read_field(trim(fich_vel(2)),vo,trim(var_vel(2)))  
+  call read_field(trim(fich_vel(3)),wo,trim(var_vel(3)))  
+  call read_field(trim(fich_vel(4)),po,trim(var_vel(4)))  
+
+end subroutine read_initfiles
+
 end program testnavier3d

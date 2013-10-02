@@ -5,11 +5,11 @@ module command_line
   !-> Define type containing command line argument
   type,public :: cmd_line
      !-> monodomain dimensions
-     integer(ik) :: nx,ny,nz
+     integer(ik) :: nx=20,ny=20,nz=20
      !-> number of domains in each directions
      integer(ik) :: ndx,ndy,ndz
      !-> periodicity in each directions
-     integer(ik) :: periods(3)
+     integer(ik) :: periods(3)=(/0,0,0/)
      !-> reynolds number
      real(rk) :: reynolds
      !-> time step
@@ -17,17 +17,20 @@ module command_line
      !-> number of time iterations
      real(rk) :: ntime
      !-> nonlinear type : 1:convective, 2:skew-symetric
-     integer(ik) :: nlt
+     integer(ik) :: nlt=2
      !-> projection type : 1:moin, 2:with pressure gradient
-     integer(ik) :: pt
+     integer(ik) :: pt=1
      !-> time order u
-     integer(ik) :: tou
+     integer(ik) :: tou=2
      !-> time order p
-     integer(ik) :: top
+     integer(ik) :: top=2
      !-> pressure singular method : 0:nothing, 1:petsc nullspace
      !   2:dirichlet at one point 
-     integer(ik) :: psm
-     integer(ik) :: nsubite
+     integer(ik) :: psm=1
+     integer(ik) :: nsubite=1
+     integer(ik) :: so=8
+     integer(ik) :: les_type=0
+     real(rk) :: les_c=0._rk
   end type cmd_line
 
 
@@ -41,18 +44,16 @@ contains
   subroutine commandline(cmd)
     implicit none
     type(cmd_line),intent(inout) :: cmd 
-    integer,parameter :: narg=100,ncheck=12
+    integer,parameter :: narg=100,ncheck=20
     character(50) :: cmdl(narg),getarg
     integer :: num,len,status,nargt,check(ncheck)
 
     !-> get command line arguments
 
-    nargt=0
-    do num=1,narg
+    nargt=COMMAND_ARGUMENT_COUNT()
+    do num=1,nargt
        call get_command_argument(num,getarg,len,status)
-       if (status /= 0) exit
        cmdl(num)=getarg
-       nargt=nargt+1
     enddo
 
     do num=1,nargt
@@ -99,6 +100,12 @@ contains
        endif
        if (cmdl(num)=='-nsub') then
           read(cmdl(num+1),*,err=10)cmd%nsubite ; check(11)=0
+       endif
+       if (cmdl(num)=='-les') then
+          read(cmdl(num+1),*,err=10)cmd%les_type,cmd%les_c ; check(12)=0
+       endif
+       if (cmdl(num)=='-so') then
+          read(cmdl(num+1),*,err=10)cmd%so ; check(13)=0
        endif
 !       if (cmdl(num)=='-file') then
 !          namel=cmdl(num+1) ; check(4)=0
