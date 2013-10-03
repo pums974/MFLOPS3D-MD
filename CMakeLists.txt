@@ -165,10 +165,15 @@ SET(MESH mesh)
 ADD_LIBRARY( ${MESH} STATIC src/class_mesh/class_mesh.f90) 
 target_link_libraries(${MESH} ${IO} ${DER} ${SOLVER_1D} ${SOLVER_3D}) # ${MD} ${PREC})
 
+# class mapping 
+SET(MAPPING mapping)
+ADD_LIBRARY( ${MAPPING} STATIC src/class_mapping/class_mapping.f90) 
+target_link_libraries(${MAPPING} ${FIELD} ${MESH} ${DER} )
+
 # class navier3d 
 SET(NAVIER3D navier3d)
 ADD_LIBRARY( ${NAVIER3D} STATIC src/class_navier/class_navier_3D.f90) 
-target_link_libraries(${NAVIER3D} ${FIELD} ${MESH} ${COLOR} )# ${CMDL} ${DER} ${MD} ${SOLVER_3D})
+target_link_libraries(${NAVIER3D} ${MAPPING} ${COLOR} )# ${CMDL} ${DER} ${MD} ${SOLVER_3D})
 
 # -------------------------------------------------------------------------------------------------------------------------
 # Test executables

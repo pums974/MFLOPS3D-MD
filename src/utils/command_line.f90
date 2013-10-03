@@ -27,8 +27,10 @@ module command_line
      !-> pressure singular method : 0:nothing, 1:petsc nullspace
      !   2:dirichlet at one point 
      integer(ik) :: psm=1
+     !-> mapping : 1 -> yes, 0-> no
+     integer(ik) :: mapt
      integer(ik) :: nsubite=1
-     integer(ik) :: so=8
+     integer(ik) :: so(2)=(/6,6/)
      integer(ik) :: les_type=0
      real(rk) :: les_c=0._rk
   end type cmd_line
@@ -105,7 +107,10 @@ contains
           read(cmdl(num+1),*,err=10)cmd%les_type,cmd%les_c ; check(12)=0
        endif
        if (cmdl(num)=='-so') then
-          read(cmdl(num+1),*,err=10)cmd%so ; check(13)=0
+          read(cmdl(num+1),*,err=10)cmd%so(1),cmd%so(2) ; check(13)=0
+       endif
+       if (cmdl(num)=='-mapt') then
+          read(cmdl(num+1),*,err=10)cmd%mapt ; check(14)=0
        endif
 !       if (cmdl(num)=='-file') then
 !          namel=cmdl(num+1) ; check(4)=0

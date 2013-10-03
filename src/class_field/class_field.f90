@@ -1274,7 +1274,7 @@ contains
 
     time=real(t2-t1)/real(irate)
    ! call MPI_Reduce(time,timet,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD)
-    call md_mpi_reduce_double(mpid,time,timet)
+    call md_mpi_reduce_double_sum(mpid,time,timet)
     if (mpid%rank==0) print*,'time set matrix',timet/mpid%processus
 
     !-> initialize auxiliary fields
@@ -1377,9 +1377,9 @@ contains
 
     !-> time output
     time(1)=t(2)-t(1) ; time(2)=t(4)-t(3) ; time(3)=t(6)-t(5)
-!    call md_mpi_reduce_double(mpid,time(1),timet(1))
-!    call md_mpi_reduce_double(mpid,time(2),timet(2))
-!    call md_mpi_reduce_double(mpid,time(3),timet(3))
+!    call md_mpi_reduce_double_sum(mpid,time(1),timet(1))
+!    call md_mpi_reduce_double_sum(mpid,time(2),timet(2))
+!    call md_mpi_reduce_double_sum(mpid,time(3),timet(3))
 !    timet(:)=timet(:)/mpid%processus
 !    if (mpid%rank==0) print*,'Time Solution',timet
     

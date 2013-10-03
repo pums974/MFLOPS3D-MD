@@ -92,6 +92,8 @@ module class_md
   type,public :: mpi_inf_sol
      !-> petsc vectors : rhs and solution
      Vec :: sol_old(3)
+     integer(ik) :: iter
+     real(rk) :: res
   end type mpi_inf_sol
 
 
@@ -113,12 +115,12 @@ module class_md
   public :: md_influence_matrix_start_flush,md_influence_matrix_end_flush
   public :: md_influence_matrix_write,md_influence_matrix_read
   public :: md_influence_matrix_filename
-  public :: md_mpi_reduce_double,md_mpi_bcast_double
+  public :: md_mpi_reduce_double_max,md_mpi_bcast_double,md_mpi_reduce_double_sum
   public :: md_vector_setvalues,md_vector_getvalues
   public :: md_rhs_view,md_sol_view,md_solve,md_solve_init
   public :: md_bc_init,md_solve_guess_nonzero,md_rhs_nullspace
   public :: md_mpi_global_coord,md_vector_sol_setvalues
-  public :: md_guess_init
+  public :: md_guess_init,md_mpi_abort
   public :: md_add_pert,md_vector_zero_lastpoint
   public :: md_influence_guess_write,md_influence_guess_read
 contains
@@ -199,9 +201,9 @@ contains
 
     !-> time output
     time(1)=t(2)-t(1) ; time(2)=t(4)-t(3) ; time(3)=t(6)-t(5)
-    call md_mpi_reduce_double(mpid,time(1),timet(1))
-    call md_mpi_reduce_double(mpid,time(2),timet(2))
-    call md_mpi_reduce_double(mpid,time(3),timet(3))
+    call md_mpi_reduce_double_sum(mpid,time(1),timet(1))
+    call md_mpi_reduce_double_sum(mpid,time(2),timet(2))
+    call md_mpi_reduce_double_sum(mpid,time(3),timet(3))
     timet(:)=timet(:)/mpid%processus
     if (mpid%rank==0) print*,'Solution',norm,iters,timet
 
@@ -427,7 +429,8 @@ contains
 !    if (mpid%rank==0) print*,'Solution',norm
 
 !    call VecDestroy(solx,inf_mat%err)
-
+    inf_sol%iter=iters
+    inf_sol%res=norm
     if (mpid%rank==0) print'(a,i0,a,es17.8)',' Iterations ',iters,'  Residus solver',norm
 
 
@@ -1739,7 +1742,7 @@ end subroutine md_vector_setvalues
 ! Matthieu Marquillie
 ! 07/2012
 !
-  subroutine md_mpi_reduce_double(mpid,val,sum)
+  subroutine md_mpi_reduce_double_sum(mpid,val,sum)
     implicit none
     type(mpi_data) :: mpid
     real(rk),intent(in) :: val
@@ -1748,7 +1751,28 @@ end subroutine md_vector_setvalues
     call mpi_reduce(val,sum,1,mpi_double_precision,mpi_sum,0,&
          mpi_comm_world,mpid%code)
 
-  end subroutine md_mpi_reduce_double
+  end subroutine md_mpi_reduce_double_sum
+
+!------------------------------------------------------------------------
+! md : mpi reduce single double
+!------------------------------------------------------------------------
+! Matthieu Marquillie
+! 07/2012
+!
+  subroutine md_mpi_reduce_double_max(mpid,val,max,n)
+    implicit none
+    type(mpi_data) :: mpid
+    integer(ik),intent(in) :: n
+    real(rk),intent(in) :: val(n)
+    real(rk),intent(out) :: max(n)
+    integer(ik) ::i
+
+    do i=1,n
+      call mpi_reduce(val(i),max(i),1,mpi_double_precision,mpi_max,0,&
+         mpi_comm_world,mpid%code)
+    enddo
+
+  end subroutine md_mpi_reduce_double_max
 !------------------------------------------------------------------------
 ! md : mpi broadcast single double
 !------------------------------------------------------------------------
@@ -1833,5 +1857,14 @@ end subroutine md_vector_setvalues
     coord(3,2)=mpid%nz
 
   end subroutine md_mpi_global_coord
+
+subroutine md_mpi_abort(mpid)
+    implicit none
+    type(mpi_data) :: mpid
+
+    call MPI_Abort(mpi_comm_world,mpid%code)
+end subroutine md_mpi_abort
+
+
 
 end module class_md
