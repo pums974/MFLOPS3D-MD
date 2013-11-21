@@ -274,12 +274,32 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
     enddo
 
     !-> grid3d
-    if (choice=="x") grid%grid3d(:,1,1)=grid%grid1d(:)
-    if (choice=="x") grid%dgrid3d(:,1,1)=grid%dgrid1d(:)
-    if (choice=="y") grid%grid3d(1,:,1)=grid%grid1d(:)
-    if (choice=="y") grid%dgrid3d(1,:,1)=grid%dgrid1d(:)
-    if (choice=="z") grid%grid3d(1,1,:)=grid%grid1d(:)
-    if (choice=="z") grid%dgrid3d(1,1,:)=grid%dgrid1d(:)
+    if (choice=="x") then
+       do k=1,grid%nz
+          do j=1,grid%ny
+             grid%grid3d(:,j,k)=grid%grid1d(:)
+             grid%dgrid3d(:,j,k)=grid%dgrid1d(:)
+          enddo
+       enddo
+    endif
+
+    if (choice=="y") then
+       do k=1,grid%nz
+          do i=1,grid%nx
+             grid%grid3d(i,:,k)=grid%grid1d(:)
+             grid%dgrid3d(i,:,k)=grid%dgrid1d(:)
+          enddo
+       enddo
+    endif
+
+    if (choice=="z") then
+       do j=1,grid%ny
+          do i=1,grid%nx
+             grid%grid3d(i,j,:)=grid%grid1d(:)
+             grid%dgrid3d(i,j,:)=grid%dgrid1d(:)
+          enddo
+       enddo
+    endif
 
 xi=maxval(grid%grid1d(2:grid%n)-grid%grid1d(1:grid%n-1))
 x1=xi
