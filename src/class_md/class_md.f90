@@ -123,6 +123,7 @@ module class_md
   public :: md_guess_init,md_mpi_abort
   public :: md_add_pert,md_vector_zero_lastpoint
   public :: md_influence_guess_write,md_influence_guess_read
+  public :: md_vector_interpol
 contains
 
 ! =======================================================================
@@ -547,6 +548,110 @@ contains
 !    call VecSet(inf_mat%sol,zero,inf_mat%err)
 
   end subroutine md_vector_getvalues
+
+
+
+  subroutine md_vector_interpol(mpid,inf_mat,nx,ny,nz,var)
+    implicit none
+    type(mpi_data) :: mpid
+    type(mpi_inf_mat) :: inf_mat
+    integer(ik) :: l,m,inter(3,2),c(3),nrows
+    integer(ik) :: nx,ny,nz 
+    real(rk) :: var(nx,ny,nz)
+    real(rk) :: bcx(ny,nz,2),bcy(nx,nz,2),bcz(nx,ny,2)
+    real(rk) :: bcxt(ny,nz,2),bcyt(nx,nz,2),bczt(nx,ny,2)
+    integer(ik) :: req(12),error,it,i
+    integer :: status(MPI_STATUS_SIZE)
+    
+    !bcx=0._rk ; bcy=0._rk ; bcz=0._rk
+
+    !-> compute indexes of where to put values
+    call md_mpi_getcoord(mpid,c)
+    call md_get_interfaces_number(inf_mat,c,inter)
+
+   bcx=0._rk ;    bcy=0._rk ;    bcz=0._rk 
+   bcxt=0._rk ;    bcyt=0._rk ;    bczt=0._rk 
+
+    do m=1,2
+      do l=1,3
+        if (inter(l,m)>0) then
+          select case (l)
+            case (1)
+              bcx(:,:,m)=var((m-1)*(nx-1)+1,:,:)
+            case (2)
+              bcy(:,:,m)=var(:,(m-1)*(ny-1)+1,:)
+            case (3)
+              bcz(:,:,m)=var(:,:,(m-1)*(nz-1)+1)
+          end select
+        endif
+      enddo
+    enddo
+
+    !-> begin tranfer boundary condition to neighbours
+    req=(/1,2,3,4,5,6,7,8,9,10,11,12/)
+    it=0
+    do m=1,2
+       do l=1,3
+          if (inter(l,m)>0) then
+            it=it+1
+            select case (l)
+            case (1)
+              !-> compute local rows locations
+              nrows=ny*nz
+              call mpi_isend(bcx(1,1,m),nrows,mpi_double_precision, &
+                   mpid%neighbours(l,m),l,mpi_comm_world,req(it),error)
+
+              call mpi_irecv(bcxt(1,1,m),nrows,mpi_double_precision, &
+                   mpid%neighbours(l,m),l,mpi_comm_world,req(it+6),error)
+            case (2)
+              !-> compute local rows locations
+              nrows=nx*nz
+              call mpi_isend(bcy(1,1,m),nrows,mpi_double_precision, &
+                   mpid%neighbours(l,m),l,mpi_comm_world,req(it),error)
+
+              call mpi_irecv(bcyt(1,1,m),nrows,mpi_double_precision, &
+                   mpid%neighbours(l,m),l,mpi_comm_world,req(it+6),error)
+            case (3)
+              !-> compute local rows locations
+              nrows=nx*ny
+              call mpi_isend(bcz(1,1,m),nrows,mpi_double_precision, &
+                   mpid%neighbours(l,m),l,mpi_comm_world,req(it),error)
+
+              call mpi_irecv(bczt(1,1,m),nrows,mpi_double_precision, &
+                   mpid%neighbours(l,m),l,mpi_comm_world,req(it+6),error)
+            end select
+
+          endif
+       enddo
+    enddo
+
+    !-> end tranfer boundary condition to neighbours
+    it=0
+    do m=1,2
+       do l=1,3
+          if (inter(l,m)>0) then
+             it=it+1
+             call mpi_wait(req(it),status,error)
+             call mpi_wait(req(it+6),status,error)
+
+          select case (l)
+            case (1)
+              var((m-1)*(nx-1)+1,:,:)=(bcx(:,:,m)+bcxt(:,:,m))/2._rk
+            case (2)
+              var(:,(m-1)*(ny-1)+1,:)=(bcy(:,:,m)+bcyt(:,:,m))/2._rk
+            case (3)
+              var(:,:,(m-1)*(nz-1)+1)=(bcz(:,:,m)+bczt(:,:,m))/2._rk
+          end select
+
+
+          endif
+       enddo
+    enddo
+
+
+  end subroutine md_vector_interpol
+
+
 !------------------------------------------------------------------------
 ! md : set values in rhs vector
 !------------------------------------------------------------------------
