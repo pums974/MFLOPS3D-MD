@@ -109,6 +109,41 @@ contains
 
   end subroutine mesh_init
 
+  subroutine mesh_grid_mac(gridu,gridp,dec,choice)
+! -----------------------------------------------------------------------
+! mesh : initialize type mesh
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 06/2011
+!
+    implicit none
+    type(mesh_grid),intent(inout) :: gridu
+    type(mesh_grid),intent(in) :: gridp
+    integer(ik),intent(in) :: dec
+    character(len=*),intent(in) :: choice
+    integer(ik) ::i
+
+    if (dec==1 ) then
+
+      do i=2,gridu%n-1
+        gridu%grid1d(i)= (gridp%grid1d(i-1) +    gridp%grid1d(i) )*0.5_rk
+      enddo
+
+    gridu%grid1d(1)=2._rk * gridp%grid1d(1) - gridu%grid1d(2)
+    gridu%grid1d(gridu%n)=2._rk * gridp%grid1d(gridp%n) - gridu%grid1d(gridu%n-1)
+
+    elseif (dec==-1 ) then
+      do i=1,gridu%n
+        gridu%grid1d(i)= (gridp%grid1d(i) +    gridp%grid1d(i+1) )*0.5_rk
+      enddo
+    endif
+
+    if (choice=="x") gridu%grid3d(:,1,1)=gridu%grid1d(:)
+    if (choice=="y") gridu%grid3d(1,:,1)=gridu%grid1d(:)
+    if (choice=="z") gridu%grid3d(1,1,:)=gridu%grid1d(:)
+
+  end subroutine mesh_grid_mac
+
   subroutine mesh_grid_init(grid,choice,nx,ny,nz,mpid)
 ! -----------------------------------------------------------------------
 ! mesh : initialize type mesh
@@ -132,7 +167,7 @@ contains
     
     !-> parameters
     pi=4._rk*atan(1._rk)
-    aux=0.5_rk
+    aux=.5_rk
     if (choice=="x") then
        xa=-aux ; xb=aux
     endif
@@ -140,8 +175,8 @@ contains
        xa=-aux ; xb=aux
     endif
     if (choice=="z") then
-       xa=-aux*0.5_rk ; xb=aux*0.5_rk
-!       xa=-aux ; xb=aux
+!       xa=-aux*0.5_rk ; xb=aux*0.5_rk
+       xa=-aux ; xb=aux
     endif
 !    xa=-aux ; xb=aux
 !    ya=-aux ; yb=aux
@@ -193,9 +228,9 @@ contains
 
 !       if (choice=="x".or.choice=="y".or.choice=="z") grid%grid1d(i)=xi
 
-!        grid%grid1d(i)=xi
+        grid%grid1d(i)=xi
 !        if (choice=="x") 
-grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._rk)*0.5_rk
+!grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._rk)*0.5_rk
 !        grid%grid1d(i)=xa+2._rk*xi-(xb-xa)*(sinh((2._rk*(xi-xa)/(xb-xa)-1._rk)*(1._rk-alpha))&
 !            /sinh(1._rk-alpha)+1._rk)*0.5_rk
 !        grid%grid1d(i)=xa+(xb-xa)*(1._rk+tanh(alpha*(2*(xi-xa)/(xb-xa)-1._rk))/tanh(alpha))/2._rk
@@ -372,6 +407,42 @@ x2=xi
     endif
 
   end subroutine derivatives_coefficients_init
+
+  subroutine derivatives_coefficients_init_mac(gridu,gridp,dc,name,solver)
+! -----------------------------------------------------------------------
+! mesh : Initialisation of derivatives coefficients
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 05/2011
+!
+    use class_derivatives
+    implicit none
+    type(derivatives_coefficients),intent(out) :: dc
+    type(mesh_grid),intent(in) :: gridu,gridp
+    character(len=*),optional :: name
+    character(len=500) :: error_msg
+    character(len=*),optional :: solver
+    logical :: solve
+
+    !-> set preference for solver type
+    if (present(solver)) then 
+       if (solver=='yes') then
+          solve=.true.
+       else
+          solve=.false.
+       endif
+    else
+       solve=.false.
+    endif
+
+    !-> compute derivatives coefficients
+    if (present(name)) then
+       call der_coeffs_init_mac(gridu%grid1d,gridp%grid1d,dc,gridu%n,gridp%n,solve,name)
+    else
+       call der_coeffs_init_mac(gridu%grid1d,gridp%grid1d,dc,gridu%n,gridp%n,solve)
+    endif
+
+  end subroutine derivatives_coefficients_init_mac
 
 ! =======================================================================
 ! =======================================================================

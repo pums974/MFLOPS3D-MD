@@ -1507,4 +1507,69 @@ contains
 
   end subroutine md_influence_matrix_set
 
+  subroutine der_mac(dc,dir,x,derx)
+!  function derx(x,dc)
+! -----------------------------------------------------------------------
+! field : compute first derivative in x direction
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 05/2011
+!
+!$ use OMP_LIB
+    use class_derivatives
+    implicit none
+    type(field) :: derx
+    type(derivatives_coefficients),intent(in) :: dc
+    type(field),intent(in) :: x
+    integer(ik) :: i,j,k
+    real(rk),dimension(:),allocatable :: in,out
+    character(1) :: dir
+
+if(dir=='x') then
+allocate(in(x%nx),out(derx%nx))
+!$OMP PARALLEL PRIVATE(k,in,out)
+!$OMP DO SCHEDULE(RUNTIME)
+       do k=1,derx%nz
+          do j=1,derx%ny
+             in(:)=x%f(:,j,k)
+             call der(dc,in,out)
+             derx%f(:,j,k)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+deallocate(in,out)
+elseif(dir=='y') then
+allocate(in(x%ny),out(derx%ny))
+!$OMP PARALLEL PRIVATE(k,in,out)
+!$OMP DO SCHEDULE(RUNTIME)
+       do k=1,derx%nz
+          do i=1,derx%nx
+             in(:)=x%f(i,:,k)
+             call der(dc,in,out)
+             derx%f(i,:,k)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+deallocate(in,out)
+elseif(dir=='z') then
+allocate(in(x%nz),out(derx%nz))
+!$OMP PARALLEL PRIVATE(k,in,out)
+!$OMP DO SCHEDULE(RUNTIME)
+       do i=1,derx%nx
+          do j=1,derx%ny
+             in(:)=x%f(i,j,:)
+             call der(dc,in,out)
+             derx%f(i,j,:)=out(:)
+          enddo
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+deallocate(in,out)
+endif
+  end subroutine der_mac
+
+
+
 end module class_field

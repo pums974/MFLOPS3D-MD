@@ -190,4 +190,142 @@ deallocate(iwork)
 
 end subroutine der_coeffs_generic
 
+
+subroutine der_coeffs_mac_1(coefu,coefp,hu,hp,cl,der)
+! -----------------------------------------------------------------------
+! Derivatives : Coefficients for first derivatives : non-uniform grid,centered 
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 04/2011
+!
+  implicit none
+  real(rk),intent(out) :: coefu(5),coefp(7)
+  real(rk),intent(in) :: hu(5),hp(7)
+  integer(ik),intent(in) :: cl,der
+  !
+  ! n : size of linear system
+  ! info : output of solver (zero is ok) 
+  integer,parameter :: n=10
+  real(rk) :: h0(5),x(n)
+  integer(ik) :: info,os,n1,n2,n3,i,j,l
+  real(rk),allocatable :: a(:,:), r(:)
+  integer(ik),allocatable :: iwork(:)
+os=2
+h=0._rk
+
+if (cl==1) then
+
+!Stencil
+if(os==8) then
+n1=2 ! implicite
+n2=6 ! explicite
+elseif(os==2) then
+n1=0 ! implicite
+n2=3 ! explicite
+endif
+n3=n1+n2
+
+h(1:n1)=hu(2:n1+1)
+h(n1+1:n3)=hp(1:n2)
+
+elseif (cl==2) then
+
+!Stencil
+if(os==8) then
+n1=3 ! implicite
+n2=7 ! explicite
+elseif(os==2) then
+n1=0 ! implicite
+n2=3 ! explicite
+endif
+n3=n1+n2
+
+h(1)=hu(1) ; h(2:n1)=hu(3:n1+1)
+h(n1+1:n3)=hp(1:n2)
+
+elseif (cl==3) then
+!Stencil
+if(os==8) then
+n1=4 ! implicite
+n2=4 ! explicite
+elseif(os==2) then
+n1=0 ! implicite
+n2=2 ! explicite
+endif
+n3=n1+n2
+
+i=(5-n2)/2
+h(1:2)=hu(1:2) ; h(3:n1)=hu(4:n1+1)
+h(n1+1:n3)=hp(1+i:n2+i)
+
+endif
+
+allocate(a(n3,n3))
+allocate(r(n3))
+allocate(iwork(n3))
+
+a=0._rk
+
+a(2,1:n1)=-1._rk 
+do i=3,n3
+do j=1,n1
+  a(i,j)=a(i-1,j)*h(j)/(i-2)
+enddo
+enddo
+
+a(1,n1+1:n3)=1._rk 
+do i=2,n3
+do j=n1+1,n3
+  a(i,j)=a(i-1,j)*h(j)/(i-1)
+enddo
+enddo
+
+r=0._rk
+r(1+der)=1._rk ! der
+
+!print*,cl
+!do i=1,n3
+!write(*,'(I4,30es17.8)') i,a(i,:),r(i)
+!enddo
+
+iwork=0
+  call dgesv( n3, 1, a, n3, iwork, r, n3, info )
+if(info/=0) print*,'ERROR'
+
+!do i=1,n3
+!write(*,'(I4,30es17.8)') i,r(i)
+!enddo
+!if(cl==1) stop
+
+x=0._rk
+x(1:n3)=r(1:n3)
+coefu=0._rk
+coefp=0._rk
+
+  !-> output coefficient
+j=0
+l=n1
+if(n1.ge.cl) l=n1+1
+do i=1,l
+  if(i/=cl) then
+    j=j+1
+    coefu(i)=x(j) 
+  endif
+enddo
+coefu(cl)=1._rk
+
+if(cl==3) then
+  i=(4-n2)/2
+  coefp(1+i:n2+i)=x(n1+1:n3)
+else
+  coefp(1:n2)=x(n1+1:n3)
+endif
+
+
+deallocate(a)
+deallocate(r)
+deallocate(iwork)
+
+end subroutine der_coeffs_mac_1
+
 end module class_derivatives_coefficient

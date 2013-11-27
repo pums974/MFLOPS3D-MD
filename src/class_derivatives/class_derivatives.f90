@@ -50,7 +50,7 @@ module class_derivatives
   !-> Declare exported procedure
   public :: der,dder
   public :: der_s,dder_s
-  public :: der_coeffs_init
+  public :: der_coeffs_init,der_coeffs_init_mac
   public :: der_solver_init_type,dertype
 
 contains
@@ -183,6 +183,65 @@ contains
 
   end subroutine der_coeffs_init
 
+  subroutine der_coeffs_init_mac(gridu,gridp,dc,nu,np,solve,out_name)
+! -----------------------------------------------------------------------
+! Derivatives : Initialisation of derivatives coefficients
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 05/2011
+!
+    implicit none
+    type(derivatives_coefficients),intent(out) :: dc
+    integer(ik),intent(in) :: nu,np
+    real(rk),intent(in) :: gridu(nu),gridp(np)
+    character(len=*),optional :: out_name
+    character(len=500) :: error_msg
+    logical :: solve
+
+    dc%solver=solve
+    !-> initialize and allocate dc
+
+    !-> coefficients for n
+    if (.not.allocated(dc%dl)) then
+       dc%n=nu 
+       allocate(dc%dl(nu,5),dc%ddl(nu,5),dc%dr(nu,7),dc%ddr(nu,7))
+    elseif (allocated(dc%dl).and.nu/=dc%n) then
+       deallocate(dc%dl,dc%ddl,dc%dr,dc%ddr)
+       dc%n=nu 
+       allocate(dc%dl(nu,5),dc%ddl(nu,5),dc%dr(nu,7),dc%ddr(nu,7))
+    endif
+
+!    !-> coefficients for solver type : n_s
+!    if (dc%solver) then
+!       if (.not.allocated(dc%dl_s)) then
+!          dc%n_s=n-2 
+!          allocate(dc%dl_s(n-2,5),dc%ddl_s(n-2,5),dc%dr_s(n-2,7),dc%ddr_s(n-2,7))
+!       elseif (allocated(dc%dl_s).and.dc%n_s/=n-2) then
+!          deallocate(dc%dl_s,dc%ddl_s,dc%dr_s,dc%ddr_s)
+!          dc%n_s=n-2 
+!          allocate(dc%dl_s(n-2,5),dc%ddl_s(n-2,5),dc%dr_s(n-2,7),dc%ddr_s(n-2,7))
+!       endif
+!    endif
+
+    !-> compute coefficients for first derivatives
+!    if (present(out_name)) open(333,file='d_'//out_name)
+    dc%dl=0._rk ; dc%dr=0._rk
+    call der_coeffs_mac(nu,np,dc%dl,dc%dr,gridu,gridp,1)
+    call der_lu_factor(dc%n,dc%dl)
+
+!    if (present(out_name)) close(333)
+
+!    !-> compute coefficients for first derivatives solver type
+!    if (dc%solver) then
+!       if (present(out_name)) open(333,file='ds_'//out_name)
+!       dc%dl_s=0._rk ; dc%dr_s=0._rk
+!       call der_coeffs(dc%n_s,dc%dl_s,dc%dr_s,grid(2))
+!       call der_lu_factor(dc%n_s,dc%dl_s)
+!       if (present(out_name)) close(333)
+!    endif
+
+  end subroutine der_coeffs_init_mac
+
   subroutine der(dc,x,dx)
 ! -----------------------------------------------------------------------
 ! Derivatives : compute first derivative 
@@ -216,7 +275,7 @@ contains
     integer(ik) :: i
     real(rk) :: rhs(dc%n)
 
-    call derx_rhs(dc%n_s,dc%dr_s,x(2),rhs(2))
+    call derx_rhs(dc%n_s,dc%dr_s,x,rhs(2))
     call der_lu_solve(dc%n_s,dc%dl_s,dc%dr_s,dx(2),rhs(2))
 
   end subroutine der_s
@@ -254,7 +313,7 @@ contains
     integer(ik) :: i
     real(rk) :: rhs(dc%n)
 
-    call derx_rhs(dc%n_s,dc%ddr_s,x(2),rhs(2))
+    call derx_rhs(dc%n_s,dc%ddr_s,x,rhs(2))
     call der_lu_solve(dc%n_s,dc%ddl_s,dc%ddr_s,ddx(2),rhs(2))
 
   end subroutine dder_s
@@ -270,27 +329,30 @@ contains
 !
     implicit none
     integer(ik),intent(in) :: n1
-    integer(ik) :: i
-    real(rk),intent(in) :: dr(n1,7),f(n1)
+    integer(ik) :: i,n2,l
+    real(rk),intent(in) :: dr(n1,7),f(:)
     real(rk),intent(out) :: rhs(n1)
 
+    n2=size(f)
     rhs(1)=dr(1,1)*f(1)+dr(1,2)*f(2)+dr(1,3)*f(3)+dr(1,4)*f(4)&
          +dr(1,5)*f(5)+dr(1,6)*f(6)+dr(1,7)*f(7)
 
     rhs(2)=dr(2,1)*f(1)+dr(2,2)*f(2)+dr(2,3)*f(3)+dr(2,4)*f(4) &
          +dr(2,5)*f(5)+dr(2,6)*f(6)+dr(2,7)*f(7)
 
+    l=0
+    if (n2.gt.n1) l=1
     do i=3,n1-2
-        rhs(i)=dot_product(dr(i,1:5),f(i-2:i+2))
+        rhs(i)=dot_product(dr(i,1:4),f(i-2+l:i+1+l))
 !       rhs(i)=dr(i,1)*f(i-2)+dr(i,2)*f(i-1)+dr(i,3)*f(i)+dr(i,4)*f(i+1) &
 !            +dr(i,5)*f(i+2)
     enddo
 
-    rhs(n1-1)=dr(n1-1,1)*f(n1-6)+dr(n1-1,2)*f(n1-5)+dr(n1-1,3)*f(n1-4) &
-         +dr(n1-1,4)*f(n1-3)+dr(n1-1,5)*f(n1-2)+dr(n1-1,6)*f(n1-1)+dr(n1-1,7)*f(n1)
+    rhs(n1-1)=dr(n1-1,1)*f(n2-6)+dr(n1-1,2)*f(n2-5)+dr(n1-1,3)*f(n2-4) &
+         +dr(n1-1,4)*f(n2-3)+dr(n1-1,5)*f(n2-2)+dr(n1-1,6)*f(n2-1)+dr(n1-1,7)*f(n2)
 
-    rhs(n1)=dr(n1,1)*f(n1-6)+dr(n1,2)*f(n1-5)+dr(n1,3)*f(n1-4) &
-         +dr(n1,4)*f(n1-3)+dr(n1,5)*f(n1-2)+dr(n1,6)*f(n1-1)+dr(n1,7)*f(n1)
+    rhs(n1)=dr(n1,1)*f(n2-6)+dr(n1,2)*f(n2-5)+dr(n1,3)*f(n2-4) &
+         +dr(n1,4)*f(n2-3)+dr(n1,5)*f(n2-2)+dr(n1,6)*f(n2-1)+dr(n1,7)*f(n2)
 
   end subroutine derx_rhs
 
@@ -375,6 +437,63 @@ contains
     if (der==2)  dr=-dr
 
   end subroutine der_coeffs_generic_gobal
+
+  subroutine der_coeffs_mac(nu,np,dl,dr,gridu,gridp,der)
+! -----------------------------------------------------------------------
+! Derivatives : computation of coefficients for first derivatives
+! -----------------------------------------------------------------------
+! Matthieu Marquillie
+! 06/2011
+!
+    implicit none
+    integer(ik),intent(in) :: nu,np,der
+    integer(ik) :: i,j,l
+    real(rk),intent(out) :: dl(nu,5),dr(nu,7)
+    real(rk),intent(in) :: gridu(nu),gridp(np)
+    real(rk) :: hu(5),hp(7),coefp(7),coefu(5)
+
+    hu=gridu(1)-gridu(1:5)
+    hp=gridu(1)-gridp(1:7)
+    call der_coeffs_mac_1(coefu,coefp,hu,hp,1,der)
+    dl(1,:)=CSHIFT( coefu, shift=-2 )
+    dr(1,:)=-coefp(:)
+
+    hu=gridu(2)-gridu(1:5)
+    hp=gridu(2)-gridp(1:7)
+    call der_coeffs_mac_1(coefu,coefp,hu,hp,2,der)
+    dl(2,:)=CSHIFT( coefu, shift=-1 )
+    dr(2,:)=-coefp(:)
+
+    l=0
+    if (gridu(1).gt.gridp(1)) l=1
+    do i=3,nu-2
+      hu=gridu(i)-gridu(i-2:i+2)
+      hp(1:4)=gridu(i)-gridp(i-2+l:i+1+l)
+      call der_coeffs_mac_1(coefu,coefp,hu,hp,3,der)
+      dl(i,:)=coefu
+      dr(i,:)=-coefp
+    enddo
+
+    hu=gridu(nu-1)-gridu(nu:nu-4:-1)
+    hp=gridu(nu-1)-gridp(np:np-6:-1)
+    call der_coeffs_mac_1(coefu,coefp,hu,hp,2,der)
+    dl(nu-1,:)=CSHIFT( coefu(5:1:-1), shift=1 )
+    dr(nu-1,:)=-coefp(7:1:-1)
+
+    hu=gridu(nu)-gridu(nu:nu-4:-1)
+    hp=gridu(nu)-gridp(np:np-6:-1)
+
+    call der_coeffs_mac_1(coefu,coefp,hu,hp,1,der)
+    dl(nu,:)=CSHIFT( coefu(5:1:-1), shift=2 )
+    dr(nu,:)=-coefp(7:1:-1)
+
+!print*, dl(1,:)
+!print*, dl(2,:)
+!print*, dl(3,:)
+!print*, dr(1,:)
+!print*, dr(2,:)
+!print*, dr(3,:)
+  end subroutine der_coeffs_mac
 
   subroutine pentalu(n,p,f,c,d,e,alpha,beta)
 ! -----------------------------------------------------------------------
