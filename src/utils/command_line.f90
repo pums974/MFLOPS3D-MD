@@ -7,15 +7,15 @@ module command_line
      !-> monodomain dimensions
      integer(ik) :: nx=20,ny=20,nz=20
      !-> number of domains in each directions
-     integer(ik) :: ndx,ndy,ndz
+     integer(ik) :: ndx=1,ndy=1,ndz=1
      !-> periodicity in each directions
      integer(ik) :: periods(3)=(/0,0,0/)
      !-> reynolds number
-     real(rk) :: reynolds
+     real(rk) :: reynolds=1._rk
      !-> time step
-     real(rk) :: ts
+     real(rk) :: ts=1._rk
      !-> number of time iterations
-     real(rk) :: ntime
+     integer(ik) :: ntime=1
      !-> nonlinear type : 1:convective, 2:skew-symetric
      integer(ik) :: nlt=2
      !-> projection type : 1:moin, 2:with pressure gradient
@@ -28,7 +28,7 @@ module command_line
      !   2:dirichlet at one point 
      integer(ik) :: psm=1
      !-> mapping : 1 -> yes, 0-> no
-     integer(ik) :: mapt
+     integer(ik) :: mapt=0
      integer(ik) :: nsubite=1
      integer(ik) :: so(2)=(/6,6/)
      integer(ik) :: les_type=0

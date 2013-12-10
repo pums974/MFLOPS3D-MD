@@ -114,7 +114,7 @@ module class_md
   public :: md_check
   public :: md_influence_matrix_start_flush,md_influence_matrix_end_flush
   public :: md_influence_matrix_write,md_influence_matrix_read
-  public :: md_influence_matrix_filename
+  public :: md_influence_matrix_filename,md_mpi_reduce_double_max_n
   public :: md_mpi_reduce_double_max,md_mpi_bcast_double,md_mpi_reduce_double_sum
   public :: md_vector_setvalues,md_vector_getvalues
   public :: md_rhs_view,md_sol_view,md_solve,md_solve_init
@@ -396,9 +396,9 @@ contains
        !call VecAXPBY(inf_mat%sol,fac(1),fac(2),inf_sol%sol_old(2),inf_mat%err)
 
        !-> third order
-!       fac(1)=1._rk ; fac(2)=-3._rk ; fac(3)=3._rk
-!       call VecAXPBYPCZ(inf_mat%sol,fac(1),fac(2),fac(3),&
-!            inf_sol%sol_old(1),inf_sol%sol_old(2),inf_mat%err)
+       fac(1)=1._rk ; fac(2)=-3._rk ; fac(3)=3._rk
+       call VecAXPBYPCZ(inf_mat%sol,fac(1),fac(2),fac(3),&
+            inf_sol%sol_old(1),inf_sol%sol_old(2),inf_mat%err)
     endif
 
     !--------------------------------------------------------------------
@@ -563,6 +563,8 @@ contains
     integer(ik) :: req(12),error,it,i
     integer :: status(MPI_STATUS_SIZE)
     
+    if (mpid%dims.eq.0) return
+
     !bcx=0._rk ; bcy=0._rk ; bcz=0._rk
 
     !-> compute indexes of where to put values
@@ -1853,8 +1855,12 @@ end subroutine md_vector_setvalues
     real(rk),intent(in) :: val
     real(rk),intent(out) :: sum
 
-    call mpi_reduce(val,sum,1,mpi_double_precision,mpi_sum,0,&
-         mpi_comm_world,mpid%code)
+    if (mpid%dims.eq.0) then
+      sum=val
+    else
+  	  call mpi_reduce(val,sum,1,mpi_double_precision,mpi_sum,0,&
+		   mpi_comm_world,mpid%code)
+    endif
 
   end subroutine md_mpi_reduce_double_sum
 
@@ -1864,7 +1870,7 @@ end subroutine md_vector_setvalues
 ! Matthieu Marquillie
 ! 07/2012
 !
-  subroutine md_mpi_reduce_double_max(mpid,val,max,n)
+  subroutine md_mpi_reduce_double_max_n(mpid,val,max,n)
     implicit none
     type(mpi_data) :: mpid
     integer(ik),intent(in) :: n
@@ -1872,10 +1878,36 @@ end subroutine md_vector_setvalues
     real(rk),intent(out) :: max(n)
     integer(ik) ::i
 
+    if (mpid%dims.eq.0) then
+      max=val
+    else
     do i=1,n
       call mpi_reduce(val(i),max(i),1,mpi_double_precision,mpi_max,0,&
          mpi_comm_world,mpid%code)
     enddo
+    endif
+
+  end subroutine md_mpi_reduce_double_max_n
+
+
+!------------------------------------------------------------------------
+! md : mpi reduce single double
+!------------------------------------------------------------------------
+! Matthieu Marquillie
+! 07/2012
+!
+  subroutine md_mpi_reduce_double_max(mpid,val,max)
+    implicit none
+    type(mpi_data) :: mpid
+    real(rk),intent(in) :: val
+    real(rk),intent(out) :: max
+
+    if (mpid%dims.eq.0) then
+      max=val
+    else
+      call mpi_reduce(val,max,1,mpi_double_precision,mpi_max,0,&
+         mpi_comm_world,mpid%code)
+    endif
 
   end subroutine md_mpi_reduce_double_max
 !------------------------------------------------------------------------
@@ -1890,6 +1922,7 @@ end subroutine md_vector_setvalues
     integer(ik),intent(in) :: rank
     real(rk),intent(in) :: val
 
+    if (mpid%dims.eq.0) return
     call mpi_bcast(val,1,mpi_double_precision,rank,mpi_comm_world,mpid%code)
 
   end subroutine md_mpi_bcast_double
@@ -1967,6 +2000,7 @@ subroutine md_mpi_abort(mpid)
     implicit none
     type(mpi_data) :: mpid
 
+    if (mpid%dims.eq.0) stop
     call MPI_Abort(mpi_comm_world,mpid%code)
 end subroutine md_mpi_abort
 

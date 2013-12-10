@@ -39,9 +39,9 @@ program test_md
      call color(ired) ; print'(a)','Initialize grid, field, solver : ' ; call color(color_off)
   endif
   !-> initialize mesh
-  call mesh_init(gridx,'gridx','x',nx,1,1)
-  call mesh_init(gridy,'gridy','y',nx,ny,1)
-  call mesh_init(gridz,'gridz','z',1,1,nz)
+  call mesh_init(gridx,'gridx','x',nx,ny,nz)
+  call mesh_init(gridy,'gridy','y',nx,ny,nz)
+  call mesh_init(gridz,'gridz','z',nx,ny,nz)
 
   !-> initialize grid
   call mesh_grid_init(gridx,'x',nx,1,1,mpid)
@@ -61,12 +61,11 @@ program test_md
   !-> initialize poisson solver coefficient
   neum=0
   bctype=(/1,1,1,1,1,1/)
-  bctype=(/2,2,2,2,2,2/)
+!  bctype=(/2,2,2,2,2,2/)
   if (all(bctype==2)) neum=1
   call md_boundary_condition_init(mpid,inf,bctype)
 
-
-  call solver_init_3d(gridx,gridy,gridz,sch,bctype)
+  call solver_init_3d(gridx,gridy,gridz,sch,bctype,cmd%so(1))
 
   !-> initialize type field
   call field_init(u,"U",nx,ny,nz)
@@ -80,9 +79,9 @@ program test_md
   !call derivatives_coefficients_init(gridx,dcx,nx)
   !call derivatives_coefficients_init(gridy,dcy,ny)
   !call derivatives_coefficients_init(gridz,dcz,nz)
-  call derivatives_coefficients_init(gridx,dcx,nx,solver='yes')
-  call derivatives_coefficients_init(gridy,dcy,ny,solver='yes')
-  call derivatives_coefficients_init(gridz,dcz,nz,solver='yes')
+  call derivatives_coefficients_init(gridx,dcx,nx,solver='yes',so=cmd%so(2))
+  call derivatives_coefficients_init(gridy,dcy,ny,solver='yes',so=cmd%so(2))
+  call derivatives_coefficients_init(gridz,dcz,nz,solver='yes',so=cmd%so(2))
 
   !------------------------------------------------------------------------
   if (mpid%rank==0) then

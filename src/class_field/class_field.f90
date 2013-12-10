@@ -105,7 +105,7 @@ contains
 !
     implicit none
     real(rk),intent(in) :: x2
-    type(field),intent(out) :: x1
+    type(field),intent(inout) :: x1
     x1%f=x2
   end subroutine field_assign_scalar
 
@@ -541,6 +541,7 @@ contains
     character(*),optional :: dbl,inter
 
     if (present(mpid)) then
+    if (mpid%dims.ne.0) then
        if (present(dbl)) then
           if (present(inter)) then
              call write_var3d(file_name//".nc",&
@@ -572,6 +573,7 @@ contains
                [character(len=512) :: x%nxn,x%nyn,x%nzn],&
                (/x%nx,x%ny,x%nz/),x%name,x%f)
        endif
+    endif
     endif
 
   end subroutine write_field

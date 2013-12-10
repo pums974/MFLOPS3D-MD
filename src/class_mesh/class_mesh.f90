@@ -109,7 +109,7 @@ contains
 
   end subroutine mesh_init
 
-  subroutine mesh_grid_init(grid,choice,nx,ny,nz,mpid)
+  subroutine mesh_grid_init(grid,choice,nx,ny,nz,mpid,stretch1,taille1)
 ! -----------------------------------------------------------------------
 ! mesh : initialize type mesh
 ! -----------------------------------------------------------------------
@@ -129,6 +129,9 @@ contains
     integer(ik) :: i,j,k
     real(rk) :: size_dom,num_dom,num_dom_tot,xat,xbt
     real(rk) :: r(grid%n),aux 
+    real(rk),optional :: taille1
+    logical,optional :: stretch1
+
     
     !-> parameters
     pi=4._rk*atan(1._rk)
@@ -163,7 +166,6 @@ contains
          size_dom=(xb-xa)/num_dom_tot
          xa=xa+num_dom*size_dom
          xb=xa+size_dom
-  !       print*,choice,dom_coord,xa,xb
       endif
     endif
 
@@ -175,8 +177,8 @@ contains
 !    beta=70.0_rk
 !    beta=2.77_rk ! ratio max = 2 ratio bord = 1.7
 !    beta=8.77_rk ! ratio max = 3 ratio bord = 2.2
-    beta=10.7_rk ! ratio max = 4 ratio bord = 2.5
-!    beta=33.3_rk ! ratio max = 5 ratio bord = 2.6
+!    beta=10.7_rk ! ratio max = 4 ratio bord = 2.5
+    beta=33.3_rk ! ratio max = 5 ratio bord = 2.6
     alpha=1._rk-beta/real((grid%n**2),rk)
 !    alpha=0.99_rk
     do i=1,grid%n
@@ -301,7 +303,7 @@ grid%grid1d(i)=xa+(xb-xa)*(asin(-alpha*cos(pi*(xi-xa)/(xb-xa)))/asin(alpha)+1._r
        enddo
     endif
 
-xi=maxval(grid%grid1d(2:grid%n)-grid%grid1d(1:grid%n-1))
+xi=maxval(grid%dgrid1d(1:grid%n))
 x1=xi
     if (present(mpid)) then
     if (mpid%dims.ne.0) then
@@ -310,7 +312,7 @@ x1=xi
     endif
     endif
 
-xi=minval(grid%grid1d(2:grid%n)-grid%grid1d(1:grid%n-1))
+xi=minval(grid%dgrid1d(1:grid%n))
 x2=xi
     if (present(mpid)) then
     if (mpid%dims.ne.0)  then
@@ -319,13 +321,15 @@ x2=xi
    endif
    endif
 
-    if (mpid%rank==0) then
+    if (present(mpid)) then
+if (mpid%rank==0) then
 !     write(*,'(2A)') trim(grid%gridn),"    rmax              rbord"
 !     write(*,'(2es17.8)') &
-!         (grid%grid1d(grid%n/2+1)-grid%grid1d(grid%n/2-1))/(2._rk*(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))), &
-!         (grid%grid1d(grid%n-1)-grid%grid1d(grid%n-2))/(grid%grid1d(grid%n)-grid%grid1d(grid%n-1))
-     write(*,'(2A)') trim(grid%gridn),"    dxmax              dxmin"
-     write(*,'(2es17.8)') x1, x2 
+!         grid%dgrid1d(grid%n/2)/grid%dgrid1d(grid%n), &
+!         grid%dgrid1d(grid%n-1)/grid%dgrid1d(grid%n)
+!     write(*,'(2A)') trim(grid%gridn),"    dxmax              dxmin"
+!     write(*,'(2es17.8)') x1, x2 
+endif
    endif
 
   end subroutine mesh_grid_init
@@ -449,6 +453,7 @@ x2=xi
 
     !-> write grid 
     if (present(mpid)) then
+      if(mpid%dims.ne.0) then
        call write_var3d(trim(file_name)//".nc",&
             [character(len=512) :: grid%nxn,grid%nyn,grid%nzn],&
             get_dim_size(grid%grid3d),grid%gridn,grid%grid3d,mpid=mpid)
@@ -462,6 +467,7 @@ x2=xi
        call write_var3d(trim(file_name)//".nc",&
             [character(len=512) :: grid%nxn,grid%nyn,grid%nzn],&
             get_dim_size(grid%grid3d),'d'//grid%gridn,grid%dgrid3d)
+    endif
     endif
 
   end subroutine write_mesh
@@ -517,4 +523,8 @@ x2=xi
 
   end subroutine read_mesh
 
+function sech(x)
+real(rk)::x,sech
+sech=2._rk*exp(-x)/(1._rk+exp(-2._rk*x))
+end function sech
 end module class_mesh

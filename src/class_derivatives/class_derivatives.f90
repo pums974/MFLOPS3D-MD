@@ -168,7 +168,7 @@ contains
     !-> compute coefficients for second derivatives
     if (present(out_name)) open(333,file='dd_'//out_name)
     dc%ddl=0._rk ; dc%ddr=0._rk
-    call der_coeffs_generic_gobal(dc%n,dc%ddl,dc%ddr,grid,1,dc%so)
+    call der_coeffs_generic_gobal(dc%n,dc%ddl,dc%ddr,grid,2,dc%so)
     call der_lu_factor(dc%n,dc%ddl)
     if (present(out_name)) close(333)
 
@@ -176,7 +176,7 @@ contains
     if (dc%solver) then
        if (present(out_name)) open(333,file='dds_'//out_name)
        dc%ddl_s=0._rk ; dc%ddr_s=0._rk
-       call der_coeffs_generic_gobal(dc%n_s,dc%ddl_s,dc%ddr_s,grid(2),1,dc%so)
+       call der_coeffs_generic_gobal(dc%n_s,dc%ddl_s,dc%ddr_s,grid(2),2,dc%so)
        call der_lu_factor(dc%n_s,dc%ddl_s)
        if (present(out_name)) close(333)
     endif
